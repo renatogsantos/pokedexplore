@@ -1,34 +1,44 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# PokedExplorer
 
-## Getting Started
+![PokedExplorer Logo](https://example.com/pokedexplorer-logo.png)
 
-First, run the development server:
+Bem-vindos ao PokedExplorer - O seu portal definitivo para explorar o vasto mundo dos Pokémon!
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-```
+O PokedExplorer é uma aplicação que oferece uma experiência completa para todos os fãs de Pokémon. Aqui, você poderá mergulhar em um universo fascinante, descobrindo informações detalhadas sobre todas as criaturas, suas habilidades e curiosidades.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Recursos
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+- **Pokédex Abrangente:** Tenha acesso a uma extensa Pokédex que abrange todos os Pokémon conhecidos até hoje. Explore cada espécie individualmente e descubra seus dados biográficos, habilidades, tipos, estatísticas e muito mais.
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+- **Pesquisa Avançada:** Utilize a pesquisa avançada para filtrar e encontrar Pokémon com base em critérios específicos, como tipo, habilidades, evolução e região de origem.
 
-## Learn More
+- **Exploração Visual:** Desfrute de uma experiência visual agradável ao explorar as diferentes espécies de Pokémon. Imagens e ilustrações de alta qualidade ajudam a dar vida a cada criatura.
 
-To learn more about Next.js, take a look at the following resources:
+- **Informações Detalhadas:** Acesse informações detalhadas sobre as habilidades, movimentos, evoluções, formas alternativas e curiosidades de cada Pokémon. Aprenda mais sobre suas características únicas e torne-se um verdadeiro especialista.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **Integração com APIs:** O PokedExplorer utiliza APIs para buscar dados atualizados sobre os Pokémon, garantindo que você esteja sempre informado sobre as últimas adições à franquia.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
+## Como utilizar o PokedExplorer
 
-## Deploy on Vercel
+1. Faça o download e instale a última versão do aplicativo PokedExplorer em seu dispositivo.
+2. Ao abrir o aplicativo, você será recebido pela tela inicial, onde poderá explorar a lista completa de Pokémon ou iniciar uma pesquisa personalizada.
+3. Utilize os filtros de pesquisa para encontrar Pokémon com base em critérios específicos ou simplesmente navegue pela lista completa para descobrir novas espécies.
+4. Clique em um Pokémon para acessar sua página detalhada. Aqui, você encontrará informações completas sobre o Pokémon, incluindo sua descrição, tipo, estatísticas e muito mais.
+5. Explore as diferentes abas para descobrir informações adicionais, como movimentos, habilidades e formas alternativas do Pokémon selecionado.
+6. Divirta-se explorando a Pokédex e mergulhando no incrível mundo dos Pokémon!
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Contribuição
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+Se você deseja contribuir para o PokedExplorer, ficaremos felizes em receber sua ajuda! Sinta-se à vontade para enviar pull requests com melhorias, correções de bugs, novos recursos ou qualquer outra forma de contribuição. Juntos, podemos tornar o PokedExplorer ainda melhor!
+
+## Equipe
+
+- [Nome do Desenvolvedor](https://github.com/renatogsantos) - Desenvolvedor principal e idealizador do projeto.
+- [Nome do Designer](https://dribbble.com/renatogsantos) - Responsável pelo design do PokedExplorer.
+- [Nome do Colaborador](https://github.com/renatogsantos) - Contribuições adicionais.
+
+## Contato
+
+Se você tiver alguma dúvida, sugestão ou feedback sobre o PokedExplorer, não hesite em entrar em contato conosco. Você pode nos alcançar através do endereço de e-mail [renato.work.art@gmail.com](mailto:renato.work.art@gmail.com) ou visitar nossa página no GitHub em [github.com/pokedexplorer](https://github.com/pokedexplorer). Estamos ansiosos para ouvir você!
+
+Aproveite sua jornada pelo mundo Pokémon com o PokedExplorer - seu guia definitivo para explorar e descobrir essas incríveis criaturas!
