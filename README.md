@@ -2,9 +2,21 @@
 
 ![PokedExplorer Logo](/public/pokedexplore.svg)
 
-Bem-vindos ao PokedExplorer - O seu portal definitivo para explorar o vasto mundo dos Pokémon!
+Bem-vindo ao PokedExplore! Este é um projeto pessoal de construção de um site que permite explorar os diversos pokemons disponíveis na API pokeapi.co.
 
-O PokedExplorer é uma aplicação que oferece uma experiência completa para todos os fãs de Pokémon. Aqui, você poderá mergulhar em um universo fascinante, descobrindo informações detalhadas sobre todas as criaturas, suas habilidades e curiosidades.
+## Tecnologias Utilizadas
+
+O PokedExplore foi desenvolvido utilizando as seguintes tecnologias:
+
+- **Next.js**: A versão mais recente do Next.js foi utilizada como framework principal para o desenvolvimento da aplicação. Ele proporciona uma experiência de desenvolvimento moderna e eficiente, com suporte a SSR (Server-Side Rendering) e outras funcionalidades avançadas.
+
+- **React Bootstrap**: Foi utilizado o react-bootstrap para a responsividade do site, facilitando a criação de layouts adaptáveis a diferentes tamanhos de tela.
+
+- **Redux e Redux Toolkit**: O gerenciamento de estados da aplicação é feito utilizando Redux e Redux Toolkit. Essas bibliotecas fornecem uma maneira fácil e escalável de gerenciar o estado da aplicação, garantindo uma atualização consistente dos dados em toda a aplicação.
+
+- **Axios**: A biblioteca Axios é utilizada para realizar requisições HTTP para a API pokeapi.co e consumir os dados em formato de Rest APIs. Ela oferece uma interface simples e intuitiva para lidar com requisições assíncronas.
+
+- **LocalStorage**: O progresso do usuário no PokedExplore pode ser salvo e recuperado utilizando o LocalStorage do navegador. Isso permite que o usuário retome sua exploração de onde parou, mesmo após fechar e reabrir o site.
 
 ## Recursos
 
@@ -17,15 +29,6 @@ O PokedExplorer é uma aplicação que oferece uma experiência completa para to
 - **Informações Detalhadas:** Acesse informações detalhadas sobre as habilidades, movimentos, evoluções, formas alternativas e curiosidades de cada Pokémon. Aprenda mais sobre suas características únicas e torne-se um verdadeiro especialista.
 
 - **Integração com APIs:** O PokedExplorer utiliza APIs para buscar dados atualizados sobre os Pokémon, garantindo que você esteja sempre informado sobre as últimas adições à franquia.
-
-## Como utilizar o PokedExplorer
-
-1. Faça o download e instale a última versão do aplicativo PokedExplorer em seu dispositivo.
-2. Ao abrir o aplicativo, você será recebido pela tela inicial, onde poderá explorar a lista completa de Pokémon ou iniciar uma pesquisa personalizada.
-3. Utilize os filtros de pesquisa para encontrar Pokémon com base em critérios específicos ou simplesmente navegue pela lista completa para descobrir novas espécies.
-4. Clique em um Pokémon para acessar sua página detalhada. Aqui, você encontrará informações completas sobre o Pokémon, incluindo sua descrição, tipo, estatísticas e muito mais.
-5. Explore as diferentes abas para descobrir informações adicionais, como movimentos, habilidades e formas alternativas do Pokémon selecionado.
-6. Divirta-se explorando a Pokédex e mergulhando no incrível mundo dos Pokémon!
 
 ## Contribuição
 
