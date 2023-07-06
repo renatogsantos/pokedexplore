@@ -42,6 +42,6 @@ Se você deseja contribuir para o PokedExplorer, ficaremos felizes em receber su
 
 ## Contato
 
-Se você tiver alguma dúvida, sugestão ou feedback sobre o PokedExplorer, não hesite em entrar em contato conosco. Você pode nos alcançar através do endereço de e-mail [renato.work.art@gmail.com](mailto:renato.work.art@gmail.com) ou visitar nossa página no GitHub em [github.com/pokedexplorer](https://github.com/pokedexplorer). Estamos ansiosos para ouvir você!
+Se você tiver alguma dúvida, sugestão ou feedback sobre o PokedExplorer, não hesite em entrar em contato conosco. Você pode nos alcançar através do endereço de e-mail [renato.work.art@gmail.com](mailto:renato.work.art@gmail.com) ou visitar nossa página no GitHub em [github.com/pokedexplorer](https://github.com/renatogsantos/pokedexplorer). Estamos ansiosos para ouvir você!
 
 Aproveite sua jornada pelo mundo Pokémon com o PokedExplorer - seu guia definitivo para explorar e descobrir essas incríveis criaturas!
