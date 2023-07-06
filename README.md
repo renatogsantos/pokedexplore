@@ -1,6 +1,6 @@
 # PokedExplorer
 
-![PokedExplorer Logo](https://example.com/pokedexplorer-logo.png)
+![PokedExplorer Logo](/public/pokedexplore.svg)
 
 Bem-vindos ao PokedExplorer - O seu portal definitivo para explorar o vasto mundo dos Pokémon!
 
@@ -33,9 +33,9 @@ Se você deseja contribuir para o PokedExplorer, ficaremos felizes em receber su
 
 ## Equipe
 
-- [Nome do Desenvolvedor](https://github.com/renatogsantos) - Desenvolvedor principal e idealizador do projeto.
-- [Nome do Designer](https://dribbble.com/renatogsantos) - Responsável pelo design do PokedExplorer.
-- [Nome do Colaborador](https://github.com/renatogsantos) - Contribuições adicionais.
+- [Renato G Santos](https://github.com/renatogsantos) - Desenvolvedor principal e idealizador do projeto.
+- [Renato G Santos](https://dribbble.com/renatogsantos) - Responsável pelo design do PokedExplorer.
+- [Renato G Santos](https://github.com/renatogsantos) - Contribuições adicionais.
 
 ## Contato
 
