@@ -32,16 +32,15 @@ O PokedExplore foi desenvolvido utilizando as seguintes tecnologias:
 
 ## Contribuição
 
-Se você deseja contribuir para o PokedExplorer, ficaremos felizes em receber sua ajuda! Sinta-se à vontade para enviar pull requests com melhorias, correções de bugs, novos recursos ou qualquer outra forma de contribuição. Juntos, podemos tornar o PokedExplorer ainda melhor!
+Se você deseja contribuir para o PokedExplorer, ficarei feliz em receber sua ajuda! Sinta-se à vontade para enviar pull requests com melhorias, correções de bugs, novos recursos ou qualquer outra forma de contribuição. Juntos, podemos tornar o PokedExplorer ainda melhor!
 
 ## Equipe
 
 - [Renato G Santos](https://github.com/renatogsantos) - Desenvolvedor principal e idealizador do projeto.
 - [Renato G Santos](https://dribbble.com/renatogsantos) - Responsável pelo design do PokedExplorer.
-- [Renato G Santos](https://github.com/renatogsantos) - Contribuições adicionais.
 
 ## Contato
 
-Se você tiver alguma dúvida, sugestão ou feedback sobre o PokedExplorer, não hesite em entrar em contato conosco. Você pode nos alcançar através do endereço de e-mail [renato.work.art@gmail.com](mailto:renato.work.art@gmail.com) ou visitar nossa página no GitHub em [github.com/pokedexplorer](https://github.com/renatogsantos/pokedexplorer). Estamos ansiosos para ouvir você!
+Se você tiver alguma dúvida, sugestão ou feedback sobre o PokedExplorer, não hesite em entrar em contato. Você pode me encontrar no endereço de e-mail [renato.work.art@gmail.com](mailto:renato.work.art@gmail.com) ou visitar nossa página no GitHub em [github.com/renatogsantos/pokedexplorer](https://github.com/renatogsantos/pokedexplorer).
 
 Aproveite sua jornada pelo mundo Pokémon com o PokedExplorer - seu guia definitivo para explorar e descobrir essas incríveis criaturas!
