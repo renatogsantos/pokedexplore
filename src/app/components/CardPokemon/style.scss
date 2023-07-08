@@ -25,11 +25,19 @@
   background-size: 50%, auto;
   background-repeat: no-repeat;
   backdrop-filter: blur(10px);
-  max-width: 800px;
+  max-width: 600px;
   min-width: 375px;
+  overflow: auto;
+  @media screen and (max-width: 1024px) {
+    width: 95%;
+    height: 95%;
+  }
 }
 
 .button-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   position: absolute;
   top: 8px;
   right: 8px;

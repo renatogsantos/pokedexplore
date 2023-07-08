@@ -5,7 +5,17 @@ import {
 } from "@/app/helpers";
 import { pokemonData } from "@/app/helpers/PokemonTypes";
 import { actOpenCardPokemon } from "@/app/redux/pokemons";
-import { Barbell, Ruler, XCircle } from "@phosphor-icons/react";
+import {
+  Barbell,
+  Gauge,
+  HandFist,
+  Heartbeat,
+  Ruler,
+  ShieldChevron,
+  ShieldPlus,
+  Sword,
+  XCircle,
+} from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { Col, Row } from "react-bootstrap";
 import { useDispatch, useSelector } from "react-redux";
@@ -89,11 +99,42 @@ export default function CardPokemon({ pokemon }) {
       </div>
 
       <div className="py-4 w-100">
+        {console.log(pokemon)}
         {pokemon.stats.map((stats, i) => {
           return (
             <Row key={i}>
-              <Col xs="3">
-                <span>{extrairPrimeiraPalavra(stats.stat.name, "-")}</span>
+              <Col xs="1">
+                {stats.stat.name == "hp" ? (
+                  <Heartbeat
+                    size={24}
+                    weight="duotone"
+                    title={stats.stat.name}
+                  />
+                ) : stats.stat.name == "attack" ? (
+                  <HandFist
+                    size={24}
+                    weight="duotone"
+                    title={stats.stat.name}
+                  />
+                ) : stats.stat.name == "defense" ? (
+                  <ShieldChevron
+                    size={24}
+                    weight="duotone"
+                    title={stats.stat.name}
+                  />
+                ) : stats.stat.name == "special-attack" ? (
+                  <Sword size={24} weight="duotone" title={stats.stat.name} />
+                ) : stats.stat.name == "special-defense" ? (
+                  <ShieldPlus
+                    size={24}
+                    weight="duotone"
+                    title={stats.stat.name}
+                  />
+                ) : stats.stat.name == "speed" ? (
+                  <Gauge size={24} weight="duotone" title={stats.stat.name} />
+                ) : (
+                  ""
+                )}
               </Col>
               <Col xs="1">
                 <span>{stats.base_stat}</span>
@@ -111,6 +152,68 @@ export default function CardPokemon({ pokemon }) {
             </Row>
           );
         })}
+      </div>
+
+      <div className="w-100 d-flex flex-column align-items-center justify-content-center">
+        <span>Formas</span>
+        <Row>
+          <Col
+            xs="6"
+            sm="6"
+            className="d-flex align-items-center justify-content-center"
+          >
+            <img
+              draggable={false}
+              src={
+                pokemon.sprites.versions["generation-v"]["black-white"].animated
+                  .front_default
+              }
+              alt={pokemon.name}
+            />
+          </Col>
+          <Col
+            xs="6"
+            sm="6"
+            className="d-flex align-items-center justify-content-center"
+          >
+            <img
+              draggable={false}
+              src={
+                pokemon.sprites.versions["generation-v"]["black-white"].animated
+                  .back_default
+              }
+              alt={pokemon.name}
+            />
+          </Col>
+          <Col
+            xs="6"
+            sm="6"
+            className="d-flex align-items-center justify-content-center"
+          >
+            <img
+              draggable={false}
+              src={
+                pokemon.sprites.versions["generation-v"]["black-white"].animated
+                  .front_shiny
+              }
+              alt={pokemon.name}
+            />
+          </Col>
+          <Col
+            xs="6"
+            sm="6"
+            className="d-flex align-items-center justify-content-center"
+          >
+            <img
+              draggable={false}
+              src={
+                pokemon.sprites.versions["generation-v"]["black-white"].animated
+                  .back_shiny
+              }
+              alt={pokemon.name}
+            />
+          </Col>
+        </Row>
       </div>
     </div>
   );
