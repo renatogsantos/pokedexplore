@@ -1,7 +1,54 @@
-@import '~bootstrap/scss/bootstrap';
+@import "~bootstrap/scss/bootstrap";
+@import url("https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,500;0,700;0,800;0,900;1,300;1,500;1,700;1,800;1,900&display=swap");
+@import "/src/app/components/CardPoke/style.scss";
+@import "/src/app/components/ButtonPrimary/style.scss";
 
 body {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  font-family: "Montserrat", sans-serif;
+  background: url("/svgs/bg-home.svg"), #000;
+  background-size: 60%;
+  background-position: top left;
+  background-repeat: no-repeat;
+  color: #fff;
+}
+
+p {
+  font-size: 1rem;
+  line-height: 120%;
+  margin: 0;
+}
+
+
+//animations
+.slide-in-top {
+  -webkit-animation: slide-in-top 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+  animation: slide-in-top 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+@-webkit-keyframes slide-in-top {
+  0% {
+    -webkit-transform: translateY(-50px);
+    transform: translateY(-50px);
+    opacity: 0;
+  }
+  100% {
+    -webkit-transform: translateY(0);
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+@keyframes slide-in-top {
+  0% {
+    -webkit-transform: translateY(-50px);
+    transform: translateY(-50px);
+    opacity: 0;
+  }
+  100% {
+    -webkit-transform: translateY(0);
+    transform: translateY(0);
+    opacity: 1;
+  }
 }

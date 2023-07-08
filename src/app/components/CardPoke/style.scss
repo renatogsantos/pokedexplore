@@ -1,0 +1,363 @@
+.card-poke {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background-position: center left, bottom 50% center;
+  background-size: 50%, auto;
+  background-repeat: no-repeat;
+  background-color: #00000050;
+  backdrop-filter: blur(10px);
+  padding: 42px;
+  padding-top: 8rem;
+  width: 100%;
+}
+
+.card-poke-img {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: -6.5rem;
+  left: 50%;
+  width: 100%;
+  transform: translateX(-50%);
+}
+
+.pokemon-name {
+  position: relative;
+  font-size: 2rem;
+  text-transform: capitalize;
+  &::before {
+    position: absolute;
+    top: 50%;
+    left: -20%;
+    transform: translateY(-50%);
+    content: " ";
+    height: 12px;
+    width: 12px;
+    border-radius: 24px;
+    background: #fff;
+  }
+  &::after {
+    position: absolute;
+    top: 50%;
+    right: -20%;
+    transform: translateY(-50%);
+    content: " ";
+    height: 12px;
+    width: 12px;
+    border-radius: 24px;
+    background: #fff;
+  }
+}
+
+.pokemon-stats {
+  font-size: 1.5rem;
+  font-style: normal;
+  font-weight: 700;
+  line-height: normal;
+  text-transform: uppercase;
+}
+
+.normal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  background-color: #ffcc99;
+  padding: 5px;
+  width: 100px;
+  margin: 0 12px;
+  border-radius: 8px;
+  color: #fff;
+}
+
+.fighting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  background-color: #ff3333;
+  padding: 5px;
+  width: 100px;
+  margin: 0 12px;
+  border-radius: 8px;
+  color: #fff;
+}
+
+.flying {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  background-color: #6699ff;
+  padding: 5px;
+  width: 100px;
+  margin: 0 12px;
+  border-radius: 8px;
+  color: #fff;
+}
+
+.poison {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  background-color: #aa66cc;
+  padding: 5px;
+  width: 100px;
+  margin: 0 12px;
+  border-radius: 8px;
+  color: #fff;
+}
+
+.ground {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  background-color: #ffcc66;
+  padding: 5px;
+  width: 100px;
+  margin: 0 12px;
+  border-radius: 8px;
+  color: #fff;
+}
+
+.rock {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  background-color: #cc9966;
+  padding: 5px;
+  width: 100px;
+  margin: 0 12px;
+  border-radius: 8px;
+  color: #fff;
+}
+
+.bug {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  background-color: #99cc33;
+  padding: 5px;
+  width: 100px;
+  margin: 0 12px;
+  border-radius: 8px;
+  color: #fff;
+}
+
+.ghost {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  background-color: #6666cc;
+  padding: 5px;
+  width: 100px;
+  margin: 0 12px;
+  border-radius: 8px;
+  color: #fff;
+}
+
+.steel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  background-color: #cccccc;
+  padding: 5px;
+  width: 100px;
+  margin: 0 12px;
+  border-radius: 8px;
+  color: #fff;
+}
+
+.fire {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  background-color: #ff6633;
+  padding: 5px;
+  width: 100px;
+  margin: 0 12px;
+  border-radius: 8px;
+  color: #fff;
+}
+
+.water {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  background-color: #3399ff;
+  padding: 5px;
+  width: 100px;
+  margin: 0 12px;
+  border-radius: 8px;
+  color: #fff;
+}
+
+.grass {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  background-color: #66cc33;
+  padding: 5px;
+  width: 100px;
+  margin: 0 12px;
+  border-radius: 8px;
+  color: #fff;
+}
+
+.electric {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  background-color: #ffcc33;
+  padding: 5px;
+  width: 100px;
+  margin: 0 12px;
+  border-radius: 8px;
+  color: #fff;
+}
+
+.psychic {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  background-color: #ff6699;
+  padding: 5px;
+  width: 100px;
+  margin: 0 12px;
+  border-radius: 8px;
+  color: #fff;
+}
+
+.ice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  background-color: #99ffff;
+  padding: 5px;
+  width: 100px;
+  margin: 0 12px;
+  border-radius: 8px;
+  color: #fff;
+}
+
+.dragon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  background-color: #7038f8;
+  padding: 5px;
+  width: 100px;
+  margin: 0 12px;
+  border-radius: 8px;
+  color: #fff;
+}
+
+.dark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  background-color: #333333;
+  padding: 5px;
+  width: 100px;
+  margin: 0 12px;
+  border-radius: 8px;
+  color: #fff;
+}
+
+.fairy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  background-color: #ff99cc;
+  padding: 5px;
+  width: 100px;
+  margin: 0 12px;
+  border-radius: 8px;
+  color: #fff;
+}
+
+.unknown {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  background-color: #999999;
+  padding: 5px;
+  width: 100px;
+  margin: 0 12px;
+  border-radius: 8px;
+  color: #fff;
+}
+
+.shadow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  background-color: #6666cc;
+  padding: 5px;
+  width: 100px;
+  margin: 0 12px;
+  border-radius: 8px;
+  color: #fff;
+}
