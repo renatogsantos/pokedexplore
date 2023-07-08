@@ -23,6 +23,15 @@ export default function Home() {
     (state) => state.pokemons
   );
 
+  function redirecionarParaDiv() {
+    let div = document.getElementById("Pokemons");
+    if (div) {
+      setTimeout(() => {
+        div.scrollIntoView();
+      }, 500);
+    }
+  }
+
   useEffect(() => {
     dispatch(getPokemons(6));
   }, []);
@@ -35,7 +44,7 @@ export default function Home() {
     <main>
       <Container className="py-5">
         <div className="d-flex align-items-center justify-content-center">
-          <img src="/pokedexplore.svg" alt="PokédExplore" />
+          <img width="300" src="/pokedexplore.svg" alt="PokédExplore" />
         </div>
         <Row className="align-items-center py-5 d-none">
           <Col sm="12" xl="5">
@@ -98,6 +107,7 @@ export default function Home() {
             icon={<ArrowCircleLeft size={24} weight="duotone" />}
             onClick={() => {
               dispatch(previousPage(PreviousPage));
+              redirecionarParaDiv();
             }}
           />
           <ButtonPrimary
@@ -106,6 +116,7 @@ export default function Home() {
             icon={<ArrowCircleRight size={24} weight="duotone" />}
             onClick={() => {
               dispatch(nextPage(NextPage));
+              redirecionarParaDiv();
             }}
           />
         </div>
