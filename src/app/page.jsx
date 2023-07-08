@@ -30,14 +30,10 @@ import Link from "next/link";
 import CardPokemon from "./components/CardPokemon";
 
 export default function Home() {
-  const [initialPokemon, setInitialPokemon] = useState(
-    Math.floor(Math.random() * 1000) + 1
-  );
   const [search, setSearch] = useState("");
   const dispatch = useDispatch();
-  const { Pokemons, Pokemon, NextPage, PreviousPage } = useSelector(
-    (state) => state.pokemons
-  );
+  const { Pokemons, Pokemon, NextPage, PreviousPage, OpenCardPokemon } =
+    useSelector((state) => state.pokemons);
 
   const divRef = useRef(null);
 
@@ -56,7 +52,11 @@ export default function Home() {
 
   return (
     <main>
-      <CardPokemon pokemon={Pokemon} />
+      {OpenCardPokemon && (
+        <div className="card-pokemon-box">
+          <CardPokemon pokemon={Pokemon} />
+        </div>
+      )}
       <Container fluid className="bg-hero pb-5 mb-5">
         <Container className="py-5">
           <div className="d-flex align-items-center justify-content-center">
