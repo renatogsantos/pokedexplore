@@ -8,19 +8,34 @@ body {
   padding: 0;
   box-sizing: border-box;
   font-family: "Montserrat", sans-serif;
-  background: url("/svgs/bg-home.svg"), #000;
-  background-size: 60%;
-  background-position: top left;
+  background: url("/svgs/bg-home.svg"), url("/bg-home.png"), #000;
+  background-size: 60%, cover;
+  background-position: top left, center top;
+  background-attachment: scroll, fixed;
   background-repeat: no-repeat;
   color: #fff;
+  @media screen and (max-width: 1024px) {
+    background-size: 100%, cover;
+    background-position: top left, center top;
+    background-attachment: scroll, fixed;
+    background-repeat: no-repeat;
+  }
+}
+
+h1 {
+  color: #fff;
+  font-family: Montserrat;
+  font-size: clamp(2rem, 5vw, 4rem);
+  font-weight: 700;
+  line-height: normal;
 }
 
 p {
   font-size: 1rem;
   line-height: 120%;
+  letter-spacing: 2px;
   margin: 0;
 }
-
 
 //animations
 .slide-in-top {
