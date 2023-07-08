@@ -88,7 +88,7 @@ export default function Home() {
               <img
                 draggable={false}
                 width="100%"
-                src="/pokemons/Bulbasaur.png"
+                src="/pokemons/bulbasaur-image.png"
                 alt="Pokemon Bulbasaur"
               />
             </Col>
