@@ -1,0 +1,17 @@
+.button-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border-radius: 0 12px 12px 0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(
+    135deg,
+    rgba(189, 0, 255, 0.8) 0%,
+    rgba(66, 0, 255, 0.8) 100%
+  );
+  backdrop-filter: blur(10px);
+  width: fit-content;
+  padding: 12px 32px;
+  color: #fff;
+}

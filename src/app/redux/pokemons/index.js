@@ -18,9 +18,14 @@ export const actPreviousPage = createAction("PREVIOUS_PAGE");
 //apis
 export const getPokemon = (pokemon) => {
   return async (dispatch) => {
-    axios.get(`https://pokeapi.co/api/v2/pokemon/${pokemon}`).then((resp) => {
-      dispatch(actPokemon(resp));
-    });
+    axios
+      .get(`https://pokeapi.co/api/v2/pokemon/${pokemon}`)
+      .then((resp) => {
+        dispatch(actPokemon(resp.data));
+        console.log(resp);
+      })
+      .catch((error) => error)
+      .finally(() => {});
   };
 };
 
@@ -29,7 +34,9 @@ export const getTypesPokemons = (type) => {
     axios
       .get(`https://pokeapi.co/api/v2/type/${type}/`)
       .then(async (response) => {
-        let endpoints = response.data.pokemon.map((pokemon) => pokemon.pokemon.url);
+        let endpoints = response.data.pokemon.map(
+          (pokemon) => pokemon.pokemon.url
+        );
         let pokemonData = await axios.all(
           endpoints.map((url) => axios.get(url).then((resp) => resp.data))
         );

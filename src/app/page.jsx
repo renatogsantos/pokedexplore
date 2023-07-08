@@ -16,15 +16,19 @@ import ButtonPrimary from "./components/ButtonPrimary";
 import {
   ArrowCircleLeft,
   ArrowCircleRight,
+  Clipboard,
   Lightning,
+  MagnifyingGlass,
 } from "@phosphor-icons/react";
 import Waves from "./components/Waves";
 import { pokemonData } from "./helpers/PokemonTypes";
+import ButtonSecondary from "./components/ButtonSecondary";
 
 export default function Home() {
   const [initialPokemon, setInitialPokemon] = useState(
     Math.floor(Math.random() * 1000) + 1
   );
+  const [search, setSearch] = useState("");
   const dispatch = useDispatch();
   const { Pokemons, Pokemon, NextPage, PreviousPage } = useSelector(
     (state) => state.pokemons
@@ -117,16 +121,21 @@ export default function Home() {
             </Col>
           </Row>
         </Container>
+        <img
+          draggable={false}
+          className="bottom-wave"
+          src="/svgs/bottom-wave.svg"
+          alt="Bottom wave"
+        />
       </Container>
 
       <Container fluid className="m-0 p-0 bg-black">
-        <div className="position-relative">
-          <Waves />
-        </div>
         <Container className="py-5">
           <Row>
             <Col sm="12" lg="6">
-              <span>Busque por tipo:</span>
+              <span className="d-flex align-items-center gap-2 py-2">
+                <Clipboard size={24} weight="duotone" /> Busque por tipo:
+              </span>
               <div
                 ref={divRef}
                 className="main-card-scroll-x p-2"
@@ -135,6 +144,7 @@ export default function Home() {
                 {pokemonData.map((type) => {
                   return (
                     <button
+                      key={type.type}
                       type="button"
                       className=""
                       onClick={() => {
@@ -142,13 +152,35 @@ export default function Home() {
                       }}
                     >
                       <img
-                        width={40}
+                        width={30}
                         src={`/types/${type.type}.svg`}
                         alt="teste"
                       />
                     </button>
                   );
                 })}
+              </div>
+            </Col>
+            <Col>
+              <span className="d-flex align-items-center gap-2 py-2">
+                <MagnifyingGlass size={24} weight="duotone" />
+                Encontre seu pokémon:
+              </span>
+              <div className="d-flex">
+                <input
+                  className="main-input"
+                  placeholder="Eu escolho você!"
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                  }}
+                />
+                <ButtonSecondary
+                  type="button"
+                  icon={<MagnifyingGlass size={24} weight="duotone" />}
+                  onClick={() => {
+                    dispatch(getPokemon(search.toLowerCase()));
+                  }}
+                />
               </div>
             </Col>
           </Row>

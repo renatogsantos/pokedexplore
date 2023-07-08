@@ -39,15 +39,14 @@ export default function CardPoke({ img, name, types, weight, height }) {
       </div>
       <div className="mt-5 d-flex flex-column align-items-center justify-content-center w-100">
         <span className="pokemon-name">{name}</span>
-        <div className="d-flex gap-5 py-1">
+        <div className="d-flex gap-1 py-1">
           {types.map((item, i) => {
             return (
               <span key={i} className={item.type.name}>
                 <img
                   width={18}
                   src={`/icons/${item.type.name}.svg`}
-                  alt=""
-                  srcset=""
+                  alt={item.type.name}
                 />
                 {item.type.name}
               </span>
