@@ -18,6 +18,7 @@ import {
   ArrowCircleRight,
   Clipboard,
   GithubLogo,
+  House,
   Lightning,
   LinkedinLogo,
   MagnifyingGlass,
@@ -152,6 +153,14 @@ export default function Home() {
                 className="main-card-scroll-x p-2"
                 title="Pressione ALT para scrollar"
               >
+                <button
+                  type="button"
+                  onClick={() => {
+                    dispatch(getPokemons(6));
+                  }}
+                >
+                  <House size={24} weight="duotone" color="#fff" />
+                </button>
                 {pokemonData.map((type) => {
                   return (
                     <button
