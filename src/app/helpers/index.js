@@ -1,10 +1,15 @@
 export function convertWeightToKilograms(weight) {
-  const kilograms = weight / 10; // 1 hectograma = 0,1 quilograma
+  const kilograms = weight / 10;
   return kilograms;
 }
 
-// Função para converter a altura de decímetros (dm) para metros (m)
 export function convertHeightToMeters(height) {
-  const meters = height / 10; // 1 decímetro = 0,1 metro
+  const meters = height / 10;
   return meters;
+}
+
+export function extrairPrimeiraPalavra(string, separador) {
+  const palavras = string.split(separador);
+  const primeiraPalavra = palavras[0].toUpperCase();
+  return primeiraPalavra;
 }

@@ -41,7 +41,7 @@
 
 .card-pokemon-name {
   position: relative;
-  font-size: clamp(2rem, 5vw, 3rem);
+  font-size: 2rem;
   text-transform: capitalize;
   &::before {
     position: absolute;
@@ -65,4 +65,25 @@
     border-radius: 24px;
     background: #fff;
   }
+}
+
+meter {
+  height: 26px; /* Altura */
+  width: 100%;
+}
+
+meter::-webkit-meter-bar {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(6, 11, 20, 0.8);
+}
+
+meter::-webkit-meter-optimum-value {
+  background-color: #00cc00; /* Cor da parte ótima */
+  border-radius: 20px;
+}
+
+meter::-webkit-meter-suboptimum-value {
+  background-color: #ffcc00; /* Cor da parte subótima */
+  border-radius: 20px;
 }
