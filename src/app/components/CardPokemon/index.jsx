@@ -91,13 +91,13 @@ export default function CardPokemon({ pokemon }) {
               {pokemon.stats.map((stats) => {
                 return (
                   <Row key={stats.base_stat}>
-                    <Col sm="3">
+                    <Col xs="3">
                       <span>{extrairPrimeiraPalavra(stats.stat.name, "-")}</span>
                     </Col>
-                    <Col sm="1">
+                    <Col xs="1">
                       <span>{stats.base_stat}</span>
                     </Col>
-                    <Col sm>
+                    <Col xs>
                       <meter
                         value={stats.base_stat}
                         min={0}
