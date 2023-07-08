@@ -43,6 +43,12 @@ export default function CardPoke({ img, name, types, weight, height }) {
           {types.map((item, i) => {
             return (
               <span key={i} className={item.type.name}>
+                <img
+                  width={18}
+                  src={`/icons/${item.type.name}.svg`}
+                  alt=""
+                  srcset=""
+                />
                 {item.type.name}
               </span>
             );
