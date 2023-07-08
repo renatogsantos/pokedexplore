@@ -99,7 +99,6 @@ export default function CardPokemon({ pokemon }) {
       </div>
 
       <div className="py-4 w-100">
-        {console.log(pokemon)}
         {pokemon.stats.map((stats, i) => {
           return (
             <Row key={i}>
