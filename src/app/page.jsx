@@ -16,6 +16,7 @@ import ButtonPrimary from "./components/ButtonPrimary";
 import {
   ArrowCircleLeft,
   ArrowCircleRight,
+  CaretUp,
   Clipboard,
   GithubLogo,
   House,
@@ -33,6 +34,7 @@ import CardPokemon from "./components/CardPokemon";
 export default function Home() {
   const [search, setSearch] = useState("bulbasaur");
   const dispatch = useDispatch();
+  const [isScrolled, setIsScrolled] = useState(false);
   const { Pokemons, Pokemon, NextPage, PreviousPage, OpenCardPokemon } =
     useSelector((state) => state.pokemons);
 
@@ -46,6 +48,23 @@ export default function Home() {
       }, 500);
     }
   }
+
+  useEffect(() => {
+    function handleScroll() {
+      const scrollHeight = window.innerHeight;
+      const scrollTop =
+        window.pageYOffset || document.documentElement.scrollTop;
+
+      if (scrollTop >= scrollHeight) {
+        setIsScrolled(true);
+      } else {
+        setIsScrolled(false);
+      }
+    }
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   useEffect(() => {
     dispatch(getPokemons(6));
@@ -141,7 +160,7 @@ export default function Home() {
         </Container>
       </Container>
 
-      <Container fluid className="m-0 p-0 bg-black">
+      <Container id="Pokemons" fluid className="m-0 py-4 bg-black">
         <Container className="py-5">
           <Row>
             <Col sm="12" lg="6">
@@ -204,7 +223,7 @@ export default function Home() {
               </div>
             </Col>
           </Row>
-          <Row id="Pokemons" className="g-4 py-5">
+          <Row className="g-4 py-5">
             {Pokemons.map((pokemon) => {
               return (
                 <Col
@@ -249,6 +268,14 @@ export default function Home() {
           </div>
         </Container>
       </Container>
+      <ButtonPrimary
+        type="button"
+        icon={<CaretUp size={24} weight="bold" />}
+        variant={`button-back-top ${isScrolled ? "slide-top" : "d-none"}`}
+        onClick={() => {
+          redirecionarParaDiv();
+        }}
+      />
     </main>
   );
 }
