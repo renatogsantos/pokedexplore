@@ -1,25 +1,17 @@
 @import "~bootstrap/scss/bootstrap";
-@import url("https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,500;0,700;0,800;0,900;1,300;1,500;1,700;1,800;1,900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,500;0,600;0,700;0,800;0,900;1,300;1,500;1,700;1,800;1,900&display=swap");
 @import "/src/app/components/CardPoke/style.scss";
 @import "/src/app/components/ButtonPrimary/style.scss";
+@import "/src/app/components/Waves/style.scss";
 
 body {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
   font-family: "Montserrat", sans-serif;
-  background: url("/svgs/bg-home.svg"), url("/bg-home.png"), #000;
-  background-size: 60%, cover;
-  background-position: top left, center top;
-  background-attachment: scroll, fixed;
-  background-repeat: no-repeat;
+  background: linear-gradient(135deg, #a0efff 0%, #003f58 100%);
   color: #fff;
-  @media screen and (max-width: 1024px) {
-    background-size: 100%, cover;
-    background-position: top left, center top;
-    background-attachment: scroll, fixed;
-    background-repeat: no-repeat;
-  }
+  overflow-x: hidden;
 }
 
 h1 {
@@ -30,11 +22,29 @@ h1 {
   line-height: normal;
 }
 
+h2 {
+  color: #fff;
+  font-family: Montserrat;
+  font-size: clamp(1.5rem, 5vw, 2rem);
+  font-weight: 600;
+  line-height: normal;
+}
+
 p {
+  color: #fff;
+  font-family: Montserrat;
   font-size: 1rem;
+  font-style: normal;
   line-height: 120%;
   letter-spacing: 2px;
   margin: 0;
+}
+
+.main-card {
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(6, 11, 21, 0.8);
+  backdrop-filter: blur(10px);
 }
 
 //animations

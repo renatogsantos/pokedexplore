@@ -12,7 +12,8 @@ import {
 } from "./redux/pokemons";
 import CardPoke from "./components/CardPoke";
 import ButtonPrimary from "./components/ButtonPrimary";
-import { ArrowCircleLeft, ArrowCircleRight } from "@phosphor-icons/react";
+import { ArrowCircleLeft, ArrowCircleRight, Lightning } from "@phosphor-icons/react";
+import Waves from "./components/Waves";
 
 export default function Home() {
   const [initialPokemon, setInitialPokemon] = useState(
@@ -42,30 +43,64 @@ export default function Home() {
 
   return (
     <main>
-      <Container fluid className="py-5">
-        <Container>
+      <Container fluid className="pb-5 mb-5">
+        <Container className="py-5">
           <div className="d-flex align-items-center justify-content-center">
             <img width="300" src="/pokedexplore.svg" alt="PokédExplore" />
           </div>
-          <Row className="align-items-center py-5">
-            <Col sm="12" xl="4">
-              <h1>PokédExplore</h1>
-              <p>
-                Bem-vindo(a) ao PokédExplore! Descubra todos os Pokémon e suas
-                incríveis habilidades em um só lugar. Explore a vasta coleção de
-                espécies, mergulhe nas estatísticas e conheça as estratégias
-                para se tornar um mestre Pokémon. Aventure-se em nosso site e
-                desvende os segredos dessas criaturas fascinantes. Prepare-se
-                para embarcar em uma jornada inesquecível no mundo dos Pokémon!
+          <Row className="align-items-center">
+            <Col sm="12" xl="6" className="py-5 order-last order-lg-first">
+              <h1>Bulbasaur</h1>
+              <div className="d-flex gap-2 mb-3">
+                <img
+                  draggable={false}
+                  width={40}
+                  src="/types/Pokemon_Type_Icon_Grass.svg"
+                  alt="Grass"
+                />
+                <img
+                  draggable={false}
+                  width={40}
+                  src="/types/Pokemon_Type_Icon_Poison.svg"
+                  alt="Poison"
+                />
+              </div>
+              <p className="mb-3">
+                Bulbasaur é um Pokémon do tipo Grama/Veneno. Ele é conhecido por
+                ter uma semente de planta crescendo em suas costas desde o
+                nascimento. Sua planta absorve nutrientes e cresce à medida que
+                evolui. Bulbasaur usa suas habilidades de planta para atacar,
+                como o Vine Whip. É um Pokémon dócil e amigável, mas também pode
+                ser um lutador feroz quando necessário. Sua evolução é muito
+                esperada por treinadores, pois se torna um poderoso Venusaur.
+                Bulbasaur é um parceiro leal e um ótimo começo para qualquer
+                treinador Pokémon.
               </p>
+              <ButtonPrimary
+                type="button"
+                title="Mais detalhes"
+                variant="w-100"
+                icon={<Lightning size={24} weight="duotone" />}
+                onClick={() => {}}
+              />
             </Col>
-            <Col sm="12" xl="8">
-              <img width="100%" src="/hero.png" />
+            <Col sm="12" xl="6">
+              <img
+                draggable={false}
+                width="100%"
+                src="/pokemons/Bulbasaur.png"
+                alt="Pokemon Bulbasaur"
+              />
             </Col>
           </Row>
         </Container>
+      </Container>
 
-        <Container>
+      <Container fluid className="m-0 p-0 bg-black">
+        <div className="position-relative">
+          <Waves />
+        </div>
+        <Container className="py-5">
           <Row id="Pokemons" className="g-4 py-5">
             {Pokemons.map((pokemon) => {
               return (
