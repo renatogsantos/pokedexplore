@@ -9,9 +9,13 @@ body {
   padding: 0;
   box-sizing: border-box;
   font-family: "Montserrat", sans-serif;
-  background: linear-gradient(135deg, #a0efff 0%, #003f58 100%);
+  background: #000;
   color: #fff;
   overflow-x: hidden;
+}
+
+.bg-hero {
+  background: linear-gradient(90deg, #a0efff 0%, #003f58 100%);
 }
 
 h1 {
@@ -36,7 +40,6 @@ p {
   font-size: 1rem;
   font-style: normal;
   line-height: 120%;
-  letter-spacing: 2px;
   margin: 0;
 }
 

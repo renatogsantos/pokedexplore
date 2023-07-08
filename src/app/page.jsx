@@ -43,7 +43,7 @@ export default function Home() {
 
   return (
     <main>
-      <Container fluid className="pb-5 mb-5">
+      <Container fluid className="bg-hero pb-5 mb-5">
         <Container className="py-5">
           <div className="d-flex align-items-center justify-content-center">
             <img width="300" src="/pokedexplore.svg" alt="PokédExplore" />
