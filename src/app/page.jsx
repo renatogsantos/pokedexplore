@@ -31,7 +31,7 @@ import Link from "next/link";
 import CardPokemon from "./components/CardPokemon";
 
 export default function Home() {
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState("bulbasaur");
   const dispatch = useDispatch();
   const { Pokemons, Pokemon, NextPage, PreviousPage, OpenCardPokemon } =
     useSelector((state) => state.pokemons);

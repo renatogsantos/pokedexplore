@@ -66,9 +66,10 @@ export default function CardPokemon({ pokemon }) {
           </p>
         </div>
         <div className="d-flex align-items-center justify-content-center w-100 gap-3 border-end border-start px-3">
-          {pokemon.types.map((type) => {
+          {pokemon.types.map((type, i) => {
             return (
               <img
+                key={i}
                 draggable={false}
                 width={40}
                 src={`/types/${type.type.name}.svg`}
@@ -88,9 +89,9 @@ export default function CardPokemon({ pokemon }) {
       </div>
 
       <div className="py-4 w-100">
-        {pokemon.stats.map((stats) => {
+        {pokemon.stats.map((stats, i) => {
           return (
-            <Row key={stats.base_stat}>
+            <Row key={i}>
               <Col xs="3">
                 <span>{extrairPrimeiraPalavra(stats.stat.name, "-")}</span>
               </Col>

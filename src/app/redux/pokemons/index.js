@@ -1,5 +1,6 @@
 import { createAction, createReducer } from "@reduxjs/toolkit";
 import axios from "axios";
+import { Loading } from "notiflix";
 
 //Estado inicial
 const initialState = {
@@ -27,13 +28,19 @@ export const getPokemon = (pokemon) => {
         dispatch(actPokemon(resp.data));
         dispatch(actOpenCardPokemon(true));
       })
-      .catch((error) => error)
-      .finally(() => {});
+      .catch((error) => console.error(error))
+      .finally(() => {
+        Loading.remove();
+      });
   };
 };
 
 export const getTypesPokemons = (type) => {
   return async (dispatch) => {
+    Loading.pulse({
+      svgSize: "120px",
+      svgColor: "#fff",
+    });
     axios
       .get(`https://pokeapi.co/api/v2/type/${type}/`)
       .then(async (response) => {
@@ -48,12 +55,20 @@ export const getTypesPokemons = (type) => {
         });
 
         dispatch(actPokemons(pokemons));
+      })
+      .catch((error) => console.error(error))
+      .finally(() => {
+        Loading.remove();
       });
   };
 };
 
 export const getPokemons = (units) => {
   return async (dispatch) => {
+    Loading.pulse({
+      svgSize: "120px",
+      svgColor: "#fff",
+    });
     axios
       .get(`https://pokeapi.co/api/v2/pokemon/?offset=0&limit=${units}`)
       .then(async (response) => {
@@ -68,43 +83,67 @@ export const getPokemons = (units) => {
         dispatch(actPokemons(pokemons));
         dispatch(actNextPage(response.data.next));
         dispatch(actPreviousPage(response.data.previous));
+      })
+      .catch((error) => console.error(error))
+      .finally(() => {
+        Loading.remove();
       });
   };
 };
 
 export const nextPage = (url) => {
   return async (dispatch) => {
-    axios.get(url).then(async (response) => {
-      let endpoints = response.data.results.map((pokemon) => pokemon.url);
-      let pokemonData = await axios.all(
-        endpoints.map((url) => axios.get(url).then((resp) => resp.data))
-      );
-      let pokemons = pokemonData.map((data) => {
-        return { ...data };
-      });
-
-      dispatch(actPokemons(pokemons));
-      dispatch(actNextPage(response.data.next));
-      dispatch(actPreviousPage(response.data.previous));
+    Loading.pulse({
+      svgSize: "120px",
+      svgColor: "#fff",
     });
+    axios
+      .get(url)
+      .then(async (response) => {
+        let endpoints = response.data.results.map((pokemon) => pokemon.url);
+        let pokemonData = await axios.all(
+          endpoints.map((url) => axios.get(url).then((resp) => resp.data))
+        );
+        let pokemons = pokemonData.map((data) => {
+          return { ...data };
+        });
+
+        dispatch(actPokemons(pokemons));
+        dispatch(actNextPage(response.data.next));
+        dispatch(actPreviousPage(response.data.previous));
+      })
+      .catch((error) => console.error(error))
+      .finally(() => {
+        Loading.remove();
+      });
   };
 };
 
 export const previousPage = (url) => {
   return async (dispatch) => {
-    axios.get(url).then(async (response) => {
-      let endpoints = response.data.results.map((pokemon) => pokemon.url);
-      let pokemonData = await axios.all(
-        endpoints.map((url) => axios.get(url).then((resp) => resp.data))
-      );
-      let pokemons = pokemonData.map((data) => {
-        return { ...data };
-      });
-
-      dispatch(actPokemons(pokemons));
-      dispatch(actNextPage(response.data.next));
-      dispatch(actPreviousPage(response.data.previous));
+    Loading.pulse({
+      svgSize: "120px",
+      svgColor: "#fff",
     });
+    axios
+      .get(url)
+      .then(async (response) => {
+        let endpoints = response.data.results.map((pokemon) => pokemon.url);
+        let pokemonData = await axios.all(
+          endpoints.map((url) => axios.get(url).then((resp) => resp.data))
+        );
+        let pokemons = pokemonData.map((data) => {
+          return { ...data };
+        });
+
+        dispatch(actPokemons(pokemons));
+        dispatch(actNextPage(response.data.next));
+        dispatch(actPreviousPage(response.data.previous));
+      })
+      .catch((error) => console.error(error))
+      .finally(() => {
+        Loading.remove();
+      });
   };
 };
 
