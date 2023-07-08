@@ -27,6 +27,7 @@ import Waves from "./components/Waves";
 import { pokemonData } from "./helpers/PokemonTypes";
 import ButtonSecondary from "./components/ButtonSecondary";
 import Link from "next/link";
+import CardPokemon from "./components/CardPokemon";
 
 export default function Home() {
   const [initialPokemon, setInitialPokemon] = useState(
@@ -55,10 +56,16 @@ export default function Home() {
 
   return (
     <main>
+      <CardPokemon color="#ff0000" pokemon={Pokemon}/>
       <Container fluid className="bg-hero pb-5 mb-5">
         <Container className="py-5">
           <div className="d-flex align-items-center justify-content-center">
-            <img width="300" src="/pokedexplore.svg" alt="PokédExplore" />
+            <img
+              draggable={false}
+              width="300"
+              src="/pokedexplore.svg"
+              alt="PokédExplore"
+            />
           </div>
           <Row className="align-items-center">
             <Col sm="12" xl="6" className="py-5 order-last order-lg-first">
@@ -93,7 +100,9 @@ export default function Home() {
                 title="Mais detalhes"
                 variant="w-100"
                 icon={<Lightning size={24} weight="duotone" />}
-                onClick={() => {}}
+                onClick={()=>{
+                  dispatch(getPokemon("bulbasaur"))
+                }}
               />
               <div className="d-flex gap-3 py-3">
                 <Link
@@ -148,15 +157,15 @@ export default function Home() {
                     <button
                       key={type.type}
                       type="button"
-                      className=""
                       onClick={() => {
                         dispatch(getTypesPokemons(type.type));
                       }}
                     >
                       <img
+                        draggable={false}
                         width={30}
                         src={`/types/${type.type}.svg`}
-                        alt="teste"
+                        alt={type.type}
                       />
                     </button>
                   );

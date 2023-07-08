@@ -2,11 +2,13 @@ import { convertHeightToMeters, convertWeightToKilograms } from "@/app/helpers";
 import { pokemonData } from "@/app/helpers/PokemonTypes";
 import { Barbell, Lightning, Ruler } from "@phosphor-icons/react";
 import ButtonPrimary from "../ButtonPrimary";
+import { useEffect, useState } from "react";
+import { useDispatch } from "react-redux";
+import { getPokemon } from "@/app/redux/pokemons";
 
 export default function CardPoke({ img, name, types, weight, height }) {
-  const colorTypes = pokemonData.filter((el) =>
-    el.type.includes(types[0].type.name)
-  );
+  const [color, setColor] = useState("#fff")
+  const dispatch = useDispatch()
 
   function getColorByType(pokemonType) {
     const foundPokemon = pokemonData.find(
@@ -19,7 +21,10 @@ export default function CardPoke({ img, name, types, weight, height }) {
     }
   }
 
-  const color = getColorByType(types[0].type.name);
+  const Color = getColorByType(types[0].type.name);
+  useEffect(() => {
+    setColor(Color)
+  }, []);
 
   return (
     <div
@@ -37,6 +42,7 @@ export default function CardPoke({ img, name, types, weight, height }) {
           <img draggable={false} width="280" src="/pokeball-load.gif" />
         )}
       </div>
+
       <div className="mt-5 d-flex flex-column align-items-center justify-content-center w-100">
         <span className="pokemon-name">{name}</span>
         <div className="d-flex gap-1 py-1">
@@ -78,6 +84,9 @@ export default function CardPoke({ img, name, types, weight, height }) {
             type="button"
             title="Mais detalhes"
             icon={<Lightning size={24} weight="duotone" />}
+            onClick={()=>{
+              dispatch(getPokemon(name))
+            }}
           />
         </div>
       </div>

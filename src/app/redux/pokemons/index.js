@@ -4,9 +4,10 @@ import axios from "axios";
 //Estado inicial
 const initialState = {
   Pokemons: [],
-  Pokemon: {},
+  Pokemon: null,
   NextPage: "",
   PreviousPage: "",
+  OpenCardPokemon: false,
 };
 
 //actions
@@ -15,6 +16,8 @@ export const actPokemon = createAction("POKEMON");
 export const actNextPage = createAction("NEXT_PAGE");
 export const actPreviousPage = createAction("PREVIOUS_PAGE");
 
+export const actOpenCardPokemon = createAction("OPEN_CARD_POKEMON");
+
 //apis
 export const getPokemon = (pokemon) => {
   return async (dispatch) => {
@@ -22,6 +25,8 @@ export const getPokemon = (pokemon) => {
       .get(`https://pokeapi.co/api/v2/pokemon/${pokemon}`)
       .then((resp) => {
         dispatch(actPokemon(resp.data));
+        dispatch(actOpenCardPokemon(true))
+        console.log(resp.data);
       })
       .catch((error) => error)
       .finally(() => {});
@@ -118,5 +123,8 @@ export default createReducer(initialState, (builder) => {
     })
     .addCase(actPreviousPage, (state, action) => {
       return { ...state, PreviousPage: action.payload };
+    })
+    .addCase(actOpenCardPokemon, (state, action) => {
+      return { ...state, OpenCardPokemon: action.payload };
     });
 });
