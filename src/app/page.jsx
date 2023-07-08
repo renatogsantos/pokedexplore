@@ -17,12 +17,16 @@ import {
   ArrowCircleLeft,
   ArrowCircleRight,
   Clipboard,
+  GithubLogo,
   Lightning,
+  LinkedinLogo,
   MagnifyingGlass,
+  WhatsappLogo,
 } from "@phosphor-icons/react";
 import Waves from "./components/Waves";
 import { pokemonData } from "./helpers/PokemonTypes";
 import ButtonSecondary from "./components/ButtonSecondary";
+import Link from "next/link";
 
 export default function Home() {
   const [initialPokemon, setInitialPokemon] = useState(
@@ -47,25 +51,6 @@ export default function Home() {
 
   useEffect(() => {
     dispatch(getPokemons(6));
-  }, []);
-
-  useEffect(() => {
-    dispatch(getPokemon(initialPokemon));
-  }, [initialPokemon]);
-
-  useEffect(() => {
-    const handleScroll = (event) => {
-      const { deltaX } = event;
-      const div = divRef.current;
-      div.scrollLeft += deltaX;
-    };
-
-    const div = divRef.current;
-    div.addEventListener("wheel", handleScroll, { passive: false });
-
-    return () => {
-      div.removeEventListener("wheel", handleScroll);
-    };
   }, []);
 
   return (
@@ -110,6 +95,29 @@ export default function Home() {
                 icon={<Lightning size={24} weight="duotone" />}
                 onClick={() => {}}
               />
+              <div className="d-flex gap-3 py-3">
+                <Link
+                  href="https://github.com/renatogsantos/pokedexplore"
+                  target="_blank"
+                  className="text-light"
+                >
+                  <GithubLogo size={32} weight="duotone" />
+                </Link>
+                <Link
+                  href="https://www.linkedin.com/in/renato-g-santos/"
+                  target="_blank"
+                  className="text-light"
+                >
+                  <LinkedinLogo size={32} weight="duotone" />
+                </Link>
+                <Link
+                  href="https://api.whatsapp.com/send?phone=5511911882402&text=Ol%C3%A1%20Renato,%20pode%20me%20ajudar?"
+                  target="_blank"
+                  className="text-light"
+                >
+                  <WhatsappLogo size={32} weight="duotone" />
+                </Link>
+              </div>
             </Col>
             <Col sm="12" xl="6">
               <img
@@ -121,12 +129,6 @@ export default function Home() {
             </Col>
           </Row>
         </Container>
-        <img
-          draggable={false}
-          className="bottom-wave"
-          src="/svgs/bottom-wave.svg"
-          alt="Bottom wave"
-        />
       </Container>
 
       <Container fluid className="m-0 p-0 bg-black">

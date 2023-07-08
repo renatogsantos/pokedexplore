@@ -13,6 +13,7 @@ body {
   background: #000;
   color: #fff;
   overflow-x: hidden;
+  user-select: none;
 }
 ::-webkit-scrollbar {
   width: 0;
@@ -21,15 +22,11 @@ body {
 }
 
 .bg-hero {
-  background: linear-gradient(90deg, #a0efff 0%, #003f58 100%);
-  overflow-x: hidden;
-  position: relative;
-}
-.bottom-wave {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
+  background: url("/svgs/bottom-wave.svg"),
+    linear-gradient(90deg, #a0efff 0%, #003f58 100%);
+  background-size: 100%;
+  background-position: center bottom;
+  background-repeat: no-repeat;
 }
 
 h1 {
@@ -92,7 +89,9 @@ p {
   background: rgba(6, 11, 21, 0.8);
   backdrop-filter: blur(10px);
   padding: 12px;
-  &:hover, &:active, &:focus {
+  &:hover,
+  &:active,
+  &:focus {
     outline: 2px solid #003f58;
   }
 }

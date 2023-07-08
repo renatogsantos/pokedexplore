@@ -22,7 +22,6 @@ export const getPokemon = (pokemon) => {
       .get(`https://pokeapi.co/api/v2/pokemon/${pokemon}`)
       .then((resp) => {
         dispatch(actPokemon(resp.data));
-        console.log(resp);
       })
       .catch((error) => error)
       .finally(() => {});
