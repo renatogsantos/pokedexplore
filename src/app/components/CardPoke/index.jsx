@@ -58,7 +58,7 @@ export default function CardPoke({ img, name, types, weight, height }) {
         <div className="d-flex aling-items-center justify-content-between w-100 pt-3">
           <div className="d-flex flex-column align-items-center justify-content-center w-100">
             <span className="pokemon-stats">
-              {convertHeightToMeters(height)}
+              {convertHeightToMeters(height)} M
             </span>
             <p className="d-flex align-items-center m-0">
               <Ruler size={24} weight="duotone" /> Altura
@@ -66,7 +66,7 @@ export default function CardPoke({ img, name, types, weight, height }) {
           </div>
           <div className="d-flex flex-column align-items-center justify-content-center w-100">
             <span className="pokemon-stats mx-4">
-              {convertWeightToKilograms(weight)}
+              {convertWeightToKilograms(weight)} Kg
             </span>
             <p className="d-flex align-items-center m-0">
               <Barbell size={24} weight="duotone" /> Peso
