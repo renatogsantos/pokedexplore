@@ -56,7 +56,7 @@ export default function Home() {
 
   return (
     <main>
-      <CardPokemon color="#ff0000" pokemon={Pokemon}/>
+      <CardPokemon pokemon={Pokemon} />
       <Container fluid className="bg-hero pb-5 mb-5">
         <Container className="py-5">
           <div className="d-flex align-items-center justify-content-center">
@@ -100,8 +100,8 @@ export default function Home() {
                 title="Mais detalhes"
                 variant="w-100"
                 icon={<Lightning size={24} weight="duotone" />}
-                onClick={()=>{
-                  dispatch(getPokemon("bulbasaur"))
+                onClick={() => {
+                  dispatch(getPokemon("bulbasaur"));
                 }}
               />
               <div className="d-flex gap-3 py-3">
