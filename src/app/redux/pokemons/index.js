@@ -24,6 +24,24 @@ export const getPokemon = (pokemon) => {
   };
 };
 
+export const getTypesPokemons = (type) => {
+  return async (dispatch) => {
+    axios
+      .get(`https://pokeapi.co/api/v2/type/${type}/`)
+      .then(async (response) => {
+        let endpoints = response.data.pokemon.map((pokemon) => pokemon.pokemon.url);
+        let pokemonData = await axios.all(
+          endpoints.map((url) => axios.get(url).then((resp) => resp.data))
+        );
+        let pokemons = pokemonData.map((data) => {
+          return { ...data };
+        });
+
+        dispatch(actPokemons(pokemons));
+      });
+  };
+};
+
 export const getPokemons = (units) => {
   return async (dispatch) => {
     axios

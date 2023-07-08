@@ -13,6 +13,11 @@ body {
   color: #fff;
   overflow-x: hidden;
 }
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
 
 .bg-hero {
   background: linear-gradient(90deg, #a0efff 0%, #003f58 100%);
@@ -48,6 +53,22 @@ p {
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: rgba(6, 11, 21, 0.8);
   backdrop-filter: blur(10px);
+}
+
+.main-card-scroll-x {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(6, 11, 21, 0.8);
+  backdrop-filter: blur(10px);
+  button {
+    background: none;
+    border: none;
+  }
 }
 
 //animations

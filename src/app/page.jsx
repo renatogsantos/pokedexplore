@@ -1,19 +1,25 @@
 "use client";
 
 import axios from "axios";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Col, Container, Row } from "react-bootstrap";
 import { useDispatch, useSelector } from "react-redux";
 import {
   getPokemon,
   getPokemons,
+  getTypesPokemons,
   nextPage,
   previousPage,
 } from "./redux/pokemons";
 import CardPoke from "./components/CardPoke";
 import ButtonPrimary from "./components/ButtonPrimary";
-import { ArrowCircleLeft, ArrowCircleRight, Lightning } from "@phosphor-icons/react";
+import {
+  ArrowCircleLeft,
+  ArrowCircleRight,
+  Lightning,
+} from "@phosphor-icons/react";
 import Waves from "./components/Waves";
+import { pokemonData } from "./helpers/PokemonTypes";
 
 export default function Home() {
   const [initialPokemon, setInitialPokemon] = useState(
@@ -23,6 +29,8 @@ export default function Home() {
   const { Pokemons, Pokemon, NextPage, PreviousPage } = useSelector(
     (state) => state.pokemons
   );
+
+  const divRef = useRef(null);
 
   function redirecionarParaDiv() {
     let div = document.getElementById("Pokemons");
@@ -41,6 +49,21 @@ export default function Home() {
     dispatch(getPokemon(initialPokemon));
   }, [initialPokemon]);
 
+  useEffect(() => {
+    const handleScroll = (event) => {
+      const { deltaX } = event;
+      const div = divRef.current;
+      div.scrollLeft += deltaX;
+    };
+
+    const div = divRef.current;
+    div.addEventListener("wheel", handleScroll, { passive: false });
+
+    return () => {
+      div.removeEventListener("wheel", handleScroll);
+    };
+  }, []);
+
   return (
     <main>
       <Container fluid className="bg-hero pb-5 mb-5">
@@ -55,13 +78,13 @@ export default function Home() {
                 <img
                   draggable={false}
                   width={40}
-                  src="/types/Pokemon_Type_Icon_Grass.svg"
+                  src="/types/grass.svg"
                   alt="Grass"
                 />
                 <img
                   draggable={false}
                   width={40}
-                  src="/types/Pokemon_Type_Icon_Poison.svg"
+                  src="/types/poison.svg"
                   alt="Poison"
                 />
               </div>
@@ -101,6 +124,34 @@ export default function Home() {
           <Waves />
         </div>
         <Container className="py-5">
+          <Row>
+            <Col sm="12" lg="6">
+              <span>Busque por tipo:</span>
+              <div
+                ref={divRef}
+                className="main-card-scroll-x p-2"
+                title="Pressione ALT para scrollar"
+              >
+                {pokemonData.map((type) => {
+                  return (
+                    <button
+                      type="button"
+                      className=""
+                      onClick={() => {
+                        dispatch(getTypesPokemons(type.type));
+                      }}
+                    >
+                      <img
+                        width={40}
+                        src={`/types/${type.type}.svg`}
+                        alt="teste"
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            </Col>
+          </Row>
           <Row id="Pokemons" className="g-4 py-5">
             {Pokemons.map((pokemon) => {
               return (
