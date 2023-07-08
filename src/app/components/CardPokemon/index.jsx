@@ -153,68 +153,6 @@ export default function CardPokemon({ pokemon }) {
           );
         })}
       </div>
-
-      <div className="w-100 d-flex flex-column align-items-center justify-content-center">
-        <span>Formas</span>
-        <Row>
-          <Col
-            xs="6"
-            sm="6"
-            className="d-flex align-items-center justify-content-center"
-          >
-            <img
-              draggable={false}
-              src={
-                pokemon.sprites.versions["generation-v"]["black-white"].animated
-                  .front_default
-              }
-              alt={pokemon.name}
-            />
-          </Col>
-          <Col
-            xs="6"
-            sm="6"
-            className="d-flex align-items-center justify-content-center"
-          >
-            <img
-              draggable={false}
-              src={
-                pokemon.sprites.versions["generation-v"]["black-white"].animated
-                  .back_default
-              }
-              alt={pokemon.name}
-            />
-          </Col>
-          <Col
-            xs="6"
-            sm="6"
-            className="d-flex align-items-center justify-content-center"
-          >
-            <img
-              draggable={false}
-              src={
-                pokemon.sprites.versions["generation-v"]["black-white"].animated
-                  .front_shiny
-              }
-              alt={pokemon.name}
-            />
-          </Col>
-          <Col
-            xs="6"
-            sm="6"
-            className="d-flex align-items-center justify-content-center"
-          >
-            <img
-              draggable={false}
-              src={
-                pokemon.sprites.versions["generation-v"]["black-white"].animated
-                  .back_shiny
-              }
-              alt={pokemon.name}
-            />
-          </Col>
-        </Row>
-      </div>
     </div>
   );
 }
