@@ -67,7 +67,6 @@ export default function Home() {
         </Row>
         <Row id="Pokemons" className="g-4 py-5">
           {Pokemons.map((pokemon) => {
-            console.log(pokemon);
             return (
               <Col
                 key={pokemon.name}
