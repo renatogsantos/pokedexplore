@@ -15,6 +15,7 @@ import {
 import { useEffect, useState } from "react";
 import { Col, Row } from "react-bootstrap";
 import { useDispatch, useSelector } from "react-redux";
+import StatusBar from "../StatusBar";
 
 export default function CardPokemon({ pokemon }) {
   const dispatch = useDispatch();
@@ -62,12 +63,18 @@ export default function CardPokemon({ pokemon }) {
         <XCircle size={32} weight="duotone" />
       </button>
       <img
+        draggable={false}
         width="280"
-        src={pokemon ? pokemon.sprites?.other.home.front_default : ""}
+        src={
+          pokemon.sprites?.other.home.front_default
+            ? pokemon.sprites?.other.home.front_default
+            : "/pokenull.png"
+        }
+        alt="Pokémon selecionado"
       />
       <span className="card-pokemon-name">{pokemon.name}</span>
 
-      <div className="d-flex aling-items-center justify-content-between w-100 pt-3">
+      <div className="d-flex aling-items-center justify-content-between w-100 py-2 border-top border-bottom">
         <div className="d-flex flex-column align-items-center justify-content-center w-100 text-center mx-2">
           <span className="pokemon-stats mx-4 w-100">
             {convertHeightToMeters(pokemon.height)} M
@@ -102,7 +109,7 @@ export default function CardPokemon({ pokemon }) {
       <div className="py-4 w-100">
         {pokemon.stats.map((stats, i) => {
           return (
-            <Row key={i}>
+            <Row key={i} className="align-items-center">
               <Col xs="1">
                 {stats.stat.name == "hp" ? (
                   <Heartbeat
@@ -140,19 +147,12 @@ export default function CardPokemon({ pokemon }) {
                 <span>{stats.base_stat}</span>
               </Col>
               <Col xs>
-                <meter
-                  value={stats.base_stat}
-                  min={0}
-                  max={200}
-                  low={60}
-                  high={180}
-                  optimum={120}
-                />
+                <StatusBar status={stats.base_stat} />
               </Col>
             </Row>
           );
         })}
-        <div className="d-flex gap-2 align-items-center">
+        <div className="d-flex gap-2 align-items-center pt-2">
           <span>Fraquezas:</span>
           <div className="d-flex gap-2">
             {Weaknesses.map((weak, i) => {
