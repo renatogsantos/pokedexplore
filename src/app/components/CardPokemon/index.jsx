@@ -22,6 +22,9 @@ export default function CardPokemon({ pokemon }) {
   const [color, setColor] = useState("#fff");
   const { Weaknesses } = useSelector((state) => state.pokemons);
 
+  const [startY, setStartY] = useState(0);
+  const [endY, setEndY] = useState(0);
+
   function getColorByType(pokemonType) {
     const foundPokemon = pokemonData.find(
       (pokemon) => pokemon.type === pokemonType
@@ -32,6 +35,35 @@ export default function CardPokemon({ pokemon }) {
       return null;
     }
   }
+
+  useEffect(() => {
+    const handleTouchStart = (event) => {
+      setStartY(event.touches[0].clientY);
+    };
+
+    const handleTouchMove = (event) => {
+      setEndY(event.touches[0].clientY);
+    };
+
+    const handleTouchEnd = () => {
+      if (startY > endY) {
+        console.log("Arrasto para cima detectado!");
+        setTimeout(() => {
+          dispatch(actOpenCardPokemon(false));
+        }, 500);
+      }
+    };
+
+    document.addEventListener("touchstart", handleTouchStart);
+    document.addEventListener("touchmove", handleTouchMove);
+    document.addEventListener("touchend", handleTouchEnd);
+
+    return () => {
+      document.removeEventListener("touchstart", handleTouchStart);
+      document.removeEventListener("touchmove", handleTouchMove);
+      document.removeEventListener("touchend", handleTouchEnd);
+    };
+  }, [startY, endY]);
 
   useEffect(() => {
     if (pokemon) {
