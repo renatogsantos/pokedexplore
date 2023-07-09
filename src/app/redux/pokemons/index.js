@@ -6,6 +6,7 @@ import { Loading } from "notiflix";
 const initialState = {
   Pokemons: [],
   Pokemon: null,
+  Weaknesses: [],
   NextPage: "",
   PreviousPage: "",
   OpenCardPokemon: false,
@@ -16,6 +17,7 @@ export const actPokemons = createAction("POKEMONS");
 export const actPokemon = createAction("POKEMON");
 export const actNextPage = createAction("NEXT_PAGE");
 export const actPreviousPage = createAction("PREVIOUS_PAGE");
+export const actWeaknesses = createAction("WEAKNESSES");
 
 export const actOpenCardPokemon = createAction("OPEN_CARD_POKEMON");
 
@@ -59,6 +61,44 @@ export const getTypesPokemons = (type) => {
       .catch((error) => console.error(error))
       .finally(() => {
         Loading.remove();
+      });
+  };
+};
+
+export const getPokemonWeaknesses = (pokemonName) => {
+  return async (dispatch) => {
+    axios
+      .get(`https://pokeapi.co/api/v2/pokemon/${pokemonName}`)
+      .then((pokemonResponse) => {
+        const pokemonData = pokemonResponse.data;
+        const types = pokemonData.types.map((type) => type.type.name);
+        const weaknesses = [];
+
+        const typeRequests = types.map((type) =>
+          axios.get(`https://pokeapi.co/api/v2/type/${type}`)
+        );
+
+        return axios.all(typeRequests).then(
+          axios.spread((...responses) => {
+            responses.forEach((response) => {
+              const typeData = response.data;
+              const typeWeaknesses =
+                typeData.damage_relations.double_damage_from.map(
+                  (weakness) => weakness.name
+                );
+              weaknesses.push(...typeWeaknesses);
+            });
+            const uniqueWeaknesses = [...new Set(weaknesses)];
+            dispatch(actWeaknesses(uniqueWeaknesses));
+          })
+        );
+      })
+      .catch((error) => {
+        console.error(error);
+        throw error;
+      })
+      .finally(() => {
+        // Código a ser executado sempre, independentemente do resultado da Promise
       });
   };
 };
@@ -164,5 +204,8 @@ export default createReducer(initialState, (builder) => {
     })
     .addCase(actOpenCardPokemon, (state, action) => {
       return { ...state, OpenCardPokemon: action.payload };
+    })
+    .addCase(actWeaknesses, (state, action) => {
+      return { ...state, Weaknesses: action.payload };
     });
 });

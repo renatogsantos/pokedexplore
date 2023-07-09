@@ -1,6 +1,5 @@
 "use client";
 
-import axios from "axios";
 import { useEffect, useRef, useState } from "react";
 import { Col, Container, Row } from "react-bootstrap";
 import { useDispatch, useSelector } from "react-redux";
@@ -26,7 +25,6 @@ import {
   Stack,
   WhatsappLogo,
 } from "@phosphor-icons/react";
-import Waves from "./components/Waves";
 import { pokemonData } from "./helpers/PokemonTypes";
 import ButtonSecondary from "./components/ButtonSecondary";
 import Link from "next/link";
@@ -68,7 +66,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    dispatch(getPokemons(18));
+    dispatch(getPokemons(9));
   }, []);
 
   return (
@@ -161,7 +159,7 @@ export default function Home() {
         </Container>
       </Container>
 
-      <Container id="Pokemons" fluid className="m-0 py-4 bg-black">
+      <Container fluid className="m-0 py-4 bg-black">
         <Container className="py-5">
           <div className="main-card p-4 mb-5">
             <Row className="align-items-center">
@@ -179,8 +177,8 @@ export default function Home() {
                   type="button"
                   icon={<Stack size={32} weight="bold" />}
                   title="Criar meu deck pokémon"
-                  onClick={()=>{
-                    alert("Em construção!")
+                  onClick={() => {
+                    alert("Em construção!");
                   }}
                 />
               </Col>
@@ -194,7 +192,7 @@ export default function Home() {
               </Col>
             </Row>
           </div>
-          <Row>
+          <Row id="Pokemons">
             <Col sm="12" lg="6">
               <span className="d-flex align-items-center gap-2 py-2">
                 <Clipboard size={24} weight="duotone" /> Busque por tipo:
@@ -267,6 +265,7 @@ export default function Home() {
                 >
                   <div>
                     <CardPoke
+                      id={""}
                       name={pokemon.name}
                       img={pokemon.sprites.other.home.front_default}
                       types={pokemon.types}
@@ -307,6 +306,13 @@ export default function Home() {
         onClick={() => {
           redirecionarParaDiv();
         }}
+      />
+      <img
+        draggable={false}
+        width="80"
+        src="/pokeball.png"
+        alt=""
+        className="shake-bottom p-4"
       />
     </main>
   );

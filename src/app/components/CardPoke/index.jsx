@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import { getPokemon } from "@/app/redux/pokemons";
 
-export default function CardPoke({ img, name, types, weight, height }) {
+export default function CardPoke({ id, img, name, types, weight, height }) {
   const [color, setColor] = useState("#fff")
   const dispatch = useDispatch()
 

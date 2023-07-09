@@ -1,10 +1,6 @@
-import {
-  convertHeightToMeters,
-  convertWeightToKilograms,
-  extrairPrimeiraPalavra,
-} from "@/app/helpers";
+import { convertHeightToMeters, convertWeightToKilograms } from "@/app/helpers";
 import { pokemonData } from "@/app/helpers/PokemonTypes";
-import { actOpenCardPokemon } from "@/app/redux/pokemons";
+import { actOpenCardPokemon, getPokemonWeaknesses } from "@/app/redux/pokemons";
 import {
   Barbell,
   Gauge,
@@ -23,6 +19,7 @@ import { useDispatch, useSelector } from "react-redux";
 export default function CardPokemon({ pokemon }) {
   const dispatch = useDispatch();
   const [color, setColor] = useState("#fff");
+  const { Weaknesses } = useSelector((state) => state.pokemons);
 
   function getColorByType(pokemonType) {
     const foundPokemon = pokemonData.find(
@@ -40,6 +37,10 @@ export default function CardPokemon({ pokemon }) {
       const Color = getColorByType(pokemon ? pokemon.types[0].type.name : "");
       setColor(Color);
     }
+  }, [pokemon]);
+
+  useEffect(() => {
+    dispatch(getPokemonWeaknesses(pokemon.name));
   }, [pokemon]);
 
   return (
@@ -151,6 +152,23 @@ export default function CardPokemon({ pokemon }) {
             </Row>
           );
         })}
+        <div className="d-flex gap-2 align-items-center">
+          <span>Fraquezas:</span>
+          <div className="d-flex gap-2">
+            {Weaknesses.map((weak, i) => {
+              return (
+                <img
+                  className="scale-in-center"
+                  key={i}
+                  draggable={false}
+                  width={28}
+                  src={`/types/${weak}.svg`}
+                  alt={weak}
+                />
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );
