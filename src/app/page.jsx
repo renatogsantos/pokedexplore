@@ -161,37 +161,6 @@ export default function Home() {
 
       <Container fluid className="m-0 py-4 bg-black">
         <Container className="py-5">
-          <div className="main-card p-4 mb-5">
-            <Row className="align-items-center">
-              <Col sm className="order-last order-lg-first">
-                <h2>Seja um treinador Pokémon!</h2>
-                <p className="py-4">
-                  Entre na emocionante jornada de se tornar um treinador
-                  Pokémon! Monte seu deck, capture e treine poderosos Pokémon e
-                  embarque em batalhas épicas com seus amigos. Desperte o seu
-                  espírito de aventura e descubra um mundo repleto de desafios e
-                  amizades inesquecíveis. Prepare-se para se tornar um mestre
-                  Pokémon!
-                </p>
-                <ButtonPrimary
-                  type="button"
-                  icon={<Stack size={32} weight="bold" />}
-                  title="Criar meu deck pokémon"
-                  onClick={() => {
-                    alert("Em construção!");
-                  }}
-                />
-              </Col>
-              <Col sm="4" className="p-4">
-                <img
-                  draggable={false}
-                  width="100%"
-                  src="/pokemons/treinador-pk.png"
-                  alt="Treinador pokémon"
-                />
-              </Col>
-            </Row>
-          </div>
           <Row id="Pokemons">
             <Col sm="12" lg="6">
               <span className="d-flex align-items-center gap-2 py-2">
@@ -205,7 +174,7 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => {
-                    dispatch(getPokemons(6));
+                    dispatch(getPokemons(9));
                   }}
                 >
                   <House size={24} weight="duotone" color="#fff" />
