@@ -1,4 +1,8 @@
+import { useEffect, useState } from "react";
+
 export default function StatusBar({ status }) {
+  const [statusBar, setStatusBar] = useState(0);
+
   function statusClass() {
     if (status < 30) {
       return "30";
@@ -12,11 +16,16 @@ export default function StatusBar({ status }) {
       return "";
     }
   }
+
+  useEffect(() => {
+    setStatusBar(status);
+  }, [status]);
+
   return (
     <div className="status-bar-box">
       <div
         className={`status-bar-${statusClass()}`}
-        style={{ width: `${status / 2}%` }}
+        style={{ width: `${statusBar / 2}%` }}
       />
     </div>
   );

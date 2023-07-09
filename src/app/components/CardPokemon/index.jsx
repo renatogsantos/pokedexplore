@@ -72,7 +72,7 @@ export default function CardPokemon({ pokemon }) {
         }
         alt="Pokémon selecionado"
       />
-      <span className="card-pokemon-name">{pokemon.name}</span>
+      <span className="card-pokemon-name py-2">{pokemon.name}</span>
 
       <div className="d-flex aling-items-center justify-content-between w-100 py-2 border-top border-bottom">
         <div className="d-flex flex-column align-items-center justify-content-center w-100 text-center mx-2">

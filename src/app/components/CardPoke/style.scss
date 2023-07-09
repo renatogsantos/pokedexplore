@@ -29,11 +29,13 @@
 .pokemon-name {
   position: relative;
   font-size: 2rem;
+  line-height: 120%;
+  text-align: center;
   text-transform: capitalize;
   &::before {
     position: absolute;
     top: 50%;
-    left: -20px;
+    left: -18px;
     transform: translateY(-50%);
     content: " ";
     height: 12px;
@@ -44,7 +46,7 @@
   &::after {
     position: absolute;
     top: 50%;
-    right: -20px;
+    right: -18px;
     transform: translateY(-50%);
     content: " ";
     height: 12px;

@@ -44,7 +44,7 @@ export default function CardPoke({ id, img, name, types, weight, height }) {
       </div>
 
       <div className="mt-5 d-flex flex-column align-items-center justify-content-center w-100">
-        <span className="pokemon-name">{name}</span>
+        <span className="pokemon-name py-2">{name}</span>
         <div className="d-flex gap-1 py-1">
           {types.map((item, i) => {
             return (
