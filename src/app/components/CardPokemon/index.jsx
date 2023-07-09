@@ -24,6 +24,7 @@ export default function CardPokemon({ pokemon }) {
 
   const [startY, setStartY] = useState(0);
   const [endY, setEndY] = useState(0);
+  const [slideOut, setSlideOut] = useState(false);
 
   function getColorByType(pokemonType) {
     const foundPokemon = pokemonData.find(
@@ -47,7 +48,7 @@ export default function CardPokemon({ pokemon }) {
 
     const handleTouchEnd = () => {
       if (startY > endY) {
-        console.log("Arrasto para cima detectado!");
+        setSlideOut(true)
         setTimeout(() => {
           dispatch(actOpenCardPokemon(false));
         }, 500);
@@ -74,11 +75,12 @@ export default function CardPokemon({ pokemon }) {
 
   useEffect(() => {
     dispatch(getPokemonWeaknesses(pokemon.name));
+    setSlideOut(false)
   }, [pokemon]);
 
   return (
     <div
-      className="card-pokemon slide-in-top p-3 p-lg-5"
+      className={`card-pokemon slide-in-top p-3 p-lg-5 ${slideOut ? "slide-out-top" : ""}`}
       style={{
         backgroundImage: `url('/svgs/half-pokeball.svg'), radial-gradient(80% 80% at 50% bottom, ${
           color + "80"
