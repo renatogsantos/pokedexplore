@@ -88,7 +88,7 @@ export default function Home() {
           </div>
           <Row className="align-items-center">
             <Col sm="12" xl="6" className="py-5 order-last order-lg-first">
-              <h1>Bulbasaur</h1>
+              <h1>Ivysaur</h1>
               <div className="d-flex gap-2 mb-3">
                 <img
                   draggable={false}
@@ -104,15 +104,15 @@ export default function Home() {
                 />
               </div>
               <p className="mb-3">
-                Bulbasaur é um Pokémon do tipo Grama/Veneno. Ele é conhecido por
-                ter uma semente de planta crescendo em suas costas desde o
-                nascimento. Sua planta absorve nutrientes e cresce à medida que
-                evolui. Bulbasaur usa suas habilidades de planta para atacar,
-                como o Vine Whip. É um Pokémon dócil e amigável, mas também pode
-                ser um lutador feroz quando necessário. Sua evolução é muito
-                esperada por treinadores, pois se torna um poderoso Venusaur.
-                Bulbasaur é um parceiro leal e um ótimo começo para qualquer
-                treinador Pokémon.
+                Ivysaur é a evolução do Bulbasaur, um Pokémon do tipo
+                Grama/Veneno. Com sua semente em constante crescimento nas
+                costas, ele utiliza habilidades como Vine Whip para atacar.
+                Ivysaur é conhecido por sua lealdade, determinação e
+                temperamento equilibrado. Sua evolução para Venusaur é aguardada
+                por treinadores, pois se torna ainda mais poderoso. Um parceiro
+                confiável, ideal para aqueles que buscam um Pokémon versátil e
+                capaz de enfrentar diversos desafios com suas habilidades de
+                planta e veneno.
               </p>
               <ButtonPrimary
                 type="button"
@@ -120,7 +120,7 @@ export default function Home() {
                 variant="w-100"
                 icon={<Lightning size={24} weight="duotone" />}
                 onClick={() => {
-                  dispatch(getPokemon("bulbasaur"));
+                  dispatch(getPokemon("ivysaur"));
                 }}
               />
               <div className="d-flex gap-3 py-3">
