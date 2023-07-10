@@ -165,7 +165,7 @@ export default function Home() {
         </Container>
       </Container>
 
-      <Container fluid className="m-0 py-4 bg-black">
+      <Container fluid className="m-0 py-4 bg-forest">
         <Container className="py-5">
           <Row id="Pokemons">
             <Col sm="12" lg="6">
@@ -281,13 +281,6 @@ export default function Home() {
         onClick={() => {
           redirecionarParaDiv();
         }}
-      />
-      <img
-        draggable={false}
-        width="80"
-        src="/pokeball.png"
-        alt=""
-        className="shake-bottom p-4"
       />
     </main>
   );

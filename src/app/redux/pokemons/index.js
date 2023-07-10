@@ -194,6 +194,7 @@ export const addPokemonCard = (pokemon) => {
       });
   };
 }
+
 export const nextPage = (url) => {
   return async (dispatch) => {
     Loading.pulse({

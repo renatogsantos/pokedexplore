@@ -12,10 +12,10 @@ body {
   padding: 0;
   box-sizing: border-box;
   font-family: "Montserrat", sans-serif;
-  background: #000;
-  color: #fff;
   overflow-x: hidden;
   user-select: none;
+  background: #000;
+  color: #fff;
 }
 ::-webkit-scrollbar {
   width: 0;
@@ -31,8 +31,15 @@ body {
 }
 
 .bg-hero {
-  background: url("/svgs/bottom-wave.svg"),
-    linear-gradient(90deg, #a0efff 0%, #003f58 100%);
+  background: url("/svgs/bottom-wave.svg"), url("/svgs/bg-balls.svg"),
+    linear-gradient(45deg, #98ff70 0%, #308719 100%);
+  background-size: 100%;
+  background-position: center bottom, center;
+  background-repeat: no-repeat;
+}
+
+.bg-forest {
+  background-image: url("/svgs/bg-forest.svg");
   background-size: 100%;
   background-position: center bottom;
   background-repeat: no-repeat;
