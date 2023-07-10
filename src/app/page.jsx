@@ -41,6 +41,11 @@ export default function Home() {
 
   const divRef = useRef(null);
 
+  function buscaPokemon(e) {
+    e.preventDefault();
+    dispatch(getPokemon(search.toLowerCase()));
+  }
+
   function redirecionarParaDiv() {
     let div = document.getElementById("Pokemons");
     if (div) {
@@ -73,7 +78,7 @@ export default function Home() {
 
   // useEffect(() => {
   //   console.log(webStore.getData("Pokedex"))
-  // }, []);  
+  // }, []);
 
   return (
     <main>
@@ -210,22 +215,21 @@ export default function Home() {
                 <MagnifyingGlass size={24} weight="duotone" />
                 Encontre seu pokémon:
               </span>
-              <div className="d-flex">
-                <input
-                  className="main-input"
-                  placeholder="Eu escolho você!"
-                  onChange={(e) => {
-                    setSearch(e.target.value);
-                  }}
-                />
-                <ButtonSecondary
-                  type="button"
-                  icon={<MagnifyingGlass size={24} weight="duotone" />}
-                  onClick={() => {
-                    dispatch(getPokemon(search.toLowerCase()));
-                  }}
-                />
-              </div>
+              <form onSubmit={buscaPokemon}>
+                <div className="d-flex">
+                  <input
+                    className="main-input"
+                    placeholder="Eu escolho você!"
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                    }}
+                  />
+                  <ButtonSecondary
+                    type="submit"
+                    icon={<MagnifyingGlass size={24} weight="duotone" />}
+                  />
+                </div>
+              </form>
             </Col>
           </Row>
           <Row className="g-4 py-5">

@@ -1,7 +1,7 @@
 import { webStore } from "@/app/helpers/webStore";
 import { createAction, createReducer } from "@reduxjs/toolkit";
 import axios from "axios";
-import { Loading } from "notiflix";
+import { Loading, Notify } from "notiflix";
 
 //Estado inicial
 const initialState = {
@@ -31,7 +31,12 @@ export const getPokemon = (pokemon) => {
         dispatch(actPokemon(resp.data));
         dispatch(actOpenCardPokemon(true));
       })
-      .catch((error) => console.error(error))
+      .catch((error) => {
+        console.error(error);
+        Notify.failure("Pokémon não encontrado!", {
+          position: "center-bottom",
+        });
+      })
       .finally(() => {
         Loading.remove();
       });
@@ -103,51 +108,71 @@ export const getPokemonWeaknesses = (pokemonName) => {
 
 export const compararPokemons = (pokemon1, pokemon2) => {
   return async (dispatch) => {
-    const getPokemon1Data = axios.get(`https://pokeapi.co/api/v2/pokemon/${pokemon1}`)
-    .then(response => response.data);
+    const getPokemon1Data = axios
+      .get(`https://pokeapi.co/api/v2/pokemon/${pokemon1}`)
+      .then((response) => response.data);
 
-  const getPokemon2Data = axios.get(`https://pokeapi.co/api/v2/pokemon/${pokemon2}`)
-    .then(response => response.data);
+    const getPokemon2Data = axios
+      .get(`https://pokeapi.co/api/v2/pokemon/${pokemon2}`)
+      .then((response) => response.data);
 
-  Promise.all([getPokemon1Data, getPokemon2Data])
-    .then(([pokemon1Data, pokemon2Data]) => {
-      const pokemon1Attack = pokemon1Data.stats.find(stat => stat.stat.name === 'attack').base_stat;
-      const pokemon1Defense = pokemon1Data.stats.find(stat => stat.stat.name === 'defense').base_stat;
-      const pokemon1Abilities = pokemon1Data.abilities.map(ability => ability.ability.name);
+    Promise.all([getPokemon1Data, getPokemon2Data])
+      .then(([pokemon1Data, pokemon2Data]) => {
+        const pokemon1Attack = pokemon1Data.stats.find(
+          (stat) => stat.stat.name === "attack"
+        ).base_stat;
+        const pokemon1Defense = pokemon1Data.stats.find(
+          (stat) => stat.stat.name === "defense"
+        ).base_stat;
+        const pokemon1Abilities = pokemon1Data.abilities.map(
+          (ability) => ability.ability.name
+        );
 
-      const pokemon2Attack = pokemon2Data.stats.find(stat => stat.stat.name === 'attack').base_stat;
-      const pokemon2Defense = pokemon2Data.stats.find(stat => stat.stat.name === 'defense').base_stat;
-      const pokemon2Abilities = pokemon2Data.abilities.map(ability => ability.ability.name);
+        const pokemon2Attack = pokemon2Data.stats.find(
+          (stat) => stat.stat.name === "attack"
+        ).base_stat;
+        const pokemon2Defense = pokemon2Data.stats.find(
+          (stat) => stat.stat.name === "defense"
+        ).base_stat;
+        const pokemon2Abilities = pokemon2Data.abilities.map(
+          (ability) => ability.ability.name
+        );
 
-      console.log(`Atributos de ${pokemon1}: Ataque = ${pokemon1Attack}, Defesa = ${pokemon1Defense}`);
-      console.log(`Atributos de ${pokemon2}: Ataque = ${pokemon2Attack}, Defesa = ${pokemon2Defense}`);
-      console.log(`Habilidades de ${pokemon1}:`, pokemon1Abilities);
-      console.log(`Habilidades de ${pokemon2}:`, pokemon2Abilities);
+        console.log(
+          `Atributos de ${pokemon1}: Ataque = ${pokemon1Attack}, Defesa = ${pokemon1Defense}`
+        );
+        console.log(
+          `Atributos de ${pokemon2}: Ataque = ${pokemon2Attack}, Defesa = ${pokemon2Defense}`
+        );
+        console.log(`Habilidades de ${pokemon1}:`, pokemon1Abilities);
+        console.log(`Habilidades de ${pokemon2}:`, pokemon2Abilities);
 
-      const weaknesses1 = getPokemonWeaknesses(pokemon1);
-      const weaknesses2 = getPokemonWeaknesses(pokemon2);
+        const weaknesses1 = getPokemonWeaknesses(pokemon1);
+        const weaknesses2 = getPokemonWeaknesses(pokemon2);
 
-      Promise.all([weaknesses1, weaknesses2])
-        .then(([weaknesses1, weaknesses2]) => {
-          console.log(`Fraquezas de ${pokemon1}:`, weaknesses1);
-          console.log(`Fraquezas de ${pokemon2}:`, weaknesses2);
+        Promise.all([weaknesses1, weaknesses2])
+          .then(([weaknesses1, weaknesses2]) => {
+            console.log(`Fraquezas de ${pokemon1}:`, weaknesses1);
+            console.log(`Fraquezas de ${pokemon2}:`, weaknesses2);
 
-          const total1 = pokemon1Attack + pokemon1Defense + weaknesses1.length;
-          const total2 = pokemon2Attack + pokemon2Defense + weaknesses2.length;
+            const total1 =
+              pokemon1Attack + pokemon1Defense + weaknesses1.length;
+            const total2 =
+              pokemon2Attack + pokemon2Defense + weaknesses2.length;
 
-          const vencedor = total1 > total2 ? pokemon1 : pokemon2;
-          console.log(`O vencedor é ${vencedor}!`);
-          return vencedor;
-        })
-        .catch(error => {
-          console.error(error);
-          // Em caso de erro, você pode lidar com ele adequadamente
-        });
-    })
-    .catch(error => {
-      console.error(error);
-      // Em caso de erro, você pode lidar com ele adequadamente
-    });
+            const vencedor = total1 > total2 ? pokemon1 : pokemon2;
+            console.log(`O vencedor é ${vencedor}!`);
+            return vencedor;
+          })
+          .catch((error) => {
+            console.error(error);
+            // Em caso de erro, você pode lidar com ele adequadamente
+          });
+      })
+      .catch((error) => {
+        console.error(error);
+        // Em caso de erro, você pode lidar com ele adequadamente
+      });
   };
 };
 
@@ -186,14 +211,14 @@ export const addPokemonCard = (pokemon) => {
       .then((resp) => {
         dispatch(actPokemon(resp.data));
         dispatch(actOpenCardPokemon(true));
-        webStore.saveData("Pokedex", resp.data)
+        webStore.saveData("Pokedex", resp.data);
       })
       .catch((error) => console.error(error))
       .finally(() => {
         Loading.remove();
       });
   };
-}
+};
 
 export const nextPage = (url) => {
   return async (dispatch) => {
