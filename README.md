@@ -1,6 +1,7 @@
 # PokedExplorer
 
 ![PokedExplorer Logo](/public/pokedexplore.svg)
+![PokédExplore](https://github.com/renatogsantos/pokedexplore/assets/39703265/cc0e09ff-3a78-446a-b925-056e0a2ad358)
 
 Bem-vindo ao PokedExplore! Este é um projeto pessoal de construção de um site que permite explorar os diversos pokemons disponíveis na API pokeapi.co.
 
