@@ -281,7 +281,7 @@ export default function Home() {
       <ButtonPrimary
         type="button"
         icon={<CaretUp size={24} weight="bold" />}
-        variant={`button-back-top ${isScrolled ? "slide-top" : "d-none"}`}
+        variant={`button-back-top ${isScrolled ? "slide-in-top" : "d-none"}`}
         onClick={() => {
           redirecionarParaDiv();
         }}
