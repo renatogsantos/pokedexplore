@@ -13,6 +13,20 @@ export default function RootLayout({ children }) {
           name="keywords"
           content="PokedExplorer, Pokémon, exploration, game, creatures"
         />
+        <script
+          async
+          src="https://www.googletagmanager.com/gtag/js?id=G-XVZ0MJV2J3"
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', 'G-XVZ0MJV2J3');
+            `,
+          }}
+        />
         <title>PokédExplorer</title>
       </head>
       <Provider store={store}>
