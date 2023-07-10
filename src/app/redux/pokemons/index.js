@@ -1,3 +1,4 @@
+import { webStore } from "@/app/helpers/webStore";
 import { createAction, createReducer } from "@reduxjs/toolkit";
 import axios from "axios";
 import { Loading } from "notiflix";
@@ -178,6 +179,21 @@ export const getPokemons = (units) => {
   };
 };
 
+export const addPokemonCard = (pokemon) => {
+  return async (dispatch) => {
+    axios
+      .get(`https://pokeapi.co/api/v2/pokemon/${pokemon}`)
+      .then((resp) => {
+        dispatch(actPokemon(resp.data));
+        dispatch(actOpenCardPokemon(true));
+        webStore.saveData("Pokedex", resp.data)
+      })
+      .catch((error) => console.error(error))
+      .finally(() => {
+        Loading.remove();
+      });
+  };
+}
 export const nextPage = (url) => {
   return async (dispatch) => {
     Loading.pulse({

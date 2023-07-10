@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Col, Container, Row } from "react-bootstrap";
 import { useDispatch, useSelector } from "react-redux";
 import {
+  addPokemonCard,
   getPokemon,
   getPokemons,
   getTypesPokemons,
@@ -29,6 +30,7 @@ import { pokemonData } from "./helpers/PokemonTypes";
 import ButtonSecondary from "./components/ButtonSecondary";
 import Link from "next/link";
 import CardPokemon from "./components/CardPokemon";
+import { webStore } from "./helpers/webStore";
 
 export default function Home() {
   const [search, setSearch] = useState("bulbasaur");
@@ -68,6 +70,10 @@ export default function Home() {
   useEffect(() => {
     dispatch(getPokemons(9));
   }, []);
+
+  // useEffect(() => {
+  //   console.log(webStore.getData("Pokedex"))
+  // }, []);  
 
   return (
     <main>

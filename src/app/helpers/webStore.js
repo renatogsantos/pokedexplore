@@ -1,7 +1,9 @@
-const webStore = {
+export const webStore = {
   saveData(key, data) {
     try {
-      const serializedData = JSON.stringify(data);
+      const existingData = JSON.parse(localStorage.getItem(key)) || [];
+      existingData.push(data);
+      const serializedData = JSON.stringify(existingData);
       localStorage.setItem(key, serializedData);
       return true;
     } catch (error) {
@@ -43,5 +45,3 @@ const webStore = {
     }
   },
 };
-
-export default webStore;
