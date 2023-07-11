@@ -12,6 +12,8 @@ export default function StatusBar({ status }) {
       return "100";
     } else if (status >= 120 && status < 200) {
       return "140";
+    } else if (status >= 180 && status < 300) {
+      return "200";
     } else {
       return "";
     }

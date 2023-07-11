@@ -9,6 +9,14 @@
   padding: 2px;
 }
 
+.status-bar-200 {
+  border-radius: 60px;
+  background: #24ff00;
+  box-shadow: 0px 0px 10px 5px #24ff00;
+  height: 100%;
+  transition: 1s cubic-bezier(0.65,-0.02, 0.25, 1.36);
+}
+
 .status-bar-140 {
   border-radius: 60px;
   background: #24ff00;
@@ -19,14 +27,14 @@
 
 .status-bar-100 {
   border-radius: 60px;
-  background: #24ff00;
+  background: #00ff55;
   height: 100%;
   transition: 1s cubic-bezier(0.65,-0.02, 0.25, 1.36);
 }
 
 .status-bar-40 {
   border-radius: 60px;
-  background: #FFDE00;
+  background: #ffae00;
   height: 100%;
   transition: 1s cubic-bezier(0.65,-0.02, 0.25, 1.36);
 }
