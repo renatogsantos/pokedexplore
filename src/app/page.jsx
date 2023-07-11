@@ -10,9 +10,9 @@ import {
   getTypesPokemons,
   nextPage,
   previousPage,
-} from "./redux/pokemons";
-import CardPoke from "./components/CardPoke";
-import ButtonPrimary from "./components/ButtonPrimary";
+} from "../redux/pokemons";
+import CardPoke from "../components/CardPoke";
+import ButtonPrimary from "../components/ButtonPrimary";
 import {
   ArrowCircleLeft,
   ArrowCircleRight,
@@ -26,11 +26,11 @@ import {
   Stack,
   WhatsappLogo,
 } from "@phosphor-icons/react";
-import { pokemonData } from "./helpers/PokemonTypes";
-import ButtonSecondary from "./components/ButtonSecondary";
+import { pokemonData } from "../helpers/PokemonTypes";
+import ButtonSecondary from "../components/ButtonSecondary";
 import Link from "next/link";
-import CardPokemon from "./components/CardPokemon";
-import { webStore } from "./helpers/webStore";
+import CardPokemon from "../components/CardPokemon";
+import { webStore } from "../helpers/webStore";
 
 export default function Home() {
   const [search, setSearch] = useState("bulbasaur");

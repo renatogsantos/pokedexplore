@@ -1,4 +1,4 @@
-import { webStore } from "@/app/helpers/webStore";
+import { webStore } from "@/helpers/webStore";
 import { createAction, createReducer } from "@reduxjs/toolkit";
 import axios from "axios";
 import { Loading, Notify } from "notiflix";

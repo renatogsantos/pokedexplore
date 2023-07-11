@@ -1,6 +1,3 @@
-import { convertHeightToMeters, convertWeightToKilograms } from "@/app/helpers";
-import { pokemonData } from "@/app/helpers/PokemonTypes";
-import { actOpenCardPokemon, getPokemonWeaknesses } from "@/app/redux/pokemons";
 import {
   Barbell,
   Gauge,
@@ -16,6 +13,9 @@ import { useEffect, useState } from "react";
 import { Col, Row } from "react-bootstrap";
 import { useDispatch, useSelector } from "react-redux";
 import StatusBar from "../StatusBar";
+import { actOpenCardPokemon, getPokemonWeaknesses } from "@/redux/pokemons";
+import { convertHeightToMeters, convertWeightToKilograms } from "@/helpers";
+import { pokemonData } from "@/helpers/PokemonTypes";
 
 export default function CardPokemon({ pokemon }) {
   const dispatch = useDispatch();

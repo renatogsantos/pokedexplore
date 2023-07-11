@@ -1,10 +1,10 @@
-import { convertHeightToMeters, convertWeightToKilograms } from "@/app/helpers";
-import { pokemonData } from "@/app/helpers/PokemonTypes";
+import { convertHeightToMeters, convertWeightToKilograms } from "@/helpers";
+import { pokemonData } from "@/helpers/PokemonTypes";
 import { Barbell, Lightning, Ruler } from "@phosphor-icons/react";
 import ButtonPrimary from "../ButtonPrimary";
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
-import { getPokemon } from "@/app/redux/pokemons";
+import { getPokemon } from "@/redux/pokemons";
 
 export default function CardPoke({ id, img, name, types, weight, height }) {
   const [color, setColor] = useState("#fff")
