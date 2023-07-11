@@ -28,17 +28,17 @@ import {
 } from "@phosphor-icons/react";
 import { pokemonData } from "../helpers/PokemonTypes";
 import ButtonSecondary from "../components/ButtonSecondary";
-import Link from "next/link";
 import CardPokemon from "../components/CardPokemon";
+import HomePokemon from "@/components/HomePokemon";
 import { webStore } from "../helpers/webStore";
 
 export default function Home() {
-  const [search, setSearch] = useState("bulbasaur");
   const dispatch = useDispatch();
   const [isScrolled, setIsScrolled] = useState(false);
+  const [namePokemonHome, setNamePokemonHome] = useState("ivysaur");
+  const [search, setSearch] = useState(namePokemonHome);
   const { Pokemons, Pokemon, NextPage, PreviousPage, OpenCardPokemon } =
     useSelector((state) => state.pokemons);
-
   const divRef = useRef(null);
 
   function buscaPokemon(e) {
@@ -87,91 +87,10 @@ export default function Home() {
           <CardPokemon pokemon={Pokemon} />
         </div>
       )}
-      <Container fluid className="bg-hero pb-5 mb-5">
-        <Container className="py-5">
-          <div className="d-flex align-items-center justify-content-center">
-            <img
-              draggable={false}
-              width="300"
-              src="/pokedexplore.svg"
-              alt="PokédExplore"
-            />
-          </div>
-          <Row className="align-items-center">
-            <Col sm="12" xl="6" className="py-5 order-last order-lg-first">
-              <h1>Ivysaur</h1>
-              <div className="d-flex gap-2 mb-3">
-                <img
-                  draggable={false}
-                  width={40}
-                  src="/types/grass.svg"
-                  alt="Grass"
-                />
-                <img
-                  draggable={false}
-                  width={40}
-                  src="/types/poison.svg"
-                  alt="Poison"
-                />
-              </div>
-              <p className="mb-3">
-                Ivysaur é a evolução do Bulbasaur, um Pokémon do tipo
-                Grama/Veneno. Com sua semente em constante crescimento nas
-                costas, ele utiliza habilidades como Vine Whip para atacar.
-                Ivysaur é conhecido por sua lealdade, determinação e
-                temperamento equilibrado. Sua evolução para Venusaur é aguardada
-                por treinadores, pois se torna ainda mais poderoso. Um parceiro
-                confiável, ideal para aqueles que buscam um Pokémon versátil e
-                capaz de enfrentar diversos desafios com suas habilidades de
-                planta e veneno.
-              </p>
-              <ButtonPrimary
-                type="button"
-                title="Mais detalhes"
-                variant="w-100"
-                icon={<Lightning size={24} weight="duotone" />}
-                onClick={() => {
-                  dispatch(getPokemon("ivysaur"));
-                }}
-              />
-              <div className="d-flex gap-3 py-3">
-                <Link
-                  href="https://github.com/renatogsantos/pokedexplore"
-                  target="_blank"
-                  className="text-light"
-                >
-                  <GithubLogo size={32} weight="duotone" />
-                </Link>
-                <Link
-                  href="https://www.linkedin.com/in/renato-g-santos/"
-                  target="_blank"
-                  className="text-light"
-                >
-                  <LinkedinLogo size={32} weight="duotone" />
-                </Link>
-                <Link
-                  href="https://api.whatsapp.com/send?phone=5511911882402&text=Ol%C3%A1%20Renato,%20pode%20me%20ajudar?"
-                  target="_blank"
-                  className="text-light"
-                >
-                  <WhatsappLogo size={32} weight="duotone" />
-                </Link>
-              </div>
-            </Col>
-            <Col sm="12" xl="6">
-              <img
-                draggable={false}
-                width="100%"
-                src="/pokemons/bulbasaur-image.png"
-                alt="Pokemon Bulbasaur"
-              />
-            </Col>
-          </Row>
-        </Container>
-      </Container>
+      <HomePokemon name={namePokemonHome} />
 
       <Container fluid className="m-0 py-4 bg-forest">
-        <Container className="py-5">
+        <Container className="py-5 text-light">
           <Row id="Pokemons">
             <Col sm="12" lg="6">
               <span className="d-flex align-items-center gap-2 py-2">

@@ -15,6 +15,6 @@ export function extrairPrimeiraPalavra(string, separador) {
 }
 
 
-export function gerarNumeroAleatorio() {
-  return Math.floor(Math.random() * 1000) + 1;
+export function gerarNumeroAleatorio(num) {
+  return Math.floor(Math.random() * num) + 1;
 }
