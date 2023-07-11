@@ -29,7 +29,14 @@
   min-width: 375px;
   @media screen and (max-width: 1024px) {
     width: 95%;
-    height: 95%;
+    height: fit-content;
+  }
+}
+
+.card-pokemon-img{
+  width: 220px;
+  @media screen and (max-width: 1224px) {
+    width: 160px;
   }
 }
 

@@ -48,7 +48,7 @@ export default function CardPokemon({ pokemon }) {
 
     const handleTouchEnd = () => {
       if (startY > endY) {
-        setSlideOut(true)
+        setSlideOut(true);
         setTimeout(() => {
           dispatch(actOpenCardPokemon(false));
         }, 500);
@@ -75,12 +75,14 @@ export default function CardPokemon({ pokemon }) {
 
   useEffect(() => {
     dispatch(getPokemonWeaknesses(pokemon.name));
-    setSlideOut(false)
+    setSlideOut(false);
   }, [pokemon]);
 
   return (
     <div
-      className={`card-pokemon slide-in-top p-3 p-lg-5 ${slideOut ? "slide-out-top" : ""}`}
+      className={`card-pokemon slide-in-top p-3 p-lg-5 ${
+        slideOut ? "slide-out-top" : ""
+      }`}
       style={{
         backgroundImage: `url('/svgs/half-pokeball.svg'), radial-gradient(80% 80% at 50% bottom, ${
           color + "80"
@@ -98,7 +100,7 @@ export default function CardPokemon({ pokemon }) {
       </button>
       <img
         draggable={false}
-        width="280"
+        className="card-pokemon-img"
         src={
           pokemon.sprites?.other.home.front_default
             ? pokemon.sprites?.other.home.front_default
