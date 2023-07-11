@@ -70,7 +70,7 @@ export default function CardPoke({ id, img, name, types, weight, height }) {
             </p>
           </div>
           <div className="d-flex flex-column align-items-center justify-content-center w-100">
-            <span className="pokemon-stats mx-4">
+            <span className="pokemon-stats">
               {convertWeightToKilograms(weight)} Kg
             </span>
             <p className="d-flex align-items-center m-0">

@@ -57,7 +57,7 @@
 }
 
 .pokemon-stats {
-  font-size: 1.5rem;
+  font-size: clamp(1rem, 5vw, 1.5rem);
   font-style: normal;
   font-weight: 700;
   line-height: normal;
