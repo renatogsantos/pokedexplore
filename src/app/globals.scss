@@ -1,4 +1,5 @@
 @import "~bootstrap/scss/bootstrap";
+@import "react-alice-carousel/lib/scss/alice-carousel.scss";
 @import url("https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,500;0,600;0,700;0,800;0,900;1,300;1,500;1,700;1,800;1,900&display=swap");
 @import "/src/components/ButtonPrimary/style.scss";
 @import "/src/components/ButtonSecondary/style.scss";
@@ -60,6 +61,12 @@ p {
   margin: 0;
 }
 
+.button-types {
+  background: none;
+  border: none;
+  width: fit-content;
+}
+
 .main-card {
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.2);
@@ -73,8 +80,7 @@ p {
   align-items: center;
   gap: 5px;
   height: 50px;
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: hidden;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: rgba(6, 11, 21, 0.8);
@@ -104,7 +110,7 @@ p {
   }
 }
 
-.notiflix-block{
+.notiflix-block {
   border-radius: 42px !important;
   backdrop-filter: blur(15px);
   border: 1px solid #ffffff20;

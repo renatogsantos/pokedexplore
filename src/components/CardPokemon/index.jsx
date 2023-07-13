@@ -37,6 +37,10 @@ export default function CardPokemon({ pokemon }) {
     }
   }
 
+  const handleClosePropagation = (e) => {
+    e.stopPropagation();
+  };
+
   useEffect(() => {
     const handleTouchStart = (event) => {
       setStartY(event.touches[0].clientY);
@@ -80,6 +84,7 @@ export default function CardPokemon({ pokemon }) {
 
   return (
     <div
+      onClick={handleClosePropagation}
       className={`card-pokemon slide-in-top p-3 p-lg-5 ${
         slideOut ? "slide-out-top" : ""
       }`}

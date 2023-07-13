@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Col, Container, Row } from "react-bootstrap";
 import { useDispatch, useSelector } from "react-redux";
 import {
+  actOpenCardPokemon,
   addPokemonCard,
   getPokemon,
   getPokemons,
@@ -33,6 +34,7 @@ import HomePokemon from "@/components/HomePokemon";
 import { webStore } from "../helpers/webStore";
 import { pokemonHome } from "@/helpers/PokemonHome";
 import { gerarNumeroAleatorio, scrollTo } from "@/helpers";
+import AliceCarousel from "react-alice-carousel";
 
 export default function Home() {
   const dispatch = useDispatch();
@@ -42,6 +44,10 @@ export default function Home() {
   const { Pokemons, Pokemon, NextPage, PreviousPage, OpenCardPokemon } =
     useSelector((state) => state.pokemons);
   const divRef = useRef(null);
+
+  const handleDragStart = (e) => {
+    e.preventDefault();
+  };
 
   function getPokeHome() {
     let pokemon = pokemonHome.find((el) => el.name == Pokemon?.name);
@@ -88,7 +94,12 @@ export default function Home() {
   return (
     <main>
       {OpenCardPokemon && (
-        <div className="card-pokemon-box">
+        <div
+          className="card-pokemon-box"
+          onClick={() => {
+            dispatch(actOpenCardPokemon(false));
+          }}
+        >
           <CardPokemon pokemon={Pokemon} />
         </div>
       )}
@@ -101,11 +112,7 @@ export default function Home() {
               <span className="d-flex align-items-center gap-2 py-2">
                 <Clipboard size={24} weight="duotone" /> Busque por tipo:
               </span>
-              <div
-                ref={divRef}
-                className="main-card-scroll-x p-2"
-                title="Pressione ALT para scrollar"
-              >
+              <div ref={divRef} className="main-card-scroll-x p-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -114,24 +121,40 @@ export default function Home() {
                 >
                   <House size={24} weight="duotone" color="#fff" />
                 </button>
-                {pokemonData.map((type) => {
-                  return (
-                    <button
-                      key={type.type}
-                      type="button"
-                      onClick={() => {
-                        dispatch(getTypesPokemons(type.type));
-                      }}
-                    >
-                      <img
-                        draggable={false}
-                        width={30}
-                        src={`/types/${type.type}.svg`}
-                        alt={type.type}
-                      />
-                    </button>
-                  );
-                })}
+                <AliceCarousel
+                  mouseTracking={true}
+                  autoWidth={true}
+                  autoPlay={true}
+                  autoPlayInterval={1500}
+                  infinite={true}
+                  disableButtonsControls={true}
+                  disableDotsControls={true}
+                  keyboardNavigation={true}
+                  items={pokemonData.map((type) => {
+                    return (
+                      <div className="button-types px-1">
+                        <button
+                          draggable={false}
+                          onDragStart={handleDragStart}
+                          title={type.type}
+                          key={type.type}
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            dispatch(getTypesPokemons(type.type));
+                          }}
+                        >
+                          <img
+                            draggable={false}
+                            width={30}
+                            src={`/types/${type.type}.svg`}
+                            alt={type.type}
+                          />
+                        </button>
+                      </div>
+                    );
+                  })}
+                />
               </div>
             </Col>
             <Col>
@@ -142,6 +165,7 @@ export default function Home() {
               <form onSubmit={buscaPokemon}>
                 <div className="d-flex">
                   <input
+                  type="search"
                     className="main-input"
                     placeholder="Eu escolho você!"
                     onChange={(e) => {
