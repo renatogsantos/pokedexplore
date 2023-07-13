@@ -31,6 +31,8 @@ import ButtonSecondary from "../components/ButtonSecondary";
 import CardPokemon from "../components/CardPokemon";
 import HomePokemon from "@/components/HomePokemon";
 import { webStore } from "../helpers/webStore";
+import { pokemonHome } from "@/helpers/PokemonHome";
+import { gerarNumeroAleatorio } from "@/helpers";
 
 export default function Home() {
   const dispatch = useDispatch();
@@ -161,9 +163,9 @@ export default function Home() {
                   lg="4"
                   className="mt-5 pt-5"
                 >
-                  <div>
+                  <div className="loading-block">
                     <CardPoke
-                      id={""}
+                      id={pokemon.name}
                       name={pokemon.name}
                       img={pokemon.sprites.other.home.front_default}
                       types={pokemon.types}

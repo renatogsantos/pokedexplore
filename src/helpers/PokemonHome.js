@@ -71,4 +71,12 @@ export const pokemonHome = [
     description:
       "Greninja, o elegante Pokémon Ninja do tipo Água/Noturno, desliza nas sombras com agilidade impressionante. Com sua aparência furtiva e olhos penetrantes, Greninja exala mistério e determinação. Ele é um mestre nas artes marciais e possui uma velocidade incomparável, capaz de superar seus adversários em um piscar de olhos. Além de suas habilidades físicas formidáveis, Greninja possui uma conexão profunda com a água, permitindo-lhe criar lâminas de água afiadas para ataques letais. Seu comportamento calmo e focado esconde um espírito de equipe excepcional, sempre disposto a proteger e apoiar seus companheiros. Greninja é um Pokémon altamente inteligente e estratégico, pronto para enfrentar qualquer desafio com astúcia e maestria.",
   },
+  {
+    id: 10,
+    name: "lugia",
+    img: "/pokemons/lugia.png",
+    types: ["water", "dark"],
+    description:
+      "Lugia, o poderoso Pokémon Lendário do tipo Psíquico/Voador, personifica a majestade e a serenidade dos céus. Com suas imponentes asas prateadas e olhos penetrantes, Lugia irradia uma aura de tranquilidade e sabedoria. Sua presença é imponente, capaz de acalmar tempestades e acalmar corações inquietos. Dotado de uma força formidável, Lugia é conhecido por suas habilidades psíquicas poderosas, que o permitem controlar as correntes de ar e criar ondas de energia devastadoras. No entanto, apesar de sua imponência, Lugia é um guardião benevolente, sempre dedicado a proteger os mares e aqueles que estão em perigo. Sua natureza pacífica e sábia faz dele um símbolo de esperança e equilíbrio. Aqueles que são abençoados com a presença de Lugia são privilegiados por testemunhar a grandiosidade de um verdadeiro guardião dos céus.",
+  },
 ];

@@ -1,7 +1,7 @@
 import { webStore } from "@/helpers/webStore";
 import { createAction, createReducer } from "@reduxjs/toolkit";
 import axios from "axios";
-import { Loading, Notify } from "notiflix";
+import { Block, Loading, Notify } from "notiflix";
 
 //Estado inicial
 const initialState = {
@@ -34,7 +34,7 @@ export const getPokemon = (pokemon) => {
       .catch((error) => {
         console.error(error);
         Notify.failure("Pokémon não encontrado!", {
-          position: "center-bottom",
+          position: "center-top",
         });
       })
       .finally(() => {
@@ -222,9 +222,13 @@ export const addPokemonCard = (pokemon) => {
 
 export const nextPage = (url) => {
   return async (dispatch) => {
-    Loading.pulse({
+    Block.pulse(".loading-block", "Capturando pokémon...", {
+      backgroundColor: "rgba(0,0,0,0.8)",
+      className: "notiflix-block",
+      borderRadius: "42px",
       svgSize: "120px",
       svgColor: "#fff",
+      messageColor: "#fff",
     });
     axios
       .get(url)
@@ -243,7 +247,7 @@ export const nextPage = (url) => {
       })
       .catch((error) => console.error(error))
       .finally(() => {
-        Loading.remove();
+        Block.remove('.loading-block', 500);
       });
   };
 };
