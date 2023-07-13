@@ -78,6 +78,16 @@ export default function Home() {
     dispatch(getPokemons(9));
   }, []);
 
+  function getPokeHome() {
+    let pokemon = pokemonHome.find((el) => el.name == Pokemon?.name);
+
+    if (pokemon) setNamePokemonHome(pokemon.name);
+  }
+
+  useEffect(() => {
+    getPokeHome();
+  }, [Pokemon]);
+
   // useEffect(() => {
   //   console.log(webStore.getData("Pokedex"))
   // }, []);
