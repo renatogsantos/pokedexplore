@@ -18,7 +18,7 @@ export default function HomePokemon({ name }) {
   const Pokemon = pokemonHome.find((el) => el.name == name);
 
   return (
-    <Container fluid className={`bg-${Pokemon.name} pb-5 mb-5`}>
+    <Container id="Home" fluid className={`bg-${Pokemon.name} pb-5 mb-5`}>
       <Container className="py-5">
         <div className="d-flex align-items-center justify-content-center">
           <img

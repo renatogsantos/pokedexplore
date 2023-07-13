@@ -32,7 +32,7 @@ import CardPokemon from "../components/CardPokemon";
 import HomePokemon from "@/components/HomePokemon";
 import { webStore } from "../helpers/webStore";
 import { pokemonHome } from "@/helpers/PokemonHome";
-import { gerarNumeroAleatorio } from "@/helpers";
+import { gerarNumeroAleatorio, scrollTo } from "@/helpers";
 
 export default function Home() {
   const dispatch = useDispatch();
@@ -43,18 +43,17 @@ export default function Home() {
     useSelector((state) => state.pokemons);
   const divRef = useRef(null);
 
+  function getPokeHome() {
+    let pokemon = pokemonHome.find((el) => el.name == Pokemon?.name);
+    if (pokemon) {
+      setNamePokemonHome(pokemon.name);
+      scrollTo("Home");
+    }
+  }
+
   function buscaPokemon(e) {
     e.preventDefault();
     dispatch(getPokemon(search.toLowerCase()));
-  }
-
-  function redirecionarParaDiv() {
-    let div = document.getElementById("Pokemons");
-    if (div) {
-      setTimeout(() => {
-        div.scrollIntoView();
-      }, 500);
-    }
   }
 
   useEffect(() => {
@@ -77,12 +76,6 @@ export default function Home() {
   useEffect(() => {
     dispatch(getPokemons(9));
   }, []);
-
-  function getPokeHome() {
-    let pokemon = pokemonHome.find((el) => el.name == Pokemon?.name);
-
-    if (pokemon) setNamePokemonHome(pokemon.name);
-  }
 
   useEffect(() => {
     getPokeHome();
@@ -194,7 +187,7 @@ export default function Home() {
               icon={<ArrowCircleLeft size={24} weight="duotone" />}
               onClick={() => {
                 dispatch(previousPage(PreviousPage));
-                redirecionarParaDiv();
+                scrollTo("Pokemons");
               }}
             />
             <ButtonPrimary
@@ -203,7 +196,7 @@ export default function Home() {
               icon={<ArrowCircleRight size={24} weight="duotone" />}
               onClick={() => {
                 dispatch(nextPage(NextPage));
-                redirecionarParaDiv();
+                scrollTo("Pokemons");
               }}
             />
           </div>
@@ -214,7 +207,7 @@ export default function Home() {
         icon={<CaretUp size={24} weight="bold" />}
         variant={`button-back-top ${isScrolled ? "slide-in-top" : "d-none"}`}
         onClick={() => {
-          redirecionarParaDiv();
+          scrollTo("Pokemons");
         }}
       />
     </main>

@@ -18,3 +18,13 @@ export function extrairPrimeiraPalavra(string, separador) {
 export function gerarNumeroAleatorio(num) {
   return Math.floor(Math.random() * num) + 1;
 }
+
+
+export function scrollTo(id) {
+  let div = document.getElementById(id);
+  if (div) {
+    setTimeout(() => {
+      div.scrollIntoView();
+    }, 500);
+  }
+}
