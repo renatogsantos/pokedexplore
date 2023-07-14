@@ -35,6 +35,7 @@ import { webStore } from "../helpers/webStore";
 import { pokemonHome } from "@/helpers/PokemonHome";
 import { gerarNumeroAleatorio, scrollTo } from "@/helpers";
 import AliceCarousel from "react-alice-carousel";
+import ShareButtons from "@/components/ShareButtons";
 
 export default function Home() {
   const dispatch = useDispatch();
@@ -107,6 +108,7 @@ export default function Home() {
 
       <Container fluid className="m-0 py-4 bg-forest">
         <Container className="py-5 text-light">
+          <ShareButtons />
           <Row id="Pokemons">
             <Col sm="12" lg="6">
               <span className="d-flex align-items-center gap-2 py-2">

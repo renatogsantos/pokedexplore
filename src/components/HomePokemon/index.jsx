@@ -30,7 +30,7 @@ export default function HomePokemon({ name }) {
         </div>
         <Row className="align-items-center">
           <Col sm="12" xl="6" className="py-5 order-last order-lg-first">
-            <h1>{Pokemon.name}</h1>
+            <h1 value="PokédExplore">{Pokemon.name}</h1>
             <div className="d-flex gap-2 mb-3 fade-in-top">
               {Pokemon.types.map((type) => {
                 return (

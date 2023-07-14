@@ -13,6 +13,10 @@ export default function RootLayout({ children }) {
           name="keywords"
           content="PokedExplorer, Pokémon, exploration, game, creatures"
         />
+        <meta
+          property="og:image"
+          content="/share-img.png"
+        ></meta>
         <script
           async
           src="https://www.googletagmanager.com/gtag/js?id=G-XVZ0MJV2J3"

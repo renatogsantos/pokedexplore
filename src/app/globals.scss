@@ -67,6 +67,22 @@ p {
   width: fit-content;
 }
 
+.button-share-box {
+  position: fixed;
+  bottom: 6px;
+  left: 6px;
+  background: #00000050;
+  backdrop-filter: blur(15px);
+  border-radius: 100px;
+  padding: 6px;
+  z-index: 1000;
+}
+.button-share {
+  background: none;
+  border: none;
+  color: #fff;
+}
+
 .main-card {
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.2);
