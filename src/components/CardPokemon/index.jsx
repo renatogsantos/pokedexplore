@@ -16,7 +16,6 @@ import StatusBar from "../StatusBar";
 import { actOpenCardPokemon, getPokemonWeaknesses } from "@/redux/pokemons";
 import { convertHeightToMeters, convertWeightToKilograms } from "@/helpers";
 import { pokemonData } from "@/helpers/PokemonTypes";
-import Tilt from "react-parallax-tilt";
 
 export default function CardPokemon({ pokemon }) {
   const dispatch = useDispatch();

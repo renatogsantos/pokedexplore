@@ -19,7 +19,6 @@
     "react-alice-carousel": "^2.7.1",
     "react-bootstrap": "^2.8.0",
     "react-dom": "18.2.0",
-    "react-parallax-tilt": "^1.7.153",
     "react-redux": "^8.1.1",
     "sass": "^1.63.6"
   }
