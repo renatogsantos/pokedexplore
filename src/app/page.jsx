@@ -33,7 +33,7 @@ import CardPokemon from "../components/CardPokemon";
 import HomePokemon from "@/components/HomePokemon";
 import { webStore } from "../helpers/webStore";
 import { pokemonHome } from "@/helpers/PokemonHome";
-import { scrollTo } from "@/helpers";
+import { gerarNumeroAleatorio, scrollTo } from "@/helpers";
 import AliceCarousel from "react-alice-carousel";
 import CardAddPokemon from "@/components/CardAddPokemon";
 import CardPokedex from "@/components/CardPokedex";
@@ -98,10 +98,11 @@ export default function Home() {
   }, [Pokemon]);
 
   useEffect(() => {
+    const num = gerarNumeroAleatorio(60000)
     setTimeout(() => {
       setPokeball(true);
-    }, 15000);
-  }, []);
+    }, num);
+  }, [NextPage, PreviousPage]);
 
   useEffect(() => {
     OpenCardPokedex == false && setPokeball(false);
