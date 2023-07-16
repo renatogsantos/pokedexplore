@@ -61,7 +61,7 @@ export default function CardAddPokemon({ pokemon }) {
       if (startY > endY) {
         setSlideOut(true);
         setTimeout(() => {
-          dispatch(actOpenCardPokemon(false));
+          dispatch(actOpenCardPokedex(false));
         }, 500);
       }
     };
