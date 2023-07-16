@@ -1,3 +1,4 @@
+import { gerarNumeroAleatorio } from "@/helpers";
 import { webStore } from "@/helpers/webStore";
 import { createAction, createReducer } from "@reduxjs/toolkit";
 import axios from "axios";
@@ -11,6 +12,7 @@ const initialState = {
   NextPage: "",
   PreviousPage: "",
   OpenCardPokemon: false,
+  OpenCardPokedex: false,
 };
 
 //actions
@@ -19,8 +21,8 @@ export const actPokemon = createAction("POKEMON");
 export const actNextPage = createAction("NEXT_PAGE");
 export const actPreviousPage = createAction("PREVIOUS_PAGE");
 export const actWeaknesses = createAction("WEAKNESSES");
-
 export const actOpenCardPokemon = createAction("OPEN_CARD_POKEMON");
+export const actOpenCardPokedex = createAction("OPEN_CARD_POKEDEX");
 
 //apis
 export const getPokemon = (pokemon) => {
@@ -37,6 +39,55 @@ export const getPokemon = (pokemon) => {
           position: "center-top",
         });
       })
+      .finally(() => {
+        Loading.remove();
+      });
+  };
+};
+
+export const getPokemonToPokedex = () => {
+  return async (dispatch) => {
+    const number = gerarNumeroAleatorio(1000);
+    axios
+      .get(`https://pokeapi.co/api/v2/pokemon/${number}`)
+      .then((resp) => {
+        dispatch(actPokemon(resp.data));
+        dispatch(actOpenCardPokedex(true));
+      })
+      .catch((error) => {
+        console.error(error);
+        Notify.failure("Pokémon não encontrado!", {
+          position: "center-top",
+        });
+      })
+      .finally(() => {
+        Loading.remove();
+      });
+  };
+};
+
+export const getPokemons = (units) => {
+  return async (dispatch) => {
+    Loading.pulse({
+      svgSize: "120px",
+      svgColor: "#fff",
+    });
+    axios
+      .get(`https://pokeapi.co/api/v2/pokemon/?offset=0&limit=${units}`)
+      .then(async (response) => {
+        let endpoints = response.data.results.map((pokemon) => pokemon.url);
+        let pokemonData = await axios.all(
+          endpoints.map((url) => axios.get(url).then((resp) => resp.data))
+        );
+        let pokemons = pokemonData.map((data) => {
+          return { ...data };
+        });
+
+        dispatch(actPokemons(pokemons));
+        dispatch(actNextPage(response.data.next));
+        dispatch(actPreviousPage(response.data.previous));
+      })
+      .catch((error) => console.error(error))
       .finally(() => {
         Loading.remove();
       });
@@ -176,42 +227,17 @@ export const compararPokemons = (pokemon1, pokemon2) => {
   };
 };
 
-export const getPokemons = (units) => {
-  return async (dispatch) => {
-    Loading.pulse({
-      svgSize: "120px",
-      svgColor: "#fff",
-    });
-    axios
-      .get(`https://pokeapi.co/api/v2/pokemon/?offset=0&limit=${units}`)
-      .then(async (response) => {
-        let endpoints = response.data.results.map((pokemon) => pokemon.url);
-        let pokemonData = await axios.all(
-          endpoints.map((url) => axios.get(url).then((resp) => resp.data))
-        );
-        let pokemons = pokemonData.map((data) => {
-          return { ...data };
-        });
-
-        dispatch(actPokemons(pokemons));
-        dispatch(actNextPage(response.data.next));
-        dispatch(actPreviousPage(response.data.previous));
-      })
-      .catch((error) => console.error(error))
-      .finally(() => {
-        Loading.remove();
-      });
-  };
-};
-
 export const addPokemonCard = (pokemon) => {
   return async (dispatch) => {
     axios
       .get(`https://pokeapi.co/api/v2/pokemon/${pokemon}`)
       .then((resp) => {
         dispatch(actPokemon(resp.data));
-        dispatch(actOpenCardPokemon(true));
         webStore.saveData("Pokedex", resp.data);
+        dispatch(actOpenCardPokedex(false));
+        Notify.success("Você capturou um Pokémon!", {
+          position: "center-top",
+        });
       })
       .catch((error) => console.error(error))
       .finally(() => {
@@ -247,7 +273,7 @@ export const nextPage = (url) => {
       })
       .catch((error) => console.error(error))
       .finally(() => {
-        Block.remove('.loading-block', 500);
+        Block.remove(".loading-block", 500);
       });
   };
 };
@@ -297,6 +323,9 @@ export default createReducer(initialState, (builder) => {
     })
     .addCase(actOpenCardPokemon, (state, action) => {
       return { ...state, OpenCardPokemon: action.payload };
+    })
+    .addCase(actOpenCardPokedex, (state, action) => {
+      return { ...state, OpenCardPokedex: action.payload };
     })
     .addCase(actWeaknesses, (state, action) => {
       return { ...state, Weaknesses: action.payload };

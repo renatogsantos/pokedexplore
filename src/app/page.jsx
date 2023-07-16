@@ -4,9 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { Col, Container, Row } from "react-bootstrap";
 import { useDispatch, useSelector } from "react-redux";
 import {
+  actOpenCardPokedex,
   actOpenCardPokemon,
   addPokemonCard,
   getPokemon,
+  getPokemonToPokedex,
   getPokemons,
   getTypesPokemons,
   nextPage,
@@ -36,14 +38,23 @@ import { pokemonHome } from "@/helpers/PokemonHome";
 import { gerarNumeroAleatorio, scrollTo } from "@/helpers";
 import AliceCarousel from "react-alice-carousel";
 import ShareButtons from "@/components/ShareButtons";
+import CardAddPokemon from "@/components/CardAddPokemon";
 
 export default function Home() {
   const dispatch = useDispatch();
+  const [pokeball, setPokeball] = useState(false);
+  const [claim, setClaim] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [namePokemonHome, setNamePokemonHome] = useState("ivysaur");
   const [search, setSearch] = useState(namePokemonHome);
-  const { Pokemons, Pokemon, NextPage, PreviousPage, OpenCardPokemon } =
-    useSelector((state) => state.pokemons);
+  const {
+    Pokemons,
+    Pokemon,
+    NextPage,
+    PreviousPage,
+    OpenCardPokemon,
+    OpenCardPokedex,
+  } = useSelector((state) => state.pokemons);
   const divRef = useRef(null);
 
   const handleDragStart = (e) => {
@@ -92,6 +103,16 @@ export default function Home() {
   //   console.log(webStore.getData("Pokedex"))
   // }, []);
 
+  useEffect(() => {
+    setTimeout(() => {
+      setPokeball(true);
+    }, 15000);
+  }, []);
+
+  useEffect(() => {
+    OpenCardPokedex == false && setPokeball(false);
+  }, [OpenCardPokedex]);
+
   return (
     <main>
       {OpenCardPokemon && (
@@ -104,11 +125,35 @@ export default function Home() {
           <CardPokemon pokemon={Pokemon} />
         </div>
       )}
+
+      {pokeball && (
+        <button
+          type="button"
+          className="shake-bottom button-pokeball"
+          onClick={() => {
+            dispatch(getPokemonToPokedex());
+          }}
+        >
+          <img width="60" src="/pokeball.png" alt="Pokeball" />
+        </button>
+      )}
+
+      {OpenCardPokedex && (
+        <div
+          className="card-pokemon-box"
+          onClick={() => {
+            dispatch(actOpenCardPokedex(false));
+            setPokeball(false);
+          }}
+        >
+          <CardAddPokemon pokemon={Pokemon} />
+        </div>
+      )}
+
       <HomePokemon name={namePokemonHome} />
 
       <Container fluid className="m-0 py-4 bg-forest">
         <Container className="py-5 text-light">
-          <ShareButtons />
           <Row id="Pokemons">
             <Col sm="12" lg="6">
               <span className="d-flex align-items-center gap-2 py-2">
@@ -167,7 +212,7 @@ export default function Home() {
               <form onSubmit={buscaPokemon}>
                 <div className="d-flex">
                   <input
-                  type="search"
+                    type="search"
                     className="main-input"
                     placeholder="Eu escolho você!"
                     onChange={(e) => {

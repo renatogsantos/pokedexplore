@@ -18,10 +18,16 @@ body {
   user-select: none;
   background: #000;
 }
+
 ::-webkit-scrollbar {
   width: 0;
   height: 0;
   display: none;
+}
+
+button {
+  background: none;
+  border: none;
 }
 
 .button-back-top {
@@ -29,6 +35,36 @@ body {
   bottom: 8px;
   right: 8px;
   padding: 8px;
+}
+
+.button-types {
+  background: none;
+  border: none;
+  width: fit-content;
+}
+
+.button-share-box {
+  position: fixed;
+  bottom: 6px;
+  left: 6px;
+  background: #00000050;
+  backdrop-filter: blur(15px);
+  border-radius: 100px;
+  padding: 6px;
+  z-index: 1000;
+}
+
+.button-share {
+  background: none;
+  border: none;
+  color: #fff;
+}
+
+.button-pokeball {
+  position: fixed;
+  left: 8px;
+  bottom: 8px;
+  z-index: 100;
 }
 
 .bg-forest {
@@ -59,28 +95,6 @@ p {
   font-style: normal;
   line-height: 120%;
   margin: 0;
-}
-
-.button-types {
-  background: none;
-  border: none;
-  width: fit-content;
-}
-
-.button-share-box {
-  position: fixed;
-  bottom: 6px;
-  left: 6px;
-  background: #00000050;
-  backdrop-filter: blur(15px);
-  border-radius: 100px;
-  padding: 6px;
-  z-index: 1000;
-}
-.button-share {
-  background: none;
-  border: none;
-  color: #fff;
 }
 
 .main-card {
