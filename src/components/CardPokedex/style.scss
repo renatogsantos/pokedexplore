@@ -1,0 +1,28 @@
+.pokedex-list {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(6, 11, 21, 0.8);
+  backdrop-filter: blur(10px);
+  color: #fff;
+  padding: 12px;
+}
+
+.card-pokedex {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(6, 11, 20, 0.8);
+  background-position: center left, bottom 50% center;
+  background-size: 50%, auto;
+  background-repeat: no-repeat;
+  backdrop-filter: blur(10px);
+  width: fit-content;
+  color: #fff;
+}

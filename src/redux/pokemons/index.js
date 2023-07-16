@@ -4,6 +4,8 @@ import { createAction, createReducer } from "@reduxjs/toolkit";
 import axios from "axios";
 import { Block, Loading, Notify } from "notiflix";
 
+const listPokedex = webStore.getData("Pokedex")
+
 //Estado inicial
 const initialState = {
   Pokemons: [],
@@ -13,11 +15,13 @@ const initialState = {
   PreviousPage: "",
   OpenCardPokemon: false,
   OpenCardPokedex: false,
+  Pokedex: [],
 };
 
 //actions
 export const actPokemons = createAction("POKEMONS");
 export const actPokemon = createAction("POKEMON");
+export const actAddPokedex = createAction("ADD_POKEDEX");
 export const actNextPage = createAction("NEXT_PAGE");
 export const actPreviousPage = createAction("PREVIOUS_PAGE");
 export const actWeaknesses = createAction("WEAKNESSES");
@@ -234,6 +238,7 @@ export const addPokemonCard = (pokemon) => {
       .then((resp) => {
         dispatch(actPokemon(resp.data));
         webStore.saveData("Pokedex", resp.data);
+        dispatch(actAddPokedex(webStore.getData("Pokedex")))
         dispatch(actOpenCardPokedex(false));
         Notify.success("Você capturou um Pokémon!", {
           position: "center-top",
@@ -314,6 +319,9 @@ export default createReducer(initialState, (builder) => {
     })
     .addCase(actPokemon, (state, action) => {
       return { ...state, Pokemon: action.payload };
+    })
+    .addCase(actAddPokedex, (state, action) => {
+      return { ...state, Pokedex: action.payload };
     })
     .addCase(actNextPage, (state, action) => {
       return { ...state, NextPage: action.payload };

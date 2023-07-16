@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Col, Container, Row } from "react-bootstrap";
 import { useDispatch, useSelector } from "react-redux";
 import {
+  actAddPokedex,
   actOpenCardPokedex,
   actOpenCardPokemon,
   addPokemonCard,
@@ -21,13 +22,10 @@ import {
   ArrowCircleRight,
   CaretUp,
   Clipboard,
-  GithubLogo,
   House,
   Lightning,
   LinkedinLogo,
   MagnifyingGlass,
-  Stack,
-  WhatsappLogo,
 } from "@phosphor-icons/react";
 import { pokemonData } from "../helpers/PokemonTypes";
 import ButtonSecondary from "../components/ButtonSecondary";
@@ -35,15 +33,14 @@ import CardPokemon from "../components/CardPokemon";
 import HomePokemon from "@/components/HomePokemon";
 import { webStore } from "../helpers/webStore";
 import { pokemonHome } from "@/helpers/PokemonHome";
-import { gerarNumeroAleatorio, scrollTo } from "@/helpers";
+import { scrollTo } from "@/helpers";
 import AliceCarousel from "react-alice-carousel";
-import ShareButtons from "@/components/ShareButtons";
 import CardAddPokemon from "@/components/CardAddPokemon";
+import CardPokedex from "@/components/CardPokedex";
 
 export default function Home() {
   const dispatch = useDispatch();
   const [pokeball, setPokeball] = useState(false);
-  const [claim, setClaim] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [namePokemonHome, setNamePokemonHome] = useState("ivysaur");
   const [search, setSearch] = useState(namePokemonHome);
@@ -54,6 +51,7 @@ export default function Home() {
     PreviousPage,
     OpenCardPokemon,
     OpenCardPokedex,
+    Pokedex,
   } = useSelector((state) => state.pokemons);
   const divRef = useRef(null);
 
@@ -99,10 +97,6 @@ export default function Home() {
     getPokeHome();
   }, [Pokemon]);
 
-  // useEffect(() => {
-  //   console.log(webStore.getData("Pokedex"))
-  // }, []);
-
   useEffect(() => {
     setTimeout(() => {
       setPokeball(true);
@@ -112,6 +106,10 @@ export default function Home() {
   useEffect(() => {
     OpenCardPokedex == false && setPokeball(false);
   }, [OpenCardPokedex]);
+
+  useEffect(() => {
+    dispatch(actAddPokedex(webStore.getData("Pokedex")));
+  }, []);
 
   return (
     <main>
@@ -152,6 +150,25 @@ export default function Home() {
 
       <HomePokemon name={namePokemonHome} />
 
+      <Container>
+        <div className="d-flex align-items-center gap-2 mb-3">
+          <img src="/pokeball.png" width="32" alt="" />
+          <h2 className="text-light m-0">Pokédex</h2>
+        </div>
+        <div className="pokedex-list">
+          <img draggable={false} src="/pokedex.png" width="60" alt="Pokedex" />
+          <AliceCarousel
+            mouseTracking={true}
+            autoWidth={true}
+            disableButtonsControls={true}
+            disableDotsControls={true}
+            items={Pokedex?.map((pk, i) => {
+              return <CardPokedex pokemon={pk} />;
+            })}
+          />
+        </div>
+      </Container>
+
       <Container fluid className="m-0 py-4 bg-forest">
         <Container className="py-5 text-light">
           <Row id="Pokemons">
@@ -176,10 +193,9 @@ export default function Home() {
                   infinite={true}
                   disableButtonsControls={true}
                   disableDotsControls={true}
-                  keyboardNavigation={true}
-                  items={pokemonData.map((type) => {
+                  items={pokemonData.map((type, i) => {
                     return (
-                      <div className="button-types px-1">
+                      <div key={i} className="button-types px-1">
                         <button
                           draggable={false}
                           onDragStart={handleDragStart}
