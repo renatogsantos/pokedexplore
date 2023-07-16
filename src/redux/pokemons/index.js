@@ -51,7 +51,7 @@ export const getPokemon = (pokemon) => {
 
 export const getPokemonToPokedex = () => {
   return async (dispatch) => {
-    const number = gerarNumeroAleatorio(1000);
+    const number = gerarNumeroAleatorio(150);
     axios
       .get(`https://pokeapi.co/api/v2/pokemon/${number}`)
       .then((resp) => {
