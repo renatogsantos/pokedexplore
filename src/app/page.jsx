@@ -98,7 +98,7 @@ export default function Home() {
   }, [Pokemon]);
 
   useEffect(() => {
-    const num = gerarNumeroAleatorio(60000)
+    const num = gerarNumeroAleatorio(60000);
     setTimeout(() => {
       setPokeball(true);
     }, num);
@@ -158,15 +158,9 @@ export default function Home() {
         </div>
         <div className="pokedex-list">
           <img draggable={false} src="/pokedex.png" width="60" alt="Pokedex" />
-          <AliceCarousel
-            mouseTracking={true}
-            autoWidth={true}
-            disableButtonsControls={true}
-            disableDotsControls={true}
-            items={Pokedex?.map((pk, i) => {
-              return <CardPokedex pokemon={pk} />;
-            })}
-          />
+          {Pokedex?.map((pk, i) => {
+            return <CardPokedex pokemon={pk} />;
+          })}
         </div>
       </Container>
 
@@ -196,7 +190,7 @@ export default function Home() {
                   disableDotsControls={true}
                   items={pokemonData.map((type, i) => {
                     return (
-                      <div key={i} className="button-types px-1">
+                      <div key={i} className="button-types px-2">
                         <button
                           draggable={false}
                           onDragStart={handleDragStart}

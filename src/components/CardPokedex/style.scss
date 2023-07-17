@@ -1,14 +1,15 @@
 .pokedex-list {
   display: flex;
   align-items: center;
-  gap: 16px;
-  overflow: hidden;
+  gap: 8px;
+  overflow: scroll;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: rgba(6, 11, 21, 0.8);
   backdrop-filter: blur(10px);
   color: #fff;
   padding: 12px;
+  transition: .2s ease-in-out;
 }
 
 .card-pokedex {
@@ -25,4 +26,8 @@
   backdrop-filter: blur(10px);
   width: fit-content;
   color: #fff;
+  transition: .2s ease-in-out;
+  &:hover {
+    transform: scale(1.05);
+  }
 }
