@@ -1,5 +1,6 @@
 import { pokemonData } from "@/helpers/PokemonTypes";
 import { getPokemon } from "@/redux/pokemons";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 
@@ -41,9 +42,10 @@ export default function CardPokedex({ pokemon }) {
           }, #060e20cc)`,
         }}
       >
-        <img
+        <Image
           draggable={false}
-          width="80"
+          width={80}
+          height={80}
           src={
             pokemon.sprites.other["official-artwork"].front_default
               ? pokemon.sprites.other["official-artwork"].front_default
