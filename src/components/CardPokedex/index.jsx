@@ -43,10 +43,8 @@ export default function CardPokedex({ pokemon }) {
           }, #060e20cc)`,
         }}
       >
-        <Image
+        <img
           draggable={false}
-          width={60}
-          height={60}
           src={
             pokemon.sprites.versions["generation-v"]["black-white"].animated.front_default
               ? pokemon.sprites.versions["generation-v"]["black-white"].animated.front_default
