@@ -150,13 +150,29 @@ export default function Home() {
       )}
 
       <HomePokemon name={namePokemonHome} />
+      <Container className="py-5 text-light text-center">
+        <img src="/pokemons/treinador-pk.png" width="80%" alt="Treinador pokemon" />
+        <h2 className="py-4">
+          Viva a emoção de capturar e batalhar: Seja um mestre Pokémon no
+          PokédExplore!
+        </h2>
+        <p>
+          Descubra um mundo repleto de aventuras com o PokédExplore! Agora, você
+          pode se tornar um verdadeiro treinador Pokémon, capturando suas
+          criaturas favoritas com apenas um clique. Espere a pokebola surgir,
+          clique e encare um Pokémon surpresa para adicionar à sua pokédex.
+          Monte um poderoso deck e desafie seus amigos em empolgantes batalhas!
+          A jornada começa agora. Prepare-se para ser o melhor treinador de
+          todos os tempos!
+        </p>
+      </Container>
 
       <Container>
         <div className="d-flex align-items-center gap-2 mb-3">
           <img src="/pokeball.png" width="32" alt="" />
           <h2 className="text-light m-0">Pokédex</h2>
         </div>
-        <div className="pokedex-list">
+        <div className="pokedex-list" title="Ctrl + scroll para navegar.">
           <img draggable={false} src="/pokedex.png" width="60" alt="Pokedex" />
           {Pokedex?.map((pk, i) => {
             return <CardPokedex pokemon={pk} />;
@@ -252,7 +268,9 @@ export default function Home() {
                     <CardPoke
                       id={pokemon.name}
                       name={pokemon.name}
-                      img={pokemon.sprites.other["official-artwork"].front_default}
+                      img={
+                        pokemon.sprites.other["official-artwork"].front_default
+                      }
                       types={pokemon.types}
                       height={pokemon.height}
                       weight={pokemon.weight}
