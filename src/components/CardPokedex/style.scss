@@ -27,6 +27,9 @@
   width: fit-content;
   color: #fff;
   transition: .2s ease-in-out;
+  height: 80px;
+  width: 80px;
+  padding: 12px;
   &:hover {
     transform: scale(1.05);
   }

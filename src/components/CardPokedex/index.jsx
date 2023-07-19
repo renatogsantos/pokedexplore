@@ -25,6 +25,7 @@ export default function CardPokedex({ pokemon }) {
       setColor(Color);
     }
   }, [pokemon]);
+  console.log(pokemon)
 
   return (
     <button
@@ -44,10 +45,12 @@ export default function CardPokedex({ pokemon }) {
       >
         <Image
           draggable={false}
-          width={80}
-          height={80}
+          width={60}
+          height={60}
           src={
-            pokemon.sprites.other["official-artwork"].front_default
+            pokemon.sprites.versions["generation-v"]["black-white"].animated.front_default
+              ? pokemon.sprites.versions["generation-v"]["black-white"].animated.front_default
+              : pokemon.sprites.other["official-artwork"].front_default
               ? pokemon.sprites.other["official-artwork"].front_default
               : "/pokenull.png"
           }
