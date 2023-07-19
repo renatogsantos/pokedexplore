@@ -20,7 +20,7 @@ import { pokemonData } from "@/helpers/PokemonTypes";
 export default function CardPokemon({ pokemon }) {
   const dispatch = useDispatch();
   const [color, setColor] = useState("#fff");
-  const { Weaknesses } = useSelector((state) => state.pokemons);
+  const { Weaknesses, OpenCardPokemon } = useSelector((state) => state.pokemons);
 
   const [startY, setStartY] = useState(0);
   const [endY, setEndY] = useState(0);
@@ -81,6 +81,19 @@ export default function CardPokemon({ pokemon }) {
     dispatch(getPokemonWeaknesses(pokemon.name));
     setSlideOut(false);
   }, [pokemon]);
+
+  useEffect(() => {
+    if (OpenCardPokemon) {
+      document.body.classList.add('no-scroll');
+    } else {
+      document.body.classList.remove('no-scroll');
+    }
+
+    // Retorne uma função de limpeza para remover o evento quando o componente for desmontado.
+    return () => {
+      document.body.classList.remove('no-scroll');
+    };
+  }, [OpenCardPokemon]);
 
   return (
     <div

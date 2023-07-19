@@ -116,7 +116,7 @@ export default function Home() {
     <main>
       {OpenCardPokemon && (
         <div
-          className="card-pokemon-box"
+          className={`card-pokemon-box`}
           onClick={() => {
             dispatch(actOpenCardPokemon(false));
           }}
