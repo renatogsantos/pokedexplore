@@ -101,7 +101,7 @@ export default function Home() {
     const num = gerarNumeroAleatorio(60000);
     setTimeout(() => {
       setPokeball(true);
-    }, num);
+    }, num * 5);
   }, [NextPage, PreviousPage]);
 
   useEffect(() => {
@@ -252,7 +252,7 @@ export default function Home() {
                     <CardPoke
                       id={pokemon.name}
                       name={pokemon.name}
-                      img={pokemon.sprites.other.home.front_default}
+                      img={pokemon.sprites.other["official-artwork"].front_default}
                       types={pokemon.types}
                       height={pokemon.height}
                       weight={pokemon.weight}

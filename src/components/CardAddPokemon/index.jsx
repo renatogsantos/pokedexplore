@@ -114,8 +114,8 @@ export default function CardAddPokemon({ pokemon }) {
         draggable={false}
         className="card-pokemon-img"
         src={
-          pokemon.sprites?.other.home.front_default
-            ? pokemon.sprites?.other.home.front_default
+          pokemon.sprites.other["official-artwork"].front_default
+            ? pokemon.sprites.other["official-artwork"].front_default
             : "/pokenull.png"
         }
         alt="Pokémon selecionado"
@@ -154,7 +154,7 @@ export default function CardAddPokemon({ pokemon }) {
         </div>
       </div>
 
-      <div className="py-4 w-100">
+      <div className="pt-4 w-100">
         {pokemon.stats.map((stats, i) => {
           return (
             <Row key={i} className="align-items-center">

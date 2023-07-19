@@ -85,7 +85,7 @@ export default function CardPokemon({ pokemon }) {
   return (
     <div
       onClick={handleClosePropagation}
-      className={`card-pokemon slide-in-top p-3 p-lg-5 ${
+      className={`card-pokemon slide-in-top p-3 px-lg-5 pb-lg-5 ${
         slideOut ? "slide-out-top" : ""
       }`}
       style={{
@@ -107,8 +107,8 @@ export default function CardPokemon({ pokemon }) {
         draggable={false}
         className="card-pokemon-img"
         src={
-          pokemon.sprites?.other.home.front_default
-            ? pokemon.sprites?.other.home.front_default
+          pokemon.sprites.other["official-artwork"].front_default
+            ? pokemon.sprites.other["official-artwork"].front_default
             : "/pokenull.png"
         }
         alt="Pokémon selecionado"
@@ -147,7 +147,7 @@ export default function CardPokemon({ pokemon }) {
         </div>
       </div>
 
-      <div className="py-4 w-100">
+      <div className="pt-4 w-100">
         {pokemon.stats.map((stats, i) => {
           return (
             <Row key={i} className="align-items-center">
