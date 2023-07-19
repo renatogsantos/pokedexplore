@@ -39,7 +39,10 @@
 }
 
 .card-pokemon-img{
+  position: relative;
+  top: -30px;
   width: 256px;
+  transform: scale(1.3);
   @media screen and (max-width: 1224px) {
     width: 220px;
   }
