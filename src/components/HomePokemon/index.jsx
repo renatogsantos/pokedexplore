@@ -12,13 +12,15 @@ import Link from "next/link";
 import { useEffect } from "react";
 import { Col, Container, Row } from "react-bootstrap";
 import { useDispatch } from "react-redux";
+import Waves from "../Waves";
 
 export default function HomePokemon({ name }) {
   const dispatch = useDispatch();
   const Pokemon = pokemonHome.find((el) => el.name == name);
 
   return (
-    <Container id="Home" fluid className={`bg-${Pokemon.name} pb-5 mb-5`}>
+    <Container id="Home" fluid className={`bg-${Pokemon.name} pb-5 mb-5 position-relative overflow-hidden`}>
+      <Waves />
       <Container className="py-5">
         <div className="d-flex align-items-center justify-content-center">
           <img

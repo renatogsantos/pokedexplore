@@ -15,7 +15,7 @@ body {
   padding: 0;
   box-sizing: border-box;
   font-family: "Montserrat", sans-serif;
-  overflow-x: hidden;
+  overflow-x: hidden !important;
   user-select: none;
   background: #000;
 }

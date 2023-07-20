@@ -25,7 +25,6 @@ export default function CardPokedex({ pokemon }) {
       setColor(Color);
     }
   }, [pokemon]);
-  console.log(pokemon)
 
   return (
     <button

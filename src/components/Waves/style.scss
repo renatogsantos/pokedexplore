@@ -1,39 +1,41 @@
-.ocean { 
-  height: 5%;
-  width:100%;
-  position:absolute;
-  bottom:0;
-  left:0;
-  background: #fff;
+.ocean {
+  position: absolute;
+  bottom: -25px;
+  right: 0;
+  width: 100dvw;
 }
 
 .wave {
   background: url("/svgs/wave.svg") repeat-x;
   position: absolute;
   bottom: 0;
+  right: 0;
   width: 1000%;
   height: 100px;
   animation: wave 15s cubic-bezier(0.36, 0.45, 0.63, 0.53) infinite;
   transform: translate3d(0, 0, 0);
+  overflow-x: hidden;
 }
 
 .wave:nth-of-type(2) {
   bottom: 0;
+  right: 0;
   animation: wave 10s cubic-bezier(0.36, 0.45, 0.63, 0.53) -0.125s infinite;
   opacity: 1;
 }
 
 .wave:nth-of-type(3) {
   bottom: 0;
+  right: 0;
   animation: wave 5s cubic-bezier(0.36, 0.45, 0.63, 0.53) -0.125s infinite;
   opacity: 1;
 }
 
 @keyframes wave {
   0% {
-    margin-left: 0;
+    margin-right: 0;
   }
   100% {
-    margin-left: -1600px;
+    margin-right: -1600px;
   }
 }
