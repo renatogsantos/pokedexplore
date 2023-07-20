@@ -90,8 +90,6 @@ export default function CardPokemon({ pokemon }) {
     } else {
       document.body.classList.remove("no-scroll");
     }
-
-    // Retorne uma função de limpeza para remover o evento quando o componente for desmontado.
     return () => {
       document.body.classList.remove("no-scroll");
     };

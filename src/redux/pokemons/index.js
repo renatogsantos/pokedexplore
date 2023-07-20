@@ -55,6 +55,10 @@ export const getPokemon = (pokemon) => {
 
 export const getPokemonToPokedex = () => {
   return async (dispatch) => {
+    Loading.pulse({
+      svgSize: "120px",
+      svgColor: "#fff",
+    });
     const number = gerarNumeroAleatorio(1000);
     axios
       .get(`https://pokeapi.co/api/v2/pokemon/${number}`)

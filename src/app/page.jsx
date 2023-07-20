@@ -175,7 +175,7 @@ export default function Home() {
         <div className="pokedex-list" title="Ctrl + scroll para navegar.">
           <img draggable={false} src="/pokedex.png" width="60" alt="Pokedex" />
           {Pokedex?.map((pk, i) => {
-            return <CardPokedex pokemon={pk} />;
+            return <CardPokedex key={i} pokemon={pk} />;
           })}
         </div>
       </Container>

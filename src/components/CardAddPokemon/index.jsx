@@ -27,7 +27,9 @@ import ButtonPrimary from "../ButtonPrimary";
 export default function CardAddPokemon({ pokemon }) {
   const dispatch = useDispatch();
   const [color, setColor] = useState("#fff");
-  const { Weaknesses } = useSelector((state) => state.pokemons);
+  const { Weaknesses, OpenCardPokemon } = useSelector(
+    (state) => state.pokemons
+  );
 
   const [startY, setStartY] = useState(0);
   const [endY, setEndY] = useState(0);
@@ -89,10 +91,21 @@ export default function CardAddPokemon({ pokemon }) {
     setSlideOut(false);
   }, [pokemon]);
 
+  useEffect(() => {
+    if (OpenCardPokemon) {
+      document.body.classList.add("no-scroll");
+    } else {
+      document.body.classList.remove("no-scroll");
+    }
+    return () => {
+      document.body.classList.remove("no-scroll");
+    };
+  }, [OpenCardPokemon]);
+
   return (
     <div
       onClick={handleClosePropagation}
-      className={`card-pokemon slide-in-top p-3 p-lg-5 ${
+      className={`card-pokemon slide-in-top p-3 px-lg-5 pb-lg-5 ${
         slideOut ? "slide-out-top" : ""
       }`}
       style={{
@@ -224,8 +237,8 @@ export default function CardAddPokemon({ pokemon }) {
           icon={<PlusCircle size={32} weight="duotone" />}
           title="Capturar Pokémon!"
           variant="w-100 mt-2"
-          onClick={()=>{
-            dispatch(addPokemonCard(pokemon.name))
+          onClick={() => {
+            dispatch(addPokemonCard(pokemon.name));
           }}
         />
       </div>

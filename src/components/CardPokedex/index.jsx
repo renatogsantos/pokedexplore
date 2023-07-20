@@ -45,9 +45,7 @@ export default function CardPokedex({ pokemon }) {
         <img
           draggable={false}
           src={
-            pokemon.sprites.versions["generation-v"]["black-white"].animated.front_default
-              ? pokemon.sprites.versions["generation-v"]["black-white"].animated.front_default
-              : pokemon.sprites.other["official-artwork"].front_default
+            pokemon.sprites.other["official-artwork"].front_default
               ? pokemon.sprites.other["official-artwork"].front_default
               : "/pokenull.png"
           }
