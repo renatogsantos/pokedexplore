@@ -37,6 +37,8 @@ import { gerarNumeroAleatorio, scrollTo } from "@/helpers";
 import AliceCarousel from "react-alice-carousel";
 import CardAddPokemon from "@/components/CardAddPokemon";
 import CardPokedex from "@/components/CardPokedex";
+import Link from "next/link";
+import { getPokemonPage } from "@/services/pokemons";
 
 export default function Home() {
   const dispatch = useDispatch();
@@ -112,6 +114,10 @@ export default function Home() {
     dispatch(actAddPokedex(webStore.getData("Pokedex")));
   }, []);
 
+  useEffect(() => {
+    getPokemonPage(1)
+  }, []);
+
   return (
     <main>
       {OpenCardPokemon && (
@@ -150,6 +156,7 @@ export default function Home() {
       )}
 
       <HomePokemon name={namePokemonHome} />
+      
       <Container className="py-5 text-light text-center">
         <img draggable={false} src="/pokemons/treinador-pk.png" width="80%" alt="Treinador pokemon" />
         <h2 className="py-4">
