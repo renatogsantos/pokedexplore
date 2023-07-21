@@ -27,7 +27,7 @@ import ButtonPrimary from "../ButtonPrimary";
 export default function CardAddPokemon({ pokemon }) {
   const dispatch = useDispatch();
   const [color, setColor] = useState("#fff");
-  const { Weaknesses, OpenCardPokemon } = useSelector(
+  const { Weaknesses, OpenCardPokedex } = useSelector(
     (state) => state.pokemons
   );
 
@@ -92,7 +92,7 @@ export default function CardAddPokemon({ pokemon }) {
   }, [pokemon]);
 
   useEffect(() => {
-    if (OpenCardPokemon) {
+    if (OpenCardPokedex) {
       document.body.classList.add("no-scroll");
     } else {
       document.body.classList.remove("no-scroll");
@@ -100,7 +100,7 @@ export default function CardAddPokemon({ pokemon }) {
     return () => {
       document.body.classList.remove("no-scroll");
     };
-  }, [OpenCardPokemon]);
+  }, [OpenCardPokedex]);
 
   return (
     <div
