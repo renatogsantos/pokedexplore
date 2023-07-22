@@ -22,10 +22,12 @@ import {
   ArrowCircleRight,
   CaretUp,
   Clipboard,
+  GithubLogo,
   House,
   Lightning,
   LinkedinLogo,
   MagnifyingGlass,
+  WhatsappLogo,
 } from "@phosphor-icons/react";
 import { pokemonData } from "../helpers/PokemonTypes";
 import ButtonSecondary from "../components/ButtonSecondary";
@@ -321,6 +323,41 @@ export default function Home() {
                 scrollTo("Pokemons");
               }}
             />
+          </div>
+        </Container>
+        <Container>
+          <div className="main-card d-flex align-items-center justify-content-between flex-column flex-lg-row p-1 px-4">
+            <div className="d-none d-lg-flex flex-column py-3">
+              <span>Renato G Santos</span>
+              <small>
+                <Link href="mailto:renato.work.art@gmail.com" className="link">
+                  renato.work.art@gmail.com
+                </Link>
+              </small>
+            </div>
+            <div className="d-flex gap-3 py-3">
+              <Link
+                href="https://github.com/renatogsantos/pokedexplore"
+                target="_blank"
+                className="link"
+              >
+                <GithubLogo size={32} weight="duotone" />
+              </Link>
+              <Link
+                href="https://www.linkedin.com/in/renato-g-santos/"
+                target="_blank"
+                className="link"
+              >
+                <LinkedinLogo size={32} weight="duotone" />
+              </Link>
+              <Link
+                href="https://api.whatsapp.com/send?phone=5511911882402&text=Ol%C3%A1%20Renato,%20pode%20me%20ajudar?"
+                target="_blank"
+                className="link"
+              >
+                <WhatsappLogo size={32} weight="duotone" />
+              </Link>
+            </div>
           </div>
         </Container>
       </Container>
