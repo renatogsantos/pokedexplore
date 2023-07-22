@@ -1,6 +1,6 @@
-# PokedExplorer
+# pokedexplore
 
-![PokedExplorer Logo](/public/pokedexplore.svg)
+![pokedexplore Logo](/public/pokedexplore.svg)
 
 Bem-vindo ao PokedExplore! Este é um projeto pessoal de construção de um site que permite explorar os diversos pokemons disponíveis na API pokeapi.co.
 
@@ -28,19 +28,19 @@ O PokedExplore foi desenvolvido utilizando as seguintes tecnologias:
 
 - **Informações Detalhadas:** Acesse informações detalhadas sobre as habilidades, movimentos, evoluções, formas alternativas e curiosidades de cada Pokémon. Aprenda mais sobre suas características únicas e torne-se um verdadeiro especialista.
 
-- **Integração com APIs:** O PokedExplorer utiliza APIs para buscar dados atualizados sobre os Pokémon, garantindo que você esteja sempre informado sobre as últimas adições à franquia.
+- **Integração com APIs:** O pokedexplore utiliza APIs para buscar dados atualizados sobre os Pokémon, garantindo que você esteja sempre informado sobre as últimas adições à franquia.
 
 ## Contribuição
 
-Se você deseja contribuir para o PokedExplorer, ficarei feliz em receber sua ajuda! Sinta-se à vontade para enviar pull requests com melhorias, correções de bugs, novos recursos ou qualquer outra forma de contribuição. Juntos, podemos tornar o PokedExplorer ainda melhor!
+Se você deseja contribuir para o pokedexplore, ficarei feliz em receber sua ajuda! Sinta-se à vontade para enviar pull requests com melhorias, correções de bugs, novos recursos ou qualquer outra forma de contribuição. Juntos, podemos tornar o pokedexplore ainda melhor!
 
 ## Equipe
 
 - [Renato G Santos](https://github.com/renatogsantos) - Desenvolvedor principal e idealizador do projeto.
-- [Renato G Santos](https://dribbble.com/renatogsantos) - Responsável pelo design do PokedExplorer.
+- [Renato G Santos](https://dribbble.com/renatogsantos) - Responsável pelo design do pokedexplore.
 
 ## Contato
 
-Se você tiver alguma dúvida, sugestão ou feedback sobre o PokedExplorer, não hesite em entrar em contato. Você pode me encontrar no endereço de e-mail [renato.work.art@gmail.com](mailto:renato.work.art@gmail.com) ou visitar nossa página no GitHub em [github.com/renatogsantos/pokedexplorer](https://github.com/renatogsantos/pokedexplorer).
+Se você tiver alguma dúvida, sugestão ou feedback sobre o pokedexplore, não hesite em entrar em contato. Você pode me encontrar no endereço de e-mail [renato.work.art@gmail.com](mailto:renato.work.art@gmail.com) ou visitar nossa página no GitHub em [github.com/renatogsantos/pokedexplore](https://github.com/renatogsantos/pokedexplore).
 
-Aproveite sua jornada pelo mundo Pokémon com o PokedExplorer - seu guia definitivo para explorar e descobrir essas incríveis criaturas!
+Aproveite sua jornada pelo mundo Pokémon com o pokedexplore - seu guia definitivo para explorar e descobrir essas incríveis criaturas!
