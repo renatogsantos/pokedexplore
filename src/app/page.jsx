@@ -115,7 +115,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    getPokemonPage(1)
+    getPokemonPage(1);
   }, []);
 
   return (
@@ -156,9 +156,14 @@ export default function Home() {
       )}
 
       <HomePokemon name={namePokemonHome} />
-      
+
       <Container className="py-5 text-light text-center">
-        <img draggable={false} src="/pokemons/treinador-pk.png" width="80%" alt="Treinador pokemon" />
+        <img
+          draggable={false}
+          src="/pokemons/treinador-pk.png"
+          width="80%"
+          alt="Treinador pokemon"
+        />
         <h2 className="py-4">
           Viva a emoção de capturar e batalhar: Seja um mestre Pokémon no
           PokédExplore!
@@ -176,7 +181,12 @@ export default function Home() {
 
       <Container>
         <div className="d-flex align-items-center gap-2 mb-3">
-          <img draggable={false} src="/pokeball.png" width="32" alt="Pokeball" />
+          <img
+            draggable={false}
+            src="/pokeball.png"
+            width="32"
+            alt="Pokeball"
+          />
           <h2 className="text-light m-0">Pokédex</h2>
         </div>
         <div className="pokedex-list" title="Ctrl + scroll para navegar.">
@@ -250,7 +260,7 @@ export default function Home() {
                     className="main-input"
                     placeholder="Eu escolho você!"
                     onChange={(e) => {
-                      setSearch(e.target.value);
+                      setSearch(e.target.value ? e.target.value : "2");
                     }}
                   />
                   <ButtonSecondary
