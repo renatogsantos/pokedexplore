@@ -201,10 +201,10 @@ export default function PokemonPage({ pokemon }) {
                 draggable={false}
                 width="100%"
                 src={
-                  pokemon.sprites.other.home.front_default
-                    ? pokemon.sprites.other.home.front_default
-                    : pokemon.sprites.other["official-artwork"].front_default
+                  pokemon.sprites.other["official-artwork"].front_default
                     ? pokemon.sprites.other["official-artwork"].front_default
+                    : pokemon.sprites.other.home.front_default
+                    ? pokemon.sprites.other.home.front_default
                     : "pokenull.png"
                 }
                 alt={pokemon.name}

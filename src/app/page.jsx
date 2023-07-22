@@ -286,12 +286,11 @@ export default function Home() {
                       id={pokemon.name}
                       name={pokemon.name}
                       img={
-                        pokemon.sprites.other.home.front_default
-                          ? pokemon.sprites.other.home.front_default
-                          : pokemon.sprites.other["official-artwork"]
-                              .front_default
+                        pokemon.sprites.other["official-artwork"].front_default
                           ? pokemon.sprites.other["official-artwork"]
                               .front_default
+                          : pokemon.sprites.other.home.front_default
+                          ? pokemon.sprites.other.home.front_default
                           : "pokenull.png"
                       }
                       types={pokemon.types}

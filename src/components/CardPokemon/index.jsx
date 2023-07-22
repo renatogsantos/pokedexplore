@@ -121,10 +121,10 @@ export default function CardPokemon({ pokemon }) {
         draggable={false}
         className="card-pokemon-img"
         src={
-          pokemon.sprites.other.home.front_default
-            ? pokemon.sprites.other.home.front_default
-            : pokemon.sprites.other["official-artwork"].front_default
+          pokemon.sprites.other["official-artwork"].front_default
             ? pokemon.sprites.other["official-artwork"].front_default
+            : pokemon.sprites.other.home.front_default
+            ? pokemon.sprites.other.home.front_default
             : "pokenull.png"
         }
         alt="Pokémon selecionado"
