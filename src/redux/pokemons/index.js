@@ -80,9 +80,13 @@ export const getPokemonToPokedex = () => {
 
 export const getPokemons = (units) => {
   return async (dispatch) => {
-    Loading.pulse({
+    Block.pulse(".loading-block", "Capturando pokémon...", {
+      backgroundColor: "rgba(0,0,0,0.8)",
+      className: "notiflix-block",
+      borderRadius: "42px",
       svgSize: "120px",
       svgColor: "#fff",
+      messageColor: "#fff",
     });
     axios
       .get(`https://pokeapi.co/api/v2/pokemon/?offset=0&limit=${units}`)
@@ -101,7 +105,7 @@ export const getPokemons = (units) => {
       })
       .catch((error) => console.error(error))
       .finally(() => {
-        Loading.remove();
+        Block.remove(".loading-block", 500);
       });
   };
 };
@@ -293,9 +297,13 @@ export const nextPage = (url) => {
 
 export const previousPage = (url) => {
   return async (dispatch) => {
-    Loading.pulse({
+    Block.pulse(".loading-block", "Capturando pokémon...", {
+      backgroundColor: "rgba(0,0,0,0.8)",
+      className: "notiflix-block",
+      borderRadius: "42px",
       svgSize: "120px",
       svgColor: "#fff",
+      messageColor: "#fff",
     });
     axios
       .get(url)
@@ -314,7 +322,7 @@ export const previousPage = (url) => {
       })
       .catch((error) => console.error(error))
       .finally(() => {
-        Loading.remove();
+        Block.remove(".loading-block", 500);
       });
   };
 };

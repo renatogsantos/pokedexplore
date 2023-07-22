@@ -43,7 +43,6 @@ export default function PokemonPage({ pokemon }) {
   useEffect(() => {
     dispatch(getPokemonWeaknesses(pokemon.name));
   }, [pokemon]);
-  console.log(pokemon);
 
   return (
     <div
