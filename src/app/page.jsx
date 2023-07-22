@@ -180,7 +180,7 @@ export default function Home() {
       </Container>
 
       <Container>
-        <div className="d-flex align-items-center gap-2 mb-3">
+        <div id="pokedex" className="d-flex align-items-center gap-2 my-3">
           <img
             draggable={false}
             src="/pokeball.png"

@@ -43,6 +43,7 @@ export default function PokemonPage({ pokemon }) {
   useEffect(() => {
     dispatch(getPokemonWeaknesses(pokemon.name));
   }, [pokemon]);
+  console.log(pokemon);
 
   return (
     <div
@@ -51,9 +52,12 @@ export default function PokemonPage({ pokemon }) {
         backgroundImage: `url('/svgs/half-pokeball.svg'), radial-gradient(150% 50% at 50% bottom, ${color}, #060e20cc)`,
       }}
     >
-      <Container fluid className="py-5 position-relative overflow-hidden">
+      <Container
+        fluid
+        className="py-3 py-lg-5 position-relative overflow-hidden text-light"
+      >
         <Waves />
-        <Container className="py-5">
+        <Container className="py-3 py-lg-5">
           <Row className="align-items-center g-3 pb-4">
             <Col xs="12" lg="2">
               <img
@@ -69,17 +73,35 @@ export default function PokemonPage({ pokemon }) {
               className="d-flex justify-content-center justify-content-lg-end"
             >
               <ButtonPrimary
-                link="/"
+                link="/#pokedex"
                 title="Voltar"
                 icon={<ArrowCircleLeft size={24} weight="duotone" />}
               />
             </Col>
           </Row>
           <hr />
+          <div className="text-center">
+            <h1>{pokemon.name}</h1>
+          </div>
           <Row className="align-items-center">
+            <p className="mb-4">
+              Conheça o incrível Pokémon{" "}
+              <span className="capitalize">{pokemon.name}</span>, um ser
+              misterioso e poderoso com habilidades surpreendentes. Sua natureza
+              se reflete em seus tipos:{" "}
+              {pokemon.types.map((type, i) => {
+                return (
+                  <span key={i} className="capitalize pe-1">
+                    {type.type.name}
+                  </span>
+                );
+              })}
+              . Seja em batalhas ou aventuras,
+              <span className="capitalize"> {pokemon.name}</span> é um
+              companheiro valioso e pronto para enfrentar qualquer desafio!
+            </p>
             <Col sm="12" xl="7">
               <div className="text-light p-lg-5">
-                <h1>{pokemon.name}</h1>
                 <div className="d-flex align-items-center w-100 gap-3">
                   {pokemon.types.map((type, i) => {
                     return (
@@ -173,7 +195,7 @@ export default function PokemonPage({ pokemon }) {
             <Col
               sm="12"
               xl="5"
-              className="order-first order-xl-last text-center py-5"
+              className="order-first order-xl-last text-center py-3"
             >
               <img
                 draggable={false}
