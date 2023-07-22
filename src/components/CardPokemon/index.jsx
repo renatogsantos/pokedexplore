@@ -1,4 +1,4 @@
-'use client'
+"use client";
 import {
   Barbell,
   Gauge,
@@ -104,7 +104,7 @@ export default function CardPokemon({ pokemon }) {
       }`}
       style={{
         backgroundImage: `url('/svgs/half-pokeball.svg'), radial-gradient(80% 80% at 50% bottom, ${
-          color + "80"
+          color + "90"
         }, #060e20cc)`,
       }}
     >
@@ -121,9 +121,11 @@ export default function CardPokemon({ pokemon }) {
         draggable={false}
         className="card-pokemon-img"
         src={
-          pokemon.sprites.other["official-artwork"].front_default
+          pokemon.sprites.other.home.front_default
+            ? pokemon.sprites.other.home.front_default
+            : pokemon.sprites.other["official-artwork"].front_default
             ? pokemon.sprites.other["official-artwork"].front_default
-            : "/pokenull.png"
+            : "pokenull.png"
         }
         alt="Pokémon selecionado"
       />

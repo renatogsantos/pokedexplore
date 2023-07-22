@@ -1,6 +1,7 @@
 import { pokemonData } from "@/helpers/PokemonTypes";
 import { getPokemon } from "@/redux/pokemons";
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 
@@ -27,12 +28,7 @@ export default function CardPokedex({ pokemon }) {
   }, [pokemon]);
 
   return (
-    <button
-      type="button"
-      onClick={() => {
-        dispatch(getPokemon(pokemon.name));
-      }}
-    >
+    <Link href={`/${pokemon.id}`}>
       <div
         key={pokemon.name}
         className="card-pokedex"
@@ -52,6 +48,6 @@ export default function CardPokedex({ pokemon }) {
           alt="Pokemon"
         />
       </div>
-    </button>
+    </Link>
   );
 }
