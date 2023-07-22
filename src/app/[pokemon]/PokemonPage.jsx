@@ -58,27 +58,14 @@ export default function PokemonPage({ pokemon }) {
       >
         <Waves />
         <Container className="py-3 py-lg-5">
-          <Row className="align-items-center g-3 pb-4">
-            <Col xs="12" lg="2">
-              <img
-                draggable={false}
-                width="100%"
-                src="/pokedexplore.svg"
-                alt="PokédExplore"
-              />
-            </Col>
-            <Col
-              xs="12"
-              lg
-              className="d-flex justify-content-center justify-content-lg-end"
-            >
-              <ButtonPrimary
-                link="/#pokedex"
-                title="Voltar"
-                icon={<ArrowCircleLeft size={24} weight="duotone" />}
-              />
-            </Col>
-          </Row>
+          <div className="d-flex align-items-center justify-content-center">
+            <img
+              draggable={false}
+              width="300"
+              src="/pokedexplore.svg"
+              alt="PokédExplore"
+            />
+          </div>
           <hr />
           <div className="text-center">
             <h1>{pokemon.name}</h1>
@@ -119,7 +106,7 @@ export default function PokemonPage({ pokemon }) {
                   {pokemon.stats.map((stats, i) => {
                     return (
                       <Row key={i} className="align-items-center">
-                        <Col xs="2" sm="1" className="py-3">
+                        <Col xs="2" sm="1" className="py-2">
                           {stats.stat.name == "hp" ? (
                             <Heartbeat
                               size={24}
@@ -211,6 +198,13 @@ export default function PokemonPage({ pokemon }) {
               />
             </Col>
           </Row>
+          <div className="d-flex justify-content-center">
+            <ButtonPrimary
+              link="/#pokedex"
+              title="Voltar"
+              icon={<ArrowCircleLeft size={24} weight="duotone" />}
+            />
+          </div>
         </Container>
       </Container>
     </div>
