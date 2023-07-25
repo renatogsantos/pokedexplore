@@ -28,7 +28,12 @@ export default function CardPokedex({ pokemon }) {
   }, [pokemon]);
 
   return (
-    <Link href={`/${pokemon.id}`}>
+    <button
+      href={`/${pokemon.id}`}
+      onClick={() => {
+        dispatch(getPokemon(pokemon.name));
+      }}
+    >
       <div
         key={pokemon.name}
         className="card-pokedex"
@@ -48,6 +53,6 @@ export default function CardPokedex({ pokemon }) {
           alt="Pokemon"
         />
       </div>
-    </Link>
+    </button>
   );
 }
