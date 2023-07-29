@@ -7,7 +7,6 @@ import {
   actAddPokedex,
   actOpenCardPokedex,
   actOpenCardPokemon,
-  addPokemonCard,
   getPokemon,
   getPokemonToPokedex,
   getPokemons,
@@ -24,7 +23,6 @@ import {
   Clipboard,
   GithubLogo,
   House,
-  Lightning,
   LinkedinLogo,
   MagnifyingGlass,
   WhatsappLogo,
@@ -141,7 +139,13 @@ export default function Home() {
             dispatch(getPokemonToPokedex());
           }}
         >
-          <img width="60" src="/pokeball.png" alt="Pokeball" />
+          <img
+            draggable={false}
+            loading="lazy"
+            width="60"
+            src="/pokeball.png"
+            alt="Pokeball"
+          />
         </button>
       )}
 
@@ -162,6 +166,7 @@ export default function Home() {
       <Container className="py-5 text-light text-center">
         <img
           draggable={false}
+          loading="lazy"
           src="/pokemons/treinador-pk.png"
           width="80%"
           alt="Treinador pokemon"
@@ -185,6 +190,7 @@ export default function Home() {
         <div id="pokedex" className="d-flex align-items-center gap-2 my-3">
           <img
             draggable={false}
+            loading="lazy"
             src="/pokeball.png"
             width="32"
             alt="Pokeball"
@@ -192,7 +198,13 @@ export default function Home() {
           <h2 className="text-light m-0">Pokédex</h2>
         </div>
         <div className="pokedex-list" title="Ctrl + scroll para navegar.">
-          <img draggable={false} src="/pokedex.png" width="60" alt="Pokedex" />
+          <img
+            draggable={false}
+            loading="lazy"
+            src="/pokedex.png"
+            width="60"
+            alt="Pokedex"
+          />
           {Pokedex?.map((pk, i) => {
             return <CardPokedex key={i} pokemon={pk} />;
           })}
@@ -239,6 +251,7 @@ export default function Home() {
                         >
                           <img
                             draggable={false}
+                            loading="lazy"
                             width={30}
                             src={`/types/${type.type}.svg`}
                             alt={type.type}

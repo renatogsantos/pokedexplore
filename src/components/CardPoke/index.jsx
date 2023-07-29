@@ -37,7 +37,7 @@ export default function CardPoke({ id, img, name, types, weight, height }) {
     >
       <div className="card-poke-img">
         {img ? (
-          <img draggable={false} width="280" src={img} />
+          <img draggable={false} loading="lazy" width="280" src={img} />
         ) : (
           <img draggable={false} width="280" src="/pokenull.png" />
         )}
