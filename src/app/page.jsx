@@ -44,7 +44,7 @@ export default function Home() {
   const dispatch = useDispatch();
   const [pokeball, setPokeball] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [namePokemonHome, setNamePokemonHome] = useState("ivysaur");
+  const [namePokemonHome, setNamePokemonHome] = useState("charizard");
   const [search, setSearch] = useState(namePokemonHome);
   const {
     Pokemons,
@@ -163,27 +163,33 @@ export default function Home() {
 
       <HomePokemon name={namePokemonHome} />
 
-      <Container className="py-5 text-light text-center">
-        <img
-          draggable={false}
-          loading="lazy"
-          src="/pokemons/treinador-pk.png"
-          width="80%"
-          alt="Treinador pokemon"
-        />
-        <h2 className="py-4">
-          Viva a emoção de capturar e batalhar: Seja um mestre Pokémon no
-          PokédExplore!
-        </h2>
-        <p>
-          Descubra um mundo repleto de aventuras com o PokédExplore! Agora, você
-          pode se tornar um verdadeiro treinador Pokémon, capturando suas
-          criaturas favoritas com apenas um clique. Espere a pokebola surgir,
-          clique e encare um Pokémon surpresa para adicionar à sua pokédex.
-          Monte um poderoso deck e desafie seus amigos em empolgantes batalhas!
-          A jornada começa agora. Prepare-se para ser o melhor treinador de
-          todos os tempos!
-        </p>
+      <Container className="text-light">
+        <Row className="align-items-center">
+          <Col sm="12" lg="4">
+            <img
+              draggable={false}
+              loading="lazy"
+              src="/pokemons/treinador-pk.png"
+              width="100%"
+              alt="Treinador pokemon"
+            />
+          </Col>
+          <Col sm="12" lg="8">
+            <h2 className="py-4">
+              Viva a emoção de capturar e batalhar: Seja um mestre Pokémon no
+              PokédExplore!
+            </h2>
+            <p>
+              Descubra um mundo repleto de aventuras com o PokédExplore! Agora,
+              você pode se tornar um verdadeiro treinador Pokémon, capturando
+              suas criaturas favoritas com apenas um clique. Espere a pokebola
+              surgir, clique e encare um Pokémon surpresa para adicionar à sua
+              pokédex. Monte um poderoso deck e desafie seus amigos em
+              empolgantes batalhas! A jornada começa agora. Prepare-se para ser
+              o melhor treinador de todos os tempos!
+            </p>
+          </Col>
+        </Row>
       </Container>
 
       <Container>
