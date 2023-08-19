@@ -276,7 +276,6 @@ export const nextPage = (url) => {
     axios
       .get(url)
       .then(async (response) => {
-        console.log(response)
         let endpoints = response.data.results.map((pokemon) => pokemon.url);
         let pokemonData = await axios.all(
           endpoints.map((url) => axios.get(url).then((resp) => resp.data))
