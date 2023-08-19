@@ -328,6 +328,7 @@ export default function Home() {
               type="button"
               title="Anterior"
               icon={<ArrowCircleLeft size={24} weight="duotone" />}
+              variant={!PreviousPage && "disabled"}
               onClick={() => {
                 dispatch(previousPage(PreviousPage));
                 scrollTo("Pokemons");
@@ -337,6 +338,7 @@ export default function Home() {
               type="button"
               title="Próxima"
               icon={<ArrowCircleRight size={24} weight="duotone" />}
+              variant={!NextPage && "disabled"}
               onClick={() => {
                 dispatch(nextPage(NextPage));
                 scrollTo("Pokemons");

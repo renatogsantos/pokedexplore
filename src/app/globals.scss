@@ -88,6 +88,12 @@ button {
   text-transform: capitalize;
 }
 
+.disabled {
+  user-select: none;
+  pointer-events: none;
+  opacity: .5;
+}
+
 h1 {
   font-family: Montserrat;
   font-size: clamp(2rem, 5vw, 4rem);
