@@ -22,14 +22,6 @@ body {
   background: #000;
 }
 
-button {
-  &:focus,
-  &:active{
-    outline: 2px solid #cccccc20;
-    border-radius: 6px;
-  }
-}
-
 ::-webkit-scrollbar {
   width: 0;
   height: 0;

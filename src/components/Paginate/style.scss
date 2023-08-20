@@ -23,10 +23,15 @@
     height: 100%;
     margin: 0;
     color: #fff;
-    &:focus,
+    transition: 0.1s;
     &:active {
-      outline: 2px solid #cccccc20;
-      border: 2px solid #cccccc20;
+      transform: scale(0.9);
+      border: none;
+      outline: 1px solid #000;
+    }
+    &:focus {
+      outline: 1px solid #000;
+      font-weight: bold;
     }
   }
 }
@@ -39,9 +44,14 @@
   justify-content: center;
   border-radius: 12px;
   color: #fff;
-  &:focus,
+  transition: 0.1s;
   &:active {
-    outline: 2px solid #cccccc20;
-    border: 2px solid #cccccc20;
+    transform: scale(0.9);
+    border: none;
+    outline: 1px solid #000;
+  }
+  &:focus {
+    outline: 1px solid #000;
+    font-weight: bold;
   }
 }
