@@ -33,10 +33,7 @@ export default function Paginate({ page, onClick }) {
         tabIndex={0}
         type="button"
         className={`button-paginate ${value <= 0 && "disabled"}`}
-        onClick={() => {
-          onClick;
-          decremento();
-        }}
+        onClick={decremento}
       >
         <MinusCircle size={24} weight="duotone" />
       </button>
@@ -53,10 +50,7 @@ export default function Paginate({ page, onClick }) {
         tabIndex={0}
         type="button"
         className={`button-paginate ${value >= 142 && "disabled"}`}
-        onClick={() => {
-          onClick;
-          incremento();
-        }}
+        onClick={incremento}
       >
         <PlusCircle size={24} weight="duotone" />
       </button>
