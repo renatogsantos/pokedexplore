@@ -325,10 +325,7 @@ export default function Home() {
             })}
           </Row>
           <div className="d-flex align-items-center justify-content-center w-100">
-            <Paginate
-              page={0}
-              scrollTo={scrollTo("Pokemons")}
-            />
+            <Paginate page={0} />
           </div>
         </Container>
         <Container>

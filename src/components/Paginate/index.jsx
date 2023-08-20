@@ -1,19 +1,20 @@
+import { scrollTo } from "@/helpers";
 import { getNewPage } from "@/redux/pokemons";
 import { MinusCircle, PlusCircle } from "@phosphor-icons/react";
 import axios from "axios";
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 
-export default function Paginate({ page, scrollTo }) {
+export default function Paginate({ page }) {
   const dispatch = useDispatch();
   const [value, setValue] = useState(page);
 
   const incremento = () => {
-    scrollTo
+    scrollTo("Pokemons");
     setValue(value + 1);
   };
   const decremento = () => {
-    scrollTo
+    scrollTo("Pokemons");
     setValue(value - 1);
   };
 
