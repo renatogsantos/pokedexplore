@@ -16,8 +16,16 @@ export default function Paginate({ page, onClick }) {
   };
 
   useEffect(() => {
-    dispatch(getNewPage(value));
-  }, [value]);
+    const timerId = setTimeout(() => {
+      if (value !== "") {
+        dispatch(getNewPage(value));
+      }
+    }, 500); // Tempo de atraso em milissegundos
+
+    return () => {
+      clearTimeout(timerId);
+    };
+  }, [value, dispatch]);
 
   return (
     <div className="paginate">
@@ -36,11 +44,9 @@ export default function Paginate({ page, onClick }) {
         type="tel"
         value={value}
         onChange={(e) => {
-          if (e.target.value.trim() !== "") {
-            setValue(parseInt(e.target.value));
-          } else {
-            setValue("");
-          }
+          setValue(
+            e.target.value.trim() !== "" ? parseInt(e.target.value) : ""
+          );
         }}
       />
       <button
