@@ -109,9 +109,7 @@ export default function CardAddPokemon({ pokemon }) {
         slideOut ? "slide-out-top" : ""
       }`}
       style={{
-        backgroundImage: `url('/svgs/half-pokeball.svg'), radial-gradient(80% 80% at 50% bottom, ${
-          color + "80"
-        }, #060e20cc)`,
+        backgroundImage: `url('/svgs/half-pokeball.svg'), radial-gradient(80% 80% at 50% bottom, ${color}, #060e20cc)`,
       }}
     >
       <button

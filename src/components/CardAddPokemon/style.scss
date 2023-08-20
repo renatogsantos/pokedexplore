@@ -36,6 +36,7 @@
 
 .card-pokemon-img{
   width: 220px;
+  filter: saturate(1.9);
   @media screen and (max-width: 1224px) {
     width: 160px;
   }

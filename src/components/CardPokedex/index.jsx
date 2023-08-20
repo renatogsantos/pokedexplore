@@ -38,9 +38,7 @@ export default function CardPokedex({ pokemon }) {
         key={pokemon.name}
         className="card-pokedex"
         style={{
-          backgroundImage: `url('/svgs/half-pokeball.svg'), radial-gradient(80% 80% at 50% bottom, ${
-            color + "80"
-          }, #060e20cc)`,
+          backgroundImage: `url('/svgs/half-pokeball.svg'), radial-gradient(80% 80% at 50% bottom, ${color}, #060e20cc)`,
         }}
       >
         <img

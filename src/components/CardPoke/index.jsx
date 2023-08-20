@@ -31,7 +31,7 @@ export default function CardPoke({ id, img, name, types, weight, height }) {
       className="card-poke slide-in-top"
       style={{
         backgroundImage: `url('/svgs/half-pokeball.svg'), radial-gradient(80% 80% at 50% bottom, ${
-          color + "80"
+          color
         }, #060e20cc)`,
       }}
     >

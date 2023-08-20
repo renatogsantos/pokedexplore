@@ -104,7 +104,7 @@ export default function CardPokemon({ pokemon }) {
       }`}
       style={{
         backgroundImage: `url('/svgs/half-pokeball.svg'), radial-gradient(80% 80% at 50% bottom, ${
-          color + "90"
+          color
         }, #060e20cc)`,
       }}
     >
