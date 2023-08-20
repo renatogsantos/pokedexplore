@@ -101,10 +101,6 @@ export default function Home() {
   }, [Pokemon]);
 
   useEffect(() => {
-    scrollTo("Pokemons");
-  }, [Pokemons]);
-
-  useEffect(() => {
     const num = gerarNumeroAleatorio(60000);
     setTimeout(() => {
       setPokeball(true);
@@ -329,7 +325,10 @@ export default function Home() {
             })}
           </Row>
           <div className="d-flex align-items-center justify-content-center w-100">
-            <Paginate page={0} />
+            <Paginate
+              page={0}
+              scrollTo={scrollTo("Pokemons")}
+            />
           </div>
         </Container>
         <Container>

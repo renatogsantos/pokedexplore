@@ -4,14 +4,16 @@ import axios from "axios";
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 
-export default function Paginate({ page, onClick }) {
+export default function Paginate({ page, scrollTo }) {
   const dispatch = useDispatch();
   const [value, setValue] = useState(page);
 
   const incremento = () => {
+    scrollTo
     setValue(value + 1);
   };
   const decremento = () => {
+    scrollTo
     setValue(value - 1);
   };
 
