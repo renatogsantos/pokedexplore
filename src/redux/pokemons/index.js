@@ -11,8 +11,6 @@ const initialState = {
   Pokemons: [],
   Pokemon: null,
   Weaknesses: [],
-  NextPage: "",
-  PreviousPage: "",
   OpenCardPokemon: false,
   OpenCardPokedex: false,
   Pokedex: [],
@@ -22,8 +20,6 @@ const initialState = {
 export const actPokemons = createAction("POKEMONS");
 export const actPokemon = createAction("POKEMON");
 export const actAddPokedex = createAction("ADD_POKEDEX");
-export const actNextPage = createAction("NEXT_PAGE");
-export const actPreviousPage = createAction("PREVIOUS_PAGE");
 export const actWeaknesses = createAction("WEAKNESSES");
 export const actOpenCardPokemon = createAction("OPEN_CARD_POKEMON");
 export const actOpenCardPokedex = createAction("OPEN_CARD_POKEDEX");
@@ -263,8 +259,11 @@ export const addPokemonCard = (pokemon) => {
   };
 };
 
-export const nextPage = (url) => {
+
+export const getNewPage = (page) => {
   return async (dispatch) => {
+    let offset = page * 9;
+    let url = `https://pokeapi.co/api/v2/pokemon/?offset=${offset}&limit=9`;
     Block.pulse(".loading-block", "Capturando pokémon...", {
       backgroundColor: "rgba(0,0,0,0.8)",
       className: "notiflix-block",
@@ -285,40 +284,6 @@ export const nextPage = (url) => {
         });
 
         dispatch(actPokemons(pokemons));
-        dispatch(actNextPage(response.data.next));
-        dispatch(actPreviousPage(response.data.previous));
-      })
-      .catch((error) => console.error(error))
-      .finally(() => {
-        Block.remove(".loading-block", 500);
-      });
-  };
-};
-
-export const previousPage = (url) => {
-  return async (dispatch) => {
-    Block.pulse(".loading-block", "Capturando pokémon...", {
-      backgroundColor: "rgba(0,0,0,0.8)",
-      className: "notiflix-block",
-      borderRadius: "42px",
-      svgSize: "120px",
-      svgColor: "#fff",
-      messageColor: "#fff",
-    });
-    axios
-      .get(url)
-      .then(async (response) => {
-        let endpoints = response.data.results.map((pokemon) => pokemon.url);
-        let pokemonData = await axios.all(
-          endpoints.map((url) => axios.get(url).then((resp) => resp.data))
-        );
-        let pokemons = pokemonData.map((data) => {
-          return { ...data };
-        });
-
-        dispatch(actPokemons(pokemons));
-        dispatch(actNextPage(response.data.next));
-        dispatch(actPreviousPage(response.data.previous));
       })
       .catch((error) => console.error(error))
       .finally(() => {
@@ -338,12 +303,6 @@ export default createReducer(initialState, (builder) => {
     })
     .addCase(actAddPokedex, (state, action) => {
       return { ...state, Pokedex: action.payload };
-    })
-    .addCase(actNextPage, (state, action) => {
-      return { ...state, NextPage: action.payload };
-    })
-    .addCase(actPreviousPage, (state, action) => {
-      return { ...state, PreviousPage: action.payload };
     })
     .addCase(actOpenCardPokemon, (state, action) => {
       return { ...state, OpenCardPokemon: action.payload };

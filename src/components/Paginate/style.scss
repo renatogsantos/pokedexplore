@@ -1,0 +1,49 @@
+.paginate {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  text-decoration: none;
+  background: rgba(6, 11, 20, 0.8);
+  backdrop-filter: blur(10px);
+  width: fit-content;
+  height: 50px;
+  overflow: hidden;
+  input {
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    border-radius: 12px;
+    padding: 0;
+    border: none;
+    width: 50px;
+    height: 100%;
+    margin: 0;
+    color: #fff;
+    &:focus,
+    &:active,
+    &:hover {
+      outline: 2px solid #cccccc20;
+      border: 2px solid #cccccc20;
+    }
+  }
+}
+
+.button-paginate {
+  height: 100%;
+  width: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  color: #fff;
+  &:focus,
+  &:active,
+  &:hover {
+    outline: 2px solid #cccccc20;
+    border: 2px solid #cccccc20;
+  }
+}

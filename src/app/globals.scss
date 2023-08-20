@@ -9,6 +9,7 @@
 @import "/src/components/CardPokedex/style.scss";
 @import "/src/components/StatusBar/style.scss";
 @import "/src/components/HomePokemon/style.scss";
+@import "/src/components/Paginate/style.scss";
 @import "./[pokemon]/style.scss";
 
 body {
@@ -19,6 +20,14 @@ body {
   overflow-x: hidden !important;
   user-select: none;
   background: #000;
+}
+
+button {
+  &:focus,
+  &:active{
+    outline: 2px solid #cccccc20;
+    border-radius: 6px;
+  }
 }
 
 ::-webkit-scrollbar {
@@ -91,7 +100,7 @@ button {
 .disabled {
   user-select: none;
   pointer-events: none;
-  opacity: .5;
+  opacity: 0.5;
 }
 
 h1 {

@@ -39,6 +39,7 @@ import CardAddPokemon from "@/components/CardAddPokemon";
 import CardPokedex from "@/components/CardPokedex";
 import Link from "next/link";
 import { getPokemonPage } from "@/services/pokemons";
+import Paginate from "@/components/Paginate";
 
 export default function Home() {
   const dispatch = useDispatch();
@@ -323,24 +324,10 @@ export default function Home() {
               );
             })}
           </Row>
-          <div className="d-flex align-items-center justify-content-between w-100">
-            <ButtonPrimary
-              type="button"
-              title="Anterior"
-              icon={<ArrowCircleLeft size={24} weight="duotone" />}
-              variant={!PreviousPage && "disabled"}
+          <div className="d-flex align-items-center justify-content-center w-100">
+            <Paginate
+              page={0}
               onClick={() => {
-                dispatch(previousPage(PreviousPage));
-                scrollTo("Pokemons");
-              }}
-            />
-            <ButtonPrimary
-              type="button"
-              title="Próxima"
-              icon={<ArrowCircleRight size={24} weight="duotone" />}
-              variant={!NextPage && "disabled"}
-              onClick={() => {
-                dispatch(nextPage(NextPage));
                 scrollTo("Pokemons");
               }}
             />
