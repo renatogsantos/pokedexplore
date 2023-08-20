@@ -24,8 +24,7 @@
     margin: 0;
     color: #fff;
     &:focus,
-    &:active,
-    &:hover {
+    &:active {
       outline: 2px solid #cccccc20;
       border: 2px solid #cccccc20;
     }
@@ -41,8 +40,7 @@
   border-radius: 12px;
   color: #fff;
   &:focus,
-  &:active,
-  &:hover {
+  &:active {
     outline: 2px solid #cccccc20;
     border: 2px solid #cccccc20;
   }
