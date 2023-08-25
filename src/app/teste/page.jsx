@@ -31,10 +31,6 @@ export default function Teste() {
           `https://8572.meu-cloud.com/w2b/api/Ecommerce/Dpg/ProdsVideoContador/?token=${token}&document=${docClienteRedeIdeia}&table=${tblClienteRedeIdeia}`,
           {
             method: "GET",
-            headers: {
-              Authorization: token,
-              // "Access-Control-Allow-Origin": "https://revicont.com.br",
-            },
           }
         );
 
@@ -53,7 +49,6 @@ export default function Teste() {
     }
     getValorCertifcadoRedeIdeia();
   }, []);
-
 
   return (
     <div className="text-light p-5">
