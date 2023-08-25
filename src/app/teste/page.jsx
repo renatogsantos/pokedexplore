@@ -28,7 +28,7 @@ export default function Teste() {
     async function getValorCertifcadoRedeIdeia() {
       try {
         const response = await fetch(
-          `https://8572.meu-cloud.com/w2b/api/Ecommerce/Dpg/ProdsVideoContador/?token=${token}&document=${docClienteRedeIdeia}&table=${tblClienteRedeIdeia}`,
+          `https://8572.meu-cloud.com/w2b/api/Ecommerce/Dpg/ValidarCPF/?cpf=70633329452`,
           {
             method: "GET",
           }
