@@ -11,14 +11,10 @@ import {
   getPokemonToPokedex,
   getPokemons,
   getTypesPokemons,
-  nextPage,
-  previousPage,
 } from "../redux/pokemons";
 import CardPoke from "../components/CardPoke";
 import ButtonPrimary from "../components/ButtonPrimary";
 import {
-  ArrowCircleLeft,
-  ArrowCircleRight,
   CaretUp,
   Clipboard,
   GithubLogo,

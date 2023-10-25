@@ -1,4 +1,3 @@
-import CardPokemon from "@/components/CardPokemon";
 import { getPokemonPage } from "@/services/pokemons";
 import PokemonPage from "./PokemonPage";
 
