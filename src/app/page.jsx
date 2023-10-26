@@ -98,7 +98,7 @@ export default function Home() {
   }, [Pokemon]);
 
   useEffect(() => {
-    const num = gerarNumeroAleatorio(60000);
+    const num = gerarNumeroAleatorio(6000);
     setTimeout(() => {
       setPokeball(true);
     }, num * 5);
@@ -118,19 +118,6 @@ export default function Home() {
 
   return (
     <main>
-      <AnimatePresence>
-        {OpenCardPokemon && (
-          <div
-            className={`card-pokemon-box`}
-            onClick={() => {
-              dispatch(actOpenCardPokemon(false));
-            }}
-          >
-            <CardPokemon pokemon={Pokemon} />
-          </div>
-        )}
-      </AnimatePresence>
-
       {pokeball && (
         <button
           type="button"
@@ -149,17 +136,32 @@ export default function Home() {
         </button>
       )}
 
-      {OpenCardPokedex && (
-        <div
-          className="card-pokemon-box"
-          onClick={() => {
-            dispatch(actOpenCardPokedex(false));
-            setPokeball(false);
-          }}
-        >
-          <CardAddPokemon pokemon={Pokemon} />
-        </div>
-      )}
+      <AnimatePresence>
+        {OpenCardPokemon && (
+          <div
+            className={`card-pokemon-box`}
+            onClick={() => {
+              dispatch(actOpenCardPokemon(false));
+            }}
+          >
+            <CardPokemon pokemon={Pokemon} />
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {OpenCardPokedex && (
+          <div
+            className="card-pokemon-box"
+            onClick={() => {
+              dispatch(actOpenCardPokedex(false));
+              setPokeball(false);
+            }}
+          >
+            <CardAddPokemon pokemon={Pokemon} />
+          </div>
+        )}
+      </AnimatePresence>
 
       <HomePokemon name={namePokemonHome} />
 

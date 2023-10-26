@@ -26,8 +26,6 @@ export default function CardPokemon({ pokemon }) {
     (state) => state.pokemons
   );
 
-  const [slideOut, setSlideOut] = useState(false);
-
   function getColorByType(pokemonType) {
     const foundPokemon = pokemonData.find(
       (pokemon) => pokemon.type === pokemonType
@@ -52,7 +50,6 @@ export default function CardPokemon({ pokemon }) {
 
   useEffect(() => {
     dispatch(getPokemonWeaknesses(pokemon.name));
-    setSlideOut(false);
   }, [pokemon]);
 
   useEffect(() => {
@@ -73,9 +70,7 @@ export default function CardPokemon({ pokemon }) {
       exit={{ opacity: 0, y: -100 }}
       transition={{ duration: 0.6 }}
       onClick={handleClosePropagation}
-      className={`card-pokemon p-3 px-lg-5 pb-lg-5 ${
-        slideOut ? "slide-out-top" : ""
-      }`}
+      className={`card-pokemon p-3 px-lg-5 pb-lg-5`}
       style={{
         backgroundImage: `url('/svgs/half-pokeball.svg'), radial-gradient(80% 80% at 50% bottom, ${color}, #060e20cc)`,
       }}

@@ -31,7 +31,6 @@ export default function CardAddPokemon({ pokemon }) {
   const { Weaknesses, OpenCardPokedex } = useSelector(
     (state) => state.pokemons
   );
-  const [slideOut, setSlideOut] = useState(false);
 
   function getColorByType(pokemonType) {
     const foundPokemon = pokemonData.find(
@@ -57,7 +56,6 @@ export default function CardAddPokemon({ pokemon }) {
 
   useEffect(() => {
     dispatch(getPokemonWeaknesses(pokemon.name));
-    setSlideOut(false);
   }, [pokemon]);
 
   useEffect(() => {
@@ -78,9 +76,7 @@ export default function CardAddPokemon({ pokemon }) {
       exit={{ opacity: 0, y: -100 }}
       transition={{ duration: 0.6 }}
       onClick={handleClosePropagation}
-      className={`card-pokemon slide-in-top p-3 px-lg-5 pb-lg-5 ${
-        slideOut ? "slide-out-top" : ""
-      }`}
+      className={`card-pokemon p-3 px-lg-5 pb-lg-5`}
       style={{
         backgroundImage: `url('/svgs/half-pokeball.svg'), radial-gradient(80% 80% at 50% bottom, ${color}, #060e20cc)`,
       }}
