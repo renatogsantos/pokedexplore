@@ -17,6 +17,7 @@ import StatusBar from "../StatusBar";
 import { actOpenCardPokemon, getPokemonWeaknesses } from "@/redux/pokemons";
 import { convertHeightToMeters, convertWeightToKilograms } from "@/helpers";
 import { pokemonData } from "@/helpers/PokemonTypes";
+import { motion } from "framer-motion";
 
 export default function CardPokemon({ pokemon }) {
   const dispatch = useDispatch();
@@ -25,8 +26,6 @@ export default function CardPokemon({ pokemon }) {
     (state) => state.pokemons
   );
 
-  const [startY, setStartY] = useState(0);
-  const [endY, setEndY] = useState(0);
   const [slideOut, setSlideOut] = useState(false);
 
   function getColorByType(pokemonType) {
@@ -43,35 +42,6 @@ export default function CardPokemon({ pokemon }) {
   const handleClosePropagation = (e) => {
     e.stopPropagation();
   };
-
-  useEffect(() => {
-    const handleTouchStart = (event) => {
-      setStartY(event.touches[0].clientY);
-    };
-
-    const handleTouchMove = (event) => {
-      setEndY(event.touches[0].clientY);
-    };
-
-    const handleTouchEnd = () => {
-      if (startY > endY) {
-        setSlideOut(true);
-        setTimeout(() => {
-          dispatch(actOpenCardPokemon(false));
-        }, 500);
-      }
-    };
-
-    document.addEventListener("touchstart", handleTouchStart);
-    document.addEventListener("touchmove", handleTouchMove);
-    document.addEventListener("touchend", handleTouchEnd);
-
-    return () => {
-      document.removeEventListener("touchstart", handleTouchStart);
-      document.removeEventListener("touchmove", handleTouchMove);
-      document.removeEventListener("touchend", handleTouchEnd);
-    };
-  }, [startY, endY]);
 
   useEffect(() => {
     if (pokemon) {
@@ -97,15 +67,17 @@ export default function CardPokemon({ pokemon }) {
   }, [OpenCardPokemon]);
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, y: 100 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -100 }}
+      transition={{ duration: 0.6 }}
       onClick={handleClosePropagation}
-      className={`card-pokemon slide-in-top p-3 px-lg-5 pb-lg-5 ${
+      className={`card-pokemon p-3 px-lg-5 pb-lg-5 ${
         slideOut ? "slide-out-top" : ""
       }`}
       style={{
-        backgroundImage: `url('/svgs/half-pokeball.svg'), radial-gradient(80% 80% at 50% bottom, ${
-          color
-        }, #060e20cc)`,
+        backgroundImage: `url('/svgs/half-pokeball.svg'), radial-gradient(80% 80% at 50% bottom, ${color}, #060e20cc)`,
       }}
     >
       <button
@@ -227,6 +199,6 @@ export default function CardPokemon({ pokemon }) {
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

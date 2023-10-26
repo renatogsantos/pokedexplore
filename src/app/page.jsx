@@ -36,6 +36,7 @@ import CardPokedex from "@/components/CardPokedex";
 import Link from "next/link";
 import { getPokemonPage } from "@/services/pokemons";
 import Paginate from "@/components/Paginate";
+import { AnimatePresence } from "framer-motion";
 
 export default function Home() {
   const dispatch = useDispatch();
@@ -117,16 +118,18 @@ export default function Home() {
 
   return (
     <main>
-      {OpenCardPokemon && (
-        <div
-          className={`card-pokemon-box`}
-          onClick={() => {
-            dispatch(actOpenCardPokemon(false));
-          }}
-        >
-          <CardPokemon pokemon={Pokemon} />
-        </div>
-      )}
+      <AnimatePresence>
+        {OpenCardPokemon && (
+          <div
+            className={`card-pokemon-box`}
+            onClick={() => {
+              dispatch(actOpenCardPokemon(false));
+            }}
+          >
+            <CardPokemon pokemon={Pokemon} />
+          </div>
+        )}
+      </AnimatePresence>
 
       {pokeball && (
         <button

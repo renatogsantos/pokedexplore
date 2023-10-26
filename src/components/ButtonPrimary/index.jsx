@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { motion } from "framer-motion";
 
 export default function ButtonPrimary({
   type,
@@ -11,13 +12,15 @@ export default function ButtonPrimary({
   return (
     <>
       {type ? (
-        <button
+        <motion.button
+          whileHover={{ scale: .95 }}
+          transition={{ duration: 0.1 }}
           type={type}
           onClick={onClick}
           className={`button-primary ${variant}`}
         >
           {icon} {title}
-        </button>
+        </motion.button>
       ) : (
         <Link
           href={link}

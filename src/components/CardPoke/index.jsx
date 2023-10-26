@@ -5,6 +5,7 @@ import ButtonPrimary from "../ButtonPrimary";
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import { getPokemon } from "@/redux/pokemons";
+import { motion } from "framer-motion";
 
 export default function CardPoke({ id, img, name, types, weight, height }) {
   const [color, setColor] = useState("#fff");
@@ -27,12 +28,14 @@ export default function CardPoke({ id, img, name, types, weight, height }) {
   }, []);
 
   return (
-    <div
-      className="card-poke slide-in-top"
+    <motion.div
+      initial={{ opacity: 0, y: -64 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 64 }}
+      transition={{ duration: 0.8, bounce: .6, type: "spring" }}
+      className="card-poke"
       style={{
-        backgroundImage: `url('/svgs/half-pokeball.svg'), radial-gradient(80% 80% at 50% bottom, ${
-          color
-        }, #060e20cc)`,
+        backgroundImage: `url('/svgs/half-pokeball.svg'), radial-gradient(80% 80% at 50% bottom, ${color}, #060e20cc)`,
       }}
     >
       <div className="card-poke-img">
@@ -90,6 +93,6 @@ export default function CardPoke({ id, img, name, types, weight, height }) {
           />
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
