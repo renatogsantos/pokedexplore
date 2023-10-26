@@ -29,7 +29,7 @@ export default function HomePokemon({ name }) {
         <div className="d-flex align-items-center justify-content-center">
           <img
             draggable={false}
-            loading="lazy"
+           
             width="300"
             src="/pokedexplore.svg"
             alt="PokédExplore"

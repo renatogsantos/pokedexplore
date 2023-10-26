@@ -92,7 +92,7 @@ export default function CardAddPokemon({ pokemon }) {
       </button>
       <img
         draggable={false}
-        loading="lazy"
+       
         className="card-pokemon-img"
         src={
           pokemon.sprites.other["official-artwork"].front_default
