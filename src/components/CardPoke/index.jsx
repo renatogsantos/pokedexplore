@@ -29,9 +29,9 @@ export default function CardPoke({ id, img, name, types, weight, height }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: -64 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 64 }}
+      initial={{ opacity: 0, scale: .9 }}
+      whileInView={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: .9 }}
       transition={{ duration: 0.8, bounce: 0.6, type: "spring" }}
       className="card-poke"
       style={{
