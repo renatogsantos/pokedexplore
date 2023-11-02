@@ -5,6 +5,7 @@ import ButtonPrimary from "../ButtonPrimary";
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import { getPokemon } from "@/redux/pokemons";
+import { motion } from "framer-motion";
 
 export default function CardPoke({ id, img, name, types, weight, height }) {
   const [color, setColor] = useState("#fff");
@@ -27,17 +28,26 @@ export default function CardPoke({ id, img, name, types, weight, height }) {
   }, []);
 
   return (
-    <div
-      className="card-poke slide-in-top"
+    <motion.div
+      initial={{ opacity: 0, y: -64 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 64 }}
+      transition={{ duration: 0.8, bounce: 0.6, type: "spring" }}
+      className="card-poke"
       style={{
         backgroundImage: `url('/svgs/half-pokeball.svg'), radial-gradient(80% 80% at 50% bottom, ${color}, #060e20cc)`,
       }}
     >
       <div className="card-poke-img">
         {img ? (
-          <img draggable={false} width="280" src={img} />
+          <img loading="lazy" draggable={false} width="280" src={img} />
         ) : (
-          <img draggable={false} width="280" src="/pokenull.png" />
+          <img
+            loading="lazy"
+            draggable={false}
+            width="280"
+            src="/pokenull.png"
+          />
         )}
       </div>
 
@@ -48,6 +58,7 @@ export default function CardPoke({ id, img, name, types, weight, height }) {
             return (
               <span key={i} className={item.type.name}>
                 <img
+                  loading="lazy"
                   width={18}
                   src={`/icons/${item.type.name}.svg`}
                   alt={item.type.name}
@@ -88,6 +99,6 @@ export default function CardPoke({ id, img, name, types, weight, height }) {
           />
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

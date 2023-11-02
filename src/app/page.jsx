@@ -127,8 +127,8 @@ export default function Home() {
           }}
         >
           <img
+            loading="lazy"
             draggable={false}
-           
             width="60"
             src="/pokeball.png"
             alt="Pokeball"
@@ -169,8 +169,8 @@ export default function Home() {
         <Row className="align-items-center">
           <Col sm="12" lg="4">
             <img
+              loading="lazy"
               draggable={false}
-             
               src="/pokemons/treinador-pk.png"
               width="100%"
               alt="Treinador pokemon"
@@ -197,8 +197,8 @@ export default function Home() {
       <Container>
         <div id="pokedex" className="d-flex align-items-center gap-2 my-3">
           <img
+            loading="lazy"
             draggable={false}
-           
             src="/pokeball.png"
             width="32"
             alt="Pokeball"
@@ -207,8 +207,8 @@ export default function Home() {
         </div>
         <div className="pokedex-list" title="Ctrl + scroll para navegar.">
           <img
+            loading="lazy"
             draggable={false}
-           
             src="/pokedex.png"
             width="60"
             alt="Pokedex"
@@ -258,8 +258,8 @@ export default function Home() {
                           }}
                         >
                           <img
+                            loading="lazy"
                             draggable={false}
-                           
                             width={30}
                             src={`/types/${type.type}.svg`}
                             alt={type.type}

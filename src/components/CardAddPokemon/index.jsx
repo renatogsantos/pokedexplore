@@ -91,8 +91,8 @@ export default function CardAddPokemon({ pokemon }) {
         <XCircle size={32} weight="duotone" />
       </button>
       <img
+        loading="lazy"
         draggable={false}
-       
         className="card-pokemon-img"
         src={
           pokemon.sprites.other["official-artwork"].front_default
@@ -116,6 +116,7 @@ export default function CardAddPokemon({ pokemon }) {
           {pokemon.types.map((type, i) => {
             return (
               <img
+                loading="lazy"
                 key={i}
                 draggable={false}
                 width={40}
@@ -187,6 +188,7 @@ export default function CardAddPokemon({ pokemon }) {
             {Weaknesses.map((weak, i) => {
               return (
                 <img
+                  loading="lazy"
                   className="scale-in-center"
                   key={i}
                   draggable={false}

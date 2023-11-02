@@ -62,6 +62,7 @@ export default function PokemonPage({ pokemon }) {
         <Container className="py-3 py-lg-5">
           <div className="d-flex align-items-center justify-content-center">
             <img
+              loading="lazy"
               draggable={false}
               width="300"
               src="/pokedexplore.svg"
@@ -104,6 +105,7 @@ export default function PokemonPage({ pokemon }) {
                     {pokemon.types.map((type, i) => {
                       return (
                         <img
+                          loading="lazy"
                           key={i}
                           draggable={false}
                           width={40}
@@ -185,6 +187,7 @@ export default function PokemonPage({ pokemon }) {
                       {Weaknesses.map((weak, i) => {
                         return (
                           <img
+                            loading="lazy"
                             className="scale-in-center"
                             key={i}
                             draggable={false}
@@ -205,6 +208,7 @@ export default function PokemonPage({ pokemon }) {
               className="order-first order-xl-last text-center py-3"
             >
               <img
+                loading="lazy"
                 draggable={false}
                 width="100%"
                 src={

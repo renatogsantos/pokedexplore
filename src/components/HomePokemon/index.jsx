@@ -28,8 +28,8 @@ export default function HomePokemon({ name }) {
       <Container className="py-5">
         <div className="d-flex align-items-center justify-content-center">
           <img
+            loading="lazy"
             draggable={false}
-           
             width="300"
             src="/pokedexplore.svg"
             alt="PokédExplore"
@@ -42,6 +42,7 @@ export default function HomePokemon({ name }) {
               {Pokemon.types.map((type) => {
                 return (
                   <img
+                    loading="lazy"
                     key={type}
                     draggable={false}
                     width={40}
@@ -87,6 +88,7 @@ export default function HomePokemon({ name }) {
           </Col>
           <Col sm="12" xl="6">
             <img
+              loading="lazy"
               draggable={false}
               width="100%"
               src={Pokemon.img}

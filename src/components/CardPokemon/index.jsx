@@ -85,6 +85,7 @@ export default function CardPokemon({ pokemon }) {
         <XCircle size={32} weight="duotone" />
       </button>
       <img
+        loading="lazy"
         draggable={false}
         className="card-pokemon-img"
         src={
@@ -111,6 +112,7 @@ export default function CardPokemon({ pokemon }) {
           {pokemon.types.map((type, i) => {
             return (
               <img
+                loading="lazy"
                 key={i}
                 draggable={false}
                 width={40}
@@ -182,6 +184,7 @@ export default function CardPokemon({ pokemon }) {
             {Weaknesses.map((weak, i) => {
               return (
                 <img
+                  loading="lazy"
                   className="scale-in-center"
                   key={i}
                   draggable={false}

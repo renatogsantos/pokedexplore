@@ -42,8 +42,8 @@ export default function CardPokedex({ pokemon }) {
         }}
       >
         <img
+          loading="lazy"
           draggable={false}
-         
           src={
             pokemon.sprites.other["official-artwork"].front_default
               ? pokemon.sprites.other["official-artwork"].front_default
