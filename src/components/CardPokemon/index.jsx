@@ -134,6 +134,7 @@ export default function CardPokemon({ pokemon }) {
 
       <div className="pt-4 w-100">
         {pokemon.stats.map((stats, i) => {
+          console.log(stats)
           return (
             <Row key={i} className="align-items-center">
               <Col xs="1">
@@ -173,7 +174,7 @@ export default function CardPokemon({ pokemon }) {
                 <span>{stats.base_stat}</span>
               </Col>
               <Col xs>
-                <StatusBar status={stats.base_stat} />
+                <StatusBar status={stats.base_stat} title={stats.stat.name} />
               </Col>
             </Row>
           );

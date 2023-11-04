@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-export default function StatusBar({ status }) {
+export default function StatusBar({ status, title }) {
   const [statusBar, setStatusBar] = useState(0);
 
   function statusClass() {
@@ -28,6 +28,7 @@ export default function StatusBar({ status }) {
       <div
         className={`status-bar-${statusClass()}`}
         style={{ width: `${statusBar / 2}%` }}
+        title={title}
       />
     </div>
   );
