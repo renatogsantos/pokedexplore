@@ -28,12 +28,12 @@ export default function CardPoke({ id, img, name, types, weight, height }) {
   }, []);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: .9 }}
-      whileInView={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: .9 }}
-      transition={{ duration: 0.8, bounce: 0.6, type: "spring" }}
-      className="card-poke"
+    <div
+      // initial={{ opacity: 0, scale: .9 }}
+      // whileInView={{ opacity: 1, scale: 1 }}
+      // exit={{ opacity: 0, scale: .9 }}
+      // transition={{ duration: 0.8, bounce: 0.6, type: "spring" }}
+      className="card-poke slide-in-top"
       style={{
         backgroundImage: `url('/svgs/half-pokeball.svg'), radial-gradient(80% 80% at 50% bottom, ${color}, #060e20cc)`,
       }}
@@ -99,6 +99,6 @@ export default function CardPoke({ id, img, name, types, weight, height }) {
           />
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
