@@ -116,6 +116,18 @@ export default function Home() {
     getPokemonPage(1);
   }, []);
 
+  useEffect(() => {
+    const userAgent = navigator.userAgent;
+
+    if (userAgent.match(/Android/i)) {
+      console.log('Este dispositivo está usando Android.');
+    } else if (userAgent.match(/iPhone|iPad|iPod/i)) {
+      console.log('Este dispositivo está usando iOS (iPhone, iPad, ou iPod).');
+    } else {
+      console.log('Não é possível determinar o sistema operacional do dispositivo.');
+    }
+  }, []);
+
   return (
     <main>
       {pokeball && (
