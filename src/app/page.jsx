@@ -98,11 +98,11 @@ export default function Home() {
   }, [Pokemon]);
 
   useEffect(() => {
-    const num = gerarNumeroAleatorio(6000);
+    const num = gerarNumeroAleatorio(1000);
     setTimeout(() => {
       setPokeball(true);
-    }, num * 5);
-  }, [NextPage, PreviousPage]);
+    }, num * 15);
+  }, [pokeball]);
 
   useEffect(() => {
     OpenCardPokedex == false && setPokeball(false);

@@ -14,6 +14,7 @@
   padding-top: 8rem;
   width: 100%;
   color: #fff;
+  cursor: pointer;
 }
 
 .card-poke-img {
@@ -26,6 +27,9 @@
   width: 100%;
   transform: translateX(-50%);
   filter: saturate(1.9);
+  img {
+    z-index: 100000;
+  }
 }
 
 .pokemon-name {
