@@ -37,7 +37,6 @@ export default function CardPoke({ id, img, name, types, weight, height }) {
       glareBorderRadius="42px"
       transitionSpeed={10000}
       transitionEasing="cubic-bezier(.03,.98,.52,.99)"
-      gyroscope={true}
     >
       <div
         className="card-poke"

@@ -73,7 +73,6 @@ export default function CardPokemon({ pokemon }) {
       glareBorderRadius="26px"
       transitionSpeed={10000}
       transitionEasing="cubic-bezier(.03,.98,.52,.99)"
-      gyroscope={true}
     >
       <motion.div
         initial={{ opacity: 0, y: 100 }}
