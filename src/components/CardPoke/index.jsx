@@ -10,7 +10,6 @@ import ReactParallaxTilt from "react-parallax-tilt";
 
 export default function CardPoke({ id, img, name, types, weight, height }) {
   const [color, setColor] = useState("#fff");
-  const [tilt, setTilt] = useState(false);
   const dispatch = useDispatch();
 
   function getColorByType(pokemonType) {
@@ -30,26 +29,8 @@ export default function CardPoke({ id, img, name, types, weight, height }) {
     setColor(Color);
   }, []);
 
-  useEffect(() => {
-    const userAgent = navigator.userAgent;
-
-    if (userAgent.match(/Android/i)) {
-      console.log("Este dispositivo está usando Android.");
-      setTilt(true);
-    } else if (userAgent.match(/iPhone|iPad|iPod/i)) {
-      console.log("Este dispositivo está usando iOS (iPhone, iPad, ou iPod).");
-      setTilt(false);
-    } else {
-      console.log(
-        "Não é possível determinar o sistema operacional do dispositivo."
-      );
-      setTilt(true);
-    }
-  }, []);
-
   return (
     <ReactParallaxTilt
-      tiltEnable={tilt}
       glareEnable={true}
       glareMaxOpacity={0.3}
       glareColor={color}
@@ -58,7 +39,11 @@ export default function CardPoke({ id, img, name, types, weight, height }) {
       transitionSpeed={10000}
       transitionEasing="cubic-bezier(.03,.98,.52,.99)"
     >
-      <div
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: -40 }}
+        whileInView={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 40 }}
+        transition={{ duration: 0.8, bounce: 0.3, type: "spring" }}
         className="card-poke"
         style={{
           backgroundImage: `url('/svgs/half-pokeball.svg'), radial-gradient(80% 80% at 50% bottom, ${color}, #060e20cc)`,
@@ -135,7 +120,7 @@ export default function CardPoke({ id, img, name, types, weight, height }) {
             />
           </div>
         </div>
-      </div>
+      </motion.div>
     </ReactParallaxTilt>
   );
 }

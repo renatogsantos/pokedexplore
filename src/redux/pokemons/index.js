@@ -77,7 +77,7 @@ export const getPokemonToPokedex = () => {
 export const getPokemons = (units) => {
   return async (dispatch) => {
     Block.pulse(".loading-block", "Capturando pokémon...", {
-      backgroundColor: "rgba(0,0,0,0.8)",
+      backgroundColor: "rgba(0,0,0,0.5)",
       className: "notiflix-block",
       borderRadius: "42px",
       svgSize: "120px",

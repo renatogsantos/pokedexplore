@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useRef, useState } from "react";
 import { Col, Container, Row } from "react-bootstrap";
 import { useDispatch, useSelector } from "react-redux";
@@ -47,8 +46,6 @@ export default function Home() {
   const {
     Pokemons,
     Pokemon,
-    NextPage,
-    PreviousPage,
     OpenCardPokemon,
     OpenCardPokedex,
     Pokedex,

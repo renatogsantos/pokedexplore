@@ -29,13 +29,8 @@
   background-size: 50%, auto;
   background-repeat: no-repeat;
   backdrop-filter: blur(10px);
-  max-width: 600px;
-  min-width: 375px;
+  width: 100%;
   color: #fff;
-  @media screen and (max-width: 1024px) {
-    width: 95%;
-    height: fit-content;
-  }
 }
 
 .card-pokemon-img{
@@ -45,7 +40,7 @@
   transform: scale(1.4);  
   filter: saturate(1.9);
   @media screen and (max-width: 1224px) {
-    width: 220px;
+    width: 200px;
     transform: scale(1.2);  
   }
 }
