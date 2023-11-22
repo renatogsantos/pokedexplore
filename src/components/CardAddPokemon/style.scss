@@ -1,4 +1,4 @@
-.card-pokemon-box {
+.card-add-pokemon-box {
   position: fixed;
   top: 0;
   left: 0;
@@ -12,7 +12,7 @@
   z-index: 1000;
 }
 
-.card-pokemon {
+.card-add-pokemon {
   position: relative;
   display: flex;
   align-items: center;
@@ -25,13 +25,8 @@
   background-size: 50%, auto;
   background-repeat: no-repeat;
   backdrop-filter: blur(10px);
-  max-width: 600px;
-  min-width: 375px;
+  width: 100%;
   color: #fff;
-  @media screen and (max-width: 1024px) {
-    width: 95%;
-    height: fit-content;
-  }
 }
 
 .button-close {

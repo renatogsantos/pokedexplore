@@ -1,7 +1,5 @@
 import { pokemonData } from "@/helpers/PokemonTypes";
 import { getPokemon } from "@/redux/pokemons";
-import Image from "next/image";
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 

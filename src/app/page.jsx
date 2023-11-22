@@ -149,7 +149,7 @@ export default function Home() {
       <AnimatePresence>
         {OpenCardPokedex && (
           <div
-            className="card-pokemon-box"
+            className="card-add-pokemon-box"
             onClick={() => {
               dispatch(actOpenCardPokedex(false));
               setPokeball(false);

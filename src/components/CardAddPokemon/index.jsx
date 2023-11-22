@@ -79,6 +79,7 @@ export default function CardAddPokemon({ pokemon }) {
       glareBorderRadius="26px"
       transitionSpeed={10000}
       transitionEasing="cubic-bezier(.03,.98,.52,.99)"
+      className="m-3"
     >
       <motion.div
         initial={{ opacity: 0, y: 100 }}
@@ -86,7 +87,7 @@ export default function CardAddPokemon({ pokemon }) {
         exit={{ opacity: 0, y: -100 }}
         transition={{ duration: 0.6 }}
         onClick={handleClosePropagation}
-        className={`card-pokemon p-3 px-lg-5`}
+        className={`card-add-pokemon p-3 px-lg-5`}
         style={{
           backgroundImage: `url('/svgs/half-pokeball.svg'), radial-gradient(80% 80% at 50% bottom, ${color}, #060e20cc)`,
         }}
