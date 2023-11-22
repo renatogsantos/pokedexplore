@@ -10,6 +10,7 @@ import ReactParallaxTilt from "react-parallax-tilt";
 
 export default function CardPoke({ id, img, name, types, weight, height }) {
   const [color, setColor] = useState("#fff");
+  const [tilt, setTilt] = useState(false);
   const dispatch = useDispatch();
 
   function getColorByType(pokemonType) {
@@ -24,12 +25,31 @@ export default function CardPoke({ id, img, name, types, weight, height }) {
   }
 
   const Color = getColorByType(types[0].type.name);
+
   useEffect(() => {
     setColor(Color);
   }, []);
 
+  useEffect(() => {
+    const userAgent = navigator.userAgent;
+
+    if (userAgent.match(/Android/i)) {
+      console.log("Este dispositivo está usando Android.");
+      setTilt(true);
+    } else if (userAgent.match(/iPhone|iPad|iPod/i)) {
+      console.log("Este dispositivo está usando iOS (iPhone, iPad, ou iPod).");
+      setTilt(false);
+    } else {
+      console.log(
+        "Não é possível determinar o sistema operacional do dispositivo."
+      );
+      setTilt(true);
+    }
+  }, []);
+
   return (
     <ReactParallaxTilt
+      tiltEnable={tilt}
       glareEnable={true}
       glareMaxOpacity={0.3}
       glareColor={color}
