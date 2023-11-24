@@ -28,7 +28,7 @@ import CardPokemon from "../components/CardPokemon";
 import HomePokemon from "@/components/HomePokemon";
 import { webStore } from "../helpers/webStore";
 import { pokemonHome } from "@/helpers/PokemonHome";
-import { gerarNumeroAleatorio } from "@/helpers";
+import { gerarNumeroAleatorio, scrollTo } from "@/helpers";
 import AliceCarousel from "react-alice-carousel";
 import CardAddPokemon from "@/components/CardAddPokemon";
 import CardPokedex from "@/components/CardPokedex";
@@ -41,7 +41,7 @@ export default function Home() {
   const dispatch = useDispatch();
   const [pokeball, setPokeball] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [namePokemonHome, setNamePokemonHome] = useState("ivysaur");
+  const [namePokemonHome, setNamePokemonHome] = useState("squirtle");
   const [search, setSearch] = useState(namePokemonHome);
   const {
     Pokemons,
