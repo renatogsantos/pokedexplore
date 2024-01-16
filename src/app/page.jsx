@@ -41,7 +41,7 @@ export default function Home() {
   const dispatch = useDispatch();
   const [pokeball, setPokeball] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [namePokemonHome, setNamePokemonHome] = useState("squirtle");
+  const [namePokemonHome, setNamePokemonHome] = useState("charizard");
   const [search, setSearch] = useState(namePokemonHome);
   const {
     Pokemons,
@@ -86,10 +86,6 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    dispatch(getPokemons(9));
-  }, []);
-
-  useEffect(() => {
     getPokeHome();
   }, [Pokemon]);
 
@@ -106,10 +102,8 @@ export default function Home() {
 
   useEffect(() => {
     dispatch(actAddPokedex(webStore.getData("Pokedex")));
-  }, []);
-
-  useEffect(() => {
     getPokemonPage(1);
+    dispatch(getPokemons(9));
   }, []);
 
   return (
