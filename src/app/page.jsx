@@ -41,7 +41,7 @@ export default function Home() {
   const dispatch = useDispatch();
   const [pokeball, setPokeball] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [namePokemonHome, setNamePokemonHome] = useState("squirtle");
+  const [namePokemonHome, setNamePokemonHome] = useState("charizard");
   const [search, setSearch] = useState(namePokemonHome);
   const {
     Pokemons,
@@ -215,7 +215,7 @@ export default function Home() {
         </div>
       </Container>
 
-      <Container fluid className="m-0 py-4 bg-forest">
+      <Container fluid className="m-0 py-4">
         <Container className="py-5 text-light">
           <Row id="Pokemons">
             <Col sm="12" lg="6">
