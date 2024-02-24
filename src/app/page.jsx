@@ -86,10 +86,6 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    dispatch(getPokemons(9));
-  }, []);
-
-  useEffect(() => {
     getPokeHome();
   }, [Pokemon]);
 
@@ -106,10 +102,8 @@ export default function Home() {
 
   useEffect(() => {
     dispatch(actAddPokedex(webStore.getData("Pokedex")));
-  }, []);
-
-  useEffect(() => {
     getPokemonPage(1);
+    dispatch(getPokemons(9));
   }, []);
 
   return (
