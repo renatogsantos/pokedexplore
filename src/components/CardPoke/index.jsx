@@ -29,10 +29,10 @@ export default function CardPoke({ id, img, name, types, weight, height }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.95, y: -40 }}
-      whileInView={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95, y: 40 }}
-      transition={{ duration: 0.8, bounce: 0.3, type: "spring" }}
+      initial={{ opacity: 0, scale: 0.7, z: -20 }}
+      whileInView={{ opacity: 1, scale: 1, z: 0 }}
+      exit={{ opacity: 0, scale: 0.7, zy: 20 }}
+      transition={{ duration: 0.8, bounce: 0.5, type: "spring" }}
       className="card-poke"
       style={{
         backgroundImage: `url('/svgs/half-pokeball.svg'), radial-gradient(80% 80% at 50% bottom, ${color}, #060e20cc)`,

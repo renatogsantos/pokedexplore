@@ -1,5 +1,6 @@
 import { pokemonData } from "@/helpers/PokemonTypes";
 import { getPokemon } from "@/redux/pokemons";
+import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 
@@ -8,9 +9,7 @@ export default function CardPokedex({ pokemon }) {
   const dispatch = useDispatch();
 
   function getColorByType(pokemonType) {
-    const foundPokemon = pokemonData.find(
-      (pokemon) => pokemon.type === pokemonType
-    );
+    const foundPokemon = pokemonData.find((pokemon) => pokemon.type === pokemonType);
     if (foundPokemon) {
       return foundPokemon.color;
     } else {
@@ -26,7 +25,11 @@ export default function CardPokedex({ pokemon }) {
   }, [pokemon]);
 
   return (
-    <button
+    <motion.button
+      initial={{ opacity: 0, scale: 0.7, z: -20 }}
+      whileInView={{ opacity: 1, scale: 1, z: 0 }}
+      exit={{ opacity: 0, scale: 0.7, zy: 20 }}
+      transition={{ duration: 0.8, bounce: 0.5, type: "spring" }}
       href={`/${pokemon.id}`}
       onClick={() => {
         dispatch(getPokemon(pokemon.name));
@@ -50,6 +53,6 @@ export default function CardPokedex({ pokemon }) {
           alt="Pokemon"
         />
       </div>
-    </button>
+    </motion.button>
   );
 }

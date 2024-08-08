@@ -63,10 +63,10 @@ export default function CardAddPokemon({ pokemon }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 100 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -100 }}
-      transition={{ duration: 0.6 }}
+      initial={{ opacity: 0, scale: 0.7, z: -20 }}
+      whileInView={{ opacity: 1, scale: 1, z: 0 }}
+      exit={{ opacity: 0, scale: 0.7, zy: 20 }}
+      transition={{ duration: 0.8, bounce: 0.5, type: "spring" }}
       onClick={handleClosePropagation}
       className={`card-add-pokemon p-3 px-lg-5`}
       style={{
