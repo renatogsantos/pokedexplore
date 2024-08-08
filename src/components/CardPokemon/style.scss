@@ -29,19 +29,19 @@
   background-size: 50%, auto;
   background-repeat: no-repeat;
   backdrop-filter: blur(10px);
-  width: 100%;
+  width: fit-content;
   color: #fff;
 }
 
-.card-pokemon-img{
+.card-pokemon-img {
   position: relative;
   top: -30px;
   width: 256px;
-  transform: scale(1.4);  
+  transform: scale(1.4);
   filter: saturate(1.9);
   @media screen and (max-width: 1224px) {
     width: 200px;
-    transform: scale(1.2);  
+    transform: scale(1.2);
   }
 }
 
