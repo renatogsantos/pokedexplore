@@ -26,9 +26,9 @@ export default function CardPokedex({ pokemon }) {
 
   return (
     <motion.button
-      initial={{ opacity: 0, scale: 0.7, z: -20 }}
+      initial={{ opacity: 0, scale: 0.9, z: -10 }}
       whileInView={{ opacity: 1, scale: 1, z: 0 }}
-      exit={{ opacity: 0, scale: 0.7, zy: 20 }}
+      exit={{ opacity: 0, scale: 0.9, z: 10 }}
       transition={{ duration: 0.8, bounce: 0.5, type: "spring" }}
       href={`/${pokemon.id}`}
       onClick={() => {
