@@ -202,7 +202,11 @@ export default function Home() {
           <span className="pokedex-count" role="status" aria-live="polite" aria-atomic="true">
             {Pokedex?.length || 0} capturados
           </span>
-          <Link href="/batalha" className="pokedex-battle-link">Batalhar</Link>
+          <div className="pokedex-actions">
+            <Link href="/como-jogar" className="pokedex-guide-link">Como jogar</Link>
+            <Link href="/pokedex" className="pokedex-collection-link">Minha Pokédex</Link>
+            <Link href="/batalha" className="pokedex-battle-link">Batalhar</Link>
+          </div>
         </div>
         <div className="pokedex-list" title="Ctrl + scroll para navegar.">
           <img

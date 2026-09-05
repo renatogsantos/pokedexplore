@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowLeft, ArrowRight, CaretRight, FirstAid, GameController, Heart, Lightning, Pokeball, Shield, Sparkle, Sword, Trophy } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowRight, CaretRight, FirstAid, GameController, Heart, Lightning, Shield, Sparkle, Sword, Trophy } from "@phosphor-icons/react";
 import { MAX_POTIONS, MAX_SPECIAL_ATTACK_USES, MOVES, POTION_HEAL_PERCENTAGE } from "@/lib/battle/engine";
 import { MAX_POKEMON_LEVEL, STAT_BONUS_PER_LEVEL, calculateLeveledStat } from "@/lib/pokemon/progression";
 
@@ -10,6 +10,7 @@ const percent = Math.round(POTION_HEAL_PERCENTAGE * 100);
 const levelBonus = Math.round(STAT_BONUS_PER_LEVEL * 100);
 const demoDamage = MOVES.find((move) => move.id === "type-strike")?.power * 1.5 || 35;
 
+function Pokeball({ size = 24 }) { return <img className="tutorial-pokeball-icon" src="/pokeball.png" width={size} height={size} alt="" />; }
 function Type({ name }) { return <span className={`tutorial-type type-${name}`}><img src={`/types/${name}.svg`} alt="" />{name}</span>; }
 function Pokemon({ name, type, level = 1 }) { return <div className="tutorial-pokemon"><img src={`/pokemons/${name}.png`} alt={name} /><strong>{name}</strong><span>Lv. {level}</span><Type name={type} /></div>; }
 function Hp({ value, max = 100, label = "HP" }) { const safeValue = Math.max(0, value); return <div className="tutorial-hp" aria-label={`${label}: ${safeValue} de ${max}`}><div><span>{label}</span><strong>{safeValue} / {max}</strong></div><span className={`tutorial-hp-track ${safeValue / max <= .35 ? "danger" : ""}`}><i style={{ width: `${(safeValue / max) * 100}%` }} /></span></div>; }
