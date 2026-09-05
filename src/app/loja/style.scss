@@ -8,3 +8,154 @@
 .shop-card { isolation: isolate; }.shop-card-head > span { padding: 4px 7px; border: 1px solid #ffffff1d; border-radius: 999px; background: #07111fc9; color: #e4efff; letter-spacing: .04em; }.shop-card h2 { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.shop-card:hover { border-color: color-mix(in srgb, var(--shop-type) 85%, #ffffff); box-shadow: 0 14px 28px #0008; transform: translateY(-3px); }.shop-card:focus-within { border-color: #ffdf5d; box-shadow: 0 0 0 2px #ffcb0540, 0 14px 28px #0008; }.shop-catalog-heading { padding-bottom: 10px; border-bottom: 1px solid #ffffff12; }.shop-pagination { padding: 10px; border: 1px solid #ffffff13; border-radius: 15px; background: #06101f88; }.shop-controls select { min-width: 130px; }
 .shop-quantity { display: grid; grid-template-columns: 48px minmax(52px, 1fr) 48px; align-items: center; width: 100%; max-width: 220px; margin: 4px auto 0; overflow: hidden; border: 1px solid #ffcb0577; border-radius: 12px; background: #07111f; }.shop-quantity button { display: grid; place-items: center; width: 48px; min-height: 46px; border: 0; border-radius: 0; background: #192f4d; color: #ffdf5d; }.shop-quantity button:disabled { opacity: .4; cursor: not-allowed; }.shop-quantity strong { color: #fff; font-size: 1.1rem; }.shop-quantity-help { margin: 7px 0 12px; color: #b9cce2; font-size: .66rem; font-weight: 750; }.shop-modal > strong.shop-total { margin-top: 0; padding: 10px 13px; }.shop-total .coin-image { width: 21px; height: 21px; }.shop-modal > div button:last-child { min-width: 0; }
 .shop-modal > .shop-quantity { display: grid; grid-template-columns: 48px minmax(64px, 1fr) 48px; align-items: center; width: min(100%, 220px); margin: 4px auto 0; gap: 0; }.shop-modal > .shop-quantity button { display: grid; place-items: center; width: 48px; min-height: 46px; margin: 0; padding: 0; border: 0; border-radius: 0; background: #192f4d; color: #ffdf5d; }.shop-modal > .shop-quantity button:last-child { border: 0; border-radius: 0; background: #ffcb05; color: #152442; }.shop-modal > .shop-quantity strong { display: grid; place-items: center; min-height: 46px; color: #fff; font-size: 1.1rem; }.shop-modal > .shop-quantity button:disabled { background: #10223b; color: #8192aa; }.shop-modal > .shop-quantity button:focus-visible { position: relative; z-index: 1; outline: 3px solid #fff; outline-offset: -3px; }.shop-modal > .shop-total { margin-top: 0; }.shop-modal > div:not(.shop-quantity) { display: grid; grid-template-columns: 1fr 1.25fr; width: 100%; gap: 8px; margin-top: 20px; }
+
+// Responsive refinement: keep purchase information readable before increasing catalog density.
+.shop-page {
+  overflow-x: clip;
+}
+
+.shop-card h2 {
+  display: grid;
+  min-height: 2.35em;
+  align-items: center;
+  margin-inline: auto;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.shop-modal {
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}
+
+.shop-modal-close,
+.shop-feedback button {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.shop-pagination input {
+  min-height: 40px;
+}
+
+@media (max-width: 640px) {
+  .shop-header {
+    min-height: 52px;
+  }
+
+  .shop-search input {
+    font-size: 1rem;
+  }
+
+  .shop-controls > div {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+    gap: 8px;
+  }
+
+  .shop-controls button,
+  .shop-controls select {
+    min-height: 44px;
+    font-size: .75rem;
+  }
+
+  .shop-controls button {
+    min-width: 0;
+    padding-inline: 7px;
+  }
+
+  .shop-controls label {
+    min-height: 44px;
+  }
+
+  .shop-controls select {
+    min-width: min(58vw, 210px);
+  }
+
+  .shop-card > button {
+    font-size: .68rem;
+  }
+
+  .shop-owned {
+    font-size: .68rem;
+  }
+
+  .shop-types span {
+    font-size: .58rem;
+  }
+}
+
+@media (max-width: 430px) {
+  .shop-page {
+    padding-inline: max(10px, env(safe-area-inset-left));
+  }
+
+  .shop-hero,
+  .shop-browser {
+    border-radius: 20px;
+  }
+
+  .shop-hero h1 {
+    font-size: clamp(2rem, 10vw, 2.55rem);
+  }
+
+  .shop-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .shop-card {
+    min-height: 318px;
+    padding: 13px;
+  }
+
+  .shop-card > img {
+    width: 126px;
+    height: 126px;
+  }
+
+  .shop-card h2 {
+    max-width: 18ch;
+    font-size: 1rem;
+  }
+
+  .shop-types span {
+    font-size: .62rem;
+  }
+
+  .shop-owned {
+    font-size: .72rem;
+  }
+
+  .shop-card > button {
+    min-height: 48px;
+    font-size: .72rem;
+  }
+
+  .shop-pagination {
+    padding: 7px;
+  }
+}
+
+@media (max-height: 620px) and (orientation: landscape) {
+  .shop-modal {
+    width: min(100%, 620px);
+    grid-template-columns: 150px 1fr;
+    column-gap: 18px;
+    padding: 20px 24px;
+    text-align: left;
+  }
+
+  .shop-modal > img {
+    grid-row: span 5;
+    align-self: center;
+  }
+
+  .shop-modal > .shop-quantity,
+  .shop-modal > div:not(.shop-quantity) {
+    margin-left: 0;
+  }
+}

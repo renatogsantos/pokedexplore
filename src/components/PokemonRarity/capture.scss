@@ -1,2 +1,10 @@
-.rarity-capture-reveal { border-color: transparent !important; box-shadow: none !important; }
-.rarity-capture-reveal::after { display: none !important; }
+.rarity-capture-reveal.rarity-legendary,
+.rarity-capture-reveal.rarity-mythical {
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.rarity-capture-reveal.rarity-legendary::after,
+.rarity-capture-reveal.rarity-mythical::after {
+  display: none !important;
+}

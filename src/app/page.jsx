@@ -180,33 +180,34 @@ export default function Home() {
 
       <HomePokemon name={namePokemonHome} />
 
-      <Container className="text-light">
-        <Row className="align-items-center">
-          <Col sm="12" lg="4">
-            <img
-              loading="lazy"
-              draggable={false}
-              src="/pokemons/treinador-pk.png"
-              width="100%"
-              alt="Treinador pokemon"
-            />
-          </Col>
-          <Col sm="12" lg="8">
-            <h2 className="py-4">
-              Viva a emoção de capturar e batalhar: Seja um mestre Pokémon no
-              PokédExplore!
-            </h2>
-            <p>
-              Descubra um mundo repleto de aventuras com o PokédExplore! Agora,
-              você pode se tornar um verdadeiro treinador Pokémon, capturando
-              suas criaturas favoritas com apenas um clique. Espere a pokebola
-              surgir, clique e encare um Pokémon surpresa para adicionar à sua
-              pokédex. Monte um poderoso deck e desafie seus amigos em
-              empolgantes batalhas! A jornada começa agora. Prepare-se para ser
-              o melhor treinador de todos os tempos!
-            </p>
-          </Col>
-        </Row>
+      <Container className="project-intro text-light">
+        <section className="project-intro__panel" aria-labelledby="project-intro-title">
+          <Row className="align-items-center g-0">
+            <Col sm="12" lg="4" className="project-intro__art">
+              <img
+                loading="lazy"
+                draggable={false}
+                src="/pokemons/treinador-pk.png"
+                width="100%"
+                alt="Treinador pokemon"
+              />
+            </Col>
+            <Col sm="12" lg="8" className="project-intro__content">
+              <span className="project-intro__eyebrow">Sua jornada começa aqui</span>
+              <h2 id="project-intro-title">Capture, monte sua equipe e entre na arena.</h2>
+              <p>Encontre Pokémon, registre cada descoberta na sua Pokédex e prepare um time para enfrentar a CPU.</p>
+              <div className="project-intro__steps" aria-label="Como começar no PokédExplore">
+                <span><b>01</b> Capture</span>
+                <span><b>02</b> Evolua sua coleção</span>
+                <span><b>03</b> Batalhe</span>
+              </div>
+              <div className="project-intro__actions">
+                <Link href="#pokedex" className="project-intro__primary">Explorar Pokédex</Link>
+                <Link href="/como-jogar" className="project-intro__secondary">Como jogar</Link>
+              </div>
+            </Col>
+          </Row>
+        </section>
       </Container>
 
       <Container>
