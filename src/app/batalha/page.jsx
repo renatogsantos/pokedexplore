@@ -1,162 +1,85 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowsClockwise, Lightning, Shield, Sword, Trophy } from "@phosphor-icons/react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowLeft, Copy, GameController, LinkSimple, Users } from "@phosphor-icons/react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { webStore } from "@/helpers/webStore";
-import { pokemonData } from "@/helpers/PokemonTypes";
-import { motion, AnimatePresence } from "framer-motion";
+import TeamSelector from "@/components/Battle/TeamSelector";
+import BattleArena from "@/components/Battle/BattleArena";
+import { CPU_TEAM, toBattlePokemon } from "@/lib/battle/pokemon";
+import { createBattleState, resolveAction } from "@/lib/battle/engine";
+import { BATTLE_EVENTS, createBattleRoom, hasRealtimeConfig } from "@/lib/battle/realtime";
 import "./style.scss";
 
-const FALLBACK_TEAM = [
-  { id: 25, name: "pikachu", types: [{ type: { name: "electric" } }], stats: [{ base_stat: 90, stat: { name: "hp" } }], sprites: { other: { "official-artwork": { front_default: "/pokemons/pikachu.png" } } } },
-  { id: 6, name: "charizard", types: [{ type: { name: "fire" } }], stats: [{ base_stat: 100, stat: { name: "hp" } }], sprites: { other: { "official-artwork": { front_default: "/pokemons/charizard.png" } } } },
-];
-
-const OPPONENTS = [
-  { id: 7, name: "squirtle", type: "water", hp: 100, image: "/pokemons/squirtle.png" },
-  { id: 150, name: "mewtwo", type: "psychic", hp: 105, image: "/pokemons/mewtwo.png" },
-  { id: 149, name: "lugia", type: "psychic", hp: 115, image: "/pokemons/lugia.png" },
-];
-
-const ATTACKS = [
-  { name: "Investida", type: "normal", power: 15, icon: Sword },
-  { name: "Golpe de tipo", type: "type", power: 23, icon: Lightning },
-];
-
-function typeColor(type) {
-  return pokemonData.find((item) => item.type === type)?.color || "#64748b";
-}
-
-function imageOf(pokemon) {
-  return pokemon?.sprites?.other?.["official-artwork"]?.front_default || pokemon?.image || "/pokenull.png";
-}
-
-function hpOf(pokemon) {
-  return pokemon?.stats?.find((stat) => stat.stat.name === "hp")?.base_stat || 90;
-}
-
-function makePlayerPokemon(pokemon) {
-  return { ...pokemon, maxHp: hpOf(pokemon), hp: hpOf(pokemon), type: pokemon.types?.[0]?.type?.name || "normal" };
-}
+const makeCode = () => `PKDX-${Math.floor(1000 + Math.random() * 9000)}`;
+const makePlayer = (name) => ({ id: crypto.randomUUID(), name: name.trim() || "Treinador" });
 
 export default function BattlePage() {
-  const [team, setTeam] = useState([]);
-  const [enemy, setEnemy] = useState(null);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [enemyHp, setEnemyHp] = useState(100);
-  const [message, setMessage] = useState("Sua vez! Escolha um ataque.");
-  const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState(null);
-  const [battleKey, setBattleKey] = useState(0);
+  const params = useSearchParams();
+  const realtime = useRef(null); const cpuTimer = useRef(null); const introTimer = useRef(null);
+  const [screen, setScreen] = useState("mode");
+  const [collection, setCollection] = useState([]); const [selected, setSelected] = useState([]);
+  const [mode, setMode] = useState(null); const [name, setName] = useState("Treinador");
+  const [roomCode, setRoomCode] = useState(""); const [joinCode, setJoinCode] = useState(params.get("room")?.toUpperCase() || "");
+  const [player, setPlayer] = useState(null); const [role, setRole] = useState("host"); const [presence, setPresence] = useState({});
+  const [remoteTeam, setRemoteTeam] = useState(null); const [battle, setBattle] = useState(null); const [notice, setNotice] = useState("");
+  const [readySent, setReadySent] = useState(false);
 
-  const active = team[activeIndex];
-  const remaining = team.filter((pokemon) => pokemon.hp > 0).length;
-  const enemyType = enemy?.type || "water";
-  const advantage = useMemo(() => {
-    if (!active) return false;
-    return (active.type === "electric" && enemyType === "water") ||
-      (active.type === "water" && enemyType === "fire") ||
-      (active.type === "fire" && enemyType === "grass");
-  }, [active, enemyType]);
+  useEffect(() => { webStore.getData("Pokedex").then(setCollection); return () => { realtime.current?.leave(); clearTimeout(cpuTimer.current); clearTimeout(introTimer.current); }; }, []);
+
+  const broadcast = useCallback((type, payload) => realtime.current?.send({ type, payload }), []);
+  const startState = useCallback((hostTeam, guestTeam, host, guest) => {
+    const next = createBattleState({ ...host, team: hostTeam.map(toBattlePokemon) }, { ...guest, team: guestTeam.map(toBattlePokemon) });
+    next.status = "countdown"; next.log = "3 · 2 · 1 · BATALHA!";
+    setBattle(next); setScreen("battle"); broadcast(BATTLE_EVENTS.STATE, next);
+    clearTimeout(introTimer.current);
+    introTimer.current = setTimeout(() => { const playing = { ...next, status: "playing", log: `SUA VEZ, ${host.name.toUpperCase()}!` }; setBattle(playing); broadcast(BATTLE_EVENTS.STATE, playing); }, 1650);
+  }, [broadcast]);
+
+  const connectRoom = useCallback((code, currentPlayer, currentRole) => {
+    try {
+      realtime.current?.leave();
+      realtime.current = createBattleRoom(code, currentPlayer, {
+        onPresence: setPresence,
+        onStatus: (status) => setNotice(status === "SUBSCRIBED" ? "Conectado à sala" : "Conectando..."),
+        onEvent: ({ type, payload }) => {
+          if (type === BATTLE_EVENTS.TEAM) { setRemoteTeam(payload); setNotice("Adversário está pronto!"); }
+          if (type === BATTLE_EVENTS.STATE) { setBattle(payload); setScreen("battle"); }
+          if (type === BATTLE_EVENTS.ACTION && currentRole === "host") setBattle((previous) => { const next = resolveAction(previous, "guest", payload); broadcast(BATTLE_EVENTS.STATE, next); return next; });
+          if (type === BATTLE_EVENTS.REMATCH) setNotice("Seu adversário quer uma revanche. Escolha sua equipe novamente.");
+        },
+      });
+    } catch { setNotice("Não foi possível conectar à sala."); }
+  }, [broadcast]);
 
   useEffect(() => {
-    let mounted = true;
-    webStore.getData("Pokedex").then((saved) => {
-      if (!mounted) return;
-      const selected = (saved?.length ? saved : FALLBACK_TEAM).slice(0, 3).map(makePlayerPokemon);
-      setTeam(selected);
-      startBattle();
-    });
-    return () => { mounted = false; };
-  }, [battleKey]);
+    if (mode !== "friend" || role !== "host" || !readySent || selected.length !== 3 || !remoteTeam || !player || battle) return;
+    startState(selected, remoteTeam.team, player, remoteTeam.player);
+  }, [mode, role, readySent, selected, remoteTeam, player, battle, startState]);
 
-  function startBattle() {
-    const opponent = OPPONENTS[Math.floor(Math.random() * OPPONENTS.length)];
-    setEnemy(opponent);
-    setEnemyHp(opponent.hp);
-    setActiveIndex(0);
-    setResult(null);
-    setBusy(false);
-    setMessage("Sua vez! Escolha um ataque.");
+  useEffect(() => {
+    if (mode !== "cpu" || !battle || battle.turn !== "guest" || battle.status !== "playing") return;
+    clearTimeout(cpuTimer.current);
+    cpuTimer.current = setTimeout(() => setBattle((current) => resolveAction(current, "guest", { type: "attack", moveId: Math.random() > .35 ? "type-strike" : "strike" })), 850);
+    return () => clearTimeout(cpuTimer.current);
+  }, [mode, battle]);
+
+  function chooseMode(nextMode) { setMode(nextMode); setSelected([]); setBattle(null); setReadySent(false); setScreen(nextMode === "cpu" ? "team" : "friend"); }
+  function togglePokemon(pokemon) { setSelected((current) => current.some((item) => item.id === pokemon.id) ? current.filter((item) => item.id !== pokemon.id) : current.length < 3 ? [...current, pokemon] : current); }
+  function readyTeam() {
+    if (mode === "cpu") { const local = makePlayer(name); setPlayer(local); startState(selected, CPU_TEAM, local, { id: "cpu", name: "CPU" }); return; }
+    const payload = { player, team: selected }; broadcast(BATTLE_EVENTS.TEAM, payload); setReadySent(true); setNotice("Equipe pronta. Aguardando adversário...");
   }
+  function createRoom() { if (!hasRealtimeConfig()) { setNotice("Configure as variáveis do Supabase para jogar contra um amigo."); return; } const currentPlayer = makePlayer(name); const code = makeCode(); setPlayer(currentPlayer); setRole("host"); setRoomCode(code); setScreen("team"); connectRoom(code, currentPlayer, "host"); }
+  function joinRoom() { if (!hasRealtimeConfig()) { setNotice("Configure as variáveis do Supabase para jogar contra um amigo."); return; } if (!joinCode.trim()) { setNotice("Digite o código da sala."); return; } const currentPlayer = makePlayer(name); const code = joinCode.trim().toUpperCase(); setPlayer(currentPlayer); setRole("guest"); setRoomCode(code); setScreen("team"); connectRoom(code, currentPlayer, "guest"); }
+  function sendAction(action) { if (mode === "cpu") setBattle((current) => resolveAction(current, "host", action)); else if (role === "host") setBattle((current) => { const next = resolveAction(current, "host", action); broadcast(BATTLE_EVENTS.STATE, next); return next; }); else broadcast(BATTLE_EVENTS.ACTION, action); }
+  function rematch() { if (mode === "friend") broadcast(BATTLE_EVENTS.REMATCH, {}); setBattle(null); setSelected([]); setRemoteTeam(null); setReadySent(false); setScreen("team"); }
+  async function shareRoom() { const url = `${window.location.origin}/batalha?room=${roomCode}`; try { if (navigator.share) await navigator.share({ title: "Batalha PokédExplore", text: `Entre na sala ${roomCode}`, url }); else await navigator.clipboard.writeText(url); setNotice("Convite copiado/compartilhado!"); } catch {} }
 
-  function attack(attackData) {
-    if (busy || result || !active || active.hp <= 0) return;
-    setBusy(true);
-    const damage = attackData.type === "type" && advantage ? attackData.power + 15 : attackData.power;
-    const nextEnemyHp = Math.max(0, enemyHp - damage);
-    setMessage(advantage && attackData.type === "type" ? "Super efetivo!" : `${active.name} atacou!`);
-    setEnemyHp(nextEnemyHp);
-    if (nextEnemyHp === 0) {
-      setTimeout(() => { setResult("victory"); setMessage(`${enemy.name} foi derrotado!`); setBusy(false); }, 650);
-      return;
-    }
-    setTimeout(() => opponentTurn(nextEnemyHp), 700);
-  }
-
-  function opponentTurn(currentEnemyHp) {
-    const damage = Math.floor(10 + Math.random() * 10);
-    const nextTeam = team.map((pokemon, index) => index === activeIndex ? { ...pokemon, hp: Math.max(0, pokemon.hp - damage) } : pokemon);
-    const nextActiveHp = nextTeam[activeIndex].hp;
-    setTeam(nextTeam);
-    if (nextActiveHp === 0) {
-      const nextIndex = nextTeam.findIndex((pokemon) => pokemon.hp > 0);
-      if (nextIndex === -1) {
-        setResult("defeat"); setMessage("Sua equipe deu tudo de si!"); setBusy(false); return;
-      }
-      setMessage(`${active.name} desmaiou. Escolha outro Pokémon.`);
-      setActiveIndex(nextIndex);
-    } else {
-      setMessage(`${enemy.name} atacou. Sua vez!`);
-    }
-    setBusy(false);
-  }
-
-  function switchPokemon(index) {
-    if (busy || result || index === activeIndex || !team[index] || team[index].hp <= 0) return;
-    setActiveIndex(index);
-    setMessage(`Vai, ${team[index].name}! Sua vez.`);
-  }
-
-  if (!enemy || !active) return <main className="battle-page"><div className="battle-loading">Preparando a arena...</div></main>;
-
-  return (
-    <main className="battle-page">
-      <div className="battle-shell">
-        <header className="battle-header">
-          <Link href="/#pokedex" className="battle-back"><ArrowLeft size={20} /> Pokédex</Link>
-          <div className="battle-title"><span>ARENA</span><h1>Batalha Pokémon</h1></div>
-          <span className="battle-round">1 × 1</span>
-        </header>
-
-        <section className="battle-arena" aria-label="Arena de batalha">
-          <div className="arena-status">{result ? "FIM DE BATALHA" : busy ? "VEZ DO OPONENTE" : "SUA VEZ"}</div>
-          <div className="combatant opponent">
-            <div className="combatant-copy"><span className="combatant-label">OPONENTE</span><h2>{enemy.name}</h2><div className="type-pill" style={{ backgroundColor: typeColor(enemyType) }}>{enemyType}</div><HpBar current={enemyHp} max={enemy.hp} /></div>
-            <motion.img key={`${enemy.name}-${battleKey}`} animate={{ y: busy ? [0, -5, 0] : [0, -4, 0] }} transition={{ repeat: Infinity, duration: 2.8 }} src={imageOf(enemy)} alt={enemy.name} />
-          </div>
-          <div className="versus"><span>VS</span></div>
-          <div className="combatant player">
-            <motion.img key={`${active.name}-${activeIndex}-${battleKey}`} animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 2.4 }} src={imageOf(active)} alt={active.name} />
-            <div className="combatant-copy"><span className="combatant-label">VOCÊ</span><h2>{active.name}</h2><div className="type-pill" style={{ backgroundColor: typeColor(active.type) }}>{active.type}</div><HpBar current={active.hp} max={active.maxHp} /></div>
-          </div>
-          <div className={`battle-message ${advantage ? "is-strong" : ""}`} role="status" aria-live="polite">{message}</div>
-        </section>
-
-        <section className="battle-controls">
-          <div className="controls-heading"><div><span className="eyebrow">DECIDA RÁPIDO</span><h2>Escolha uma ação</h2></div><span className="team-left"><Shield size={18} /> {remaining} na equipe</span></div>
-          <div className="attack-grid">{ATTACKS.map((attackData) => { const Icon = attackData.icon; return <button key={attackData.name} className={`attack-button ${attackData.type === "type" && advantage ? "recommended" : ""}`} disabled={busy || Boolean(result)} onClick={() => attack(attackData)}><span className="attack-icon"><Icon size={25} weight="fill" /></span><span><strong>{attackData.name}</strong>{attackData.type === "type" && advantage && <small>Super efetivo</small>}</span></button>; })}</div>
-          <div className="switch-row"><span>Trocar Pokémon</span><div className="reserve-list">{team.map((pokemon, index) => <button key={pokemon.id || pokemon.name} className={index === activeIndex ? "selected" : ""} disabled={busy || Boolean(result) || pokemon.hp <= 0} onClick={() => switchPokemon(index)} aria-label={`Usar ${pokemon.name}`}><img src={imageOf(pokemon)} alt="" /><span>{pokemon.name}</span></button>)}</div></div>
-        </section>
-
-        <AnimatePresence>{result && <motion.div className="result-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }}><motion.div className="result-card" initial={{ scale: .8, y: 20 }} animate={{ scale: 1, y: 0 }}><Trophy size={42} weight="fill" /><span className="eyebrow">{result === "victory" ? "VOCÊ VENCEU" : "BOA BATALHA"}</span><h2>{result === "victory" ? "Vitória!" : "Tente novamente"}</h2><p>{result === "victory" ? `${active.name} protegeu sua Pokédex.` : "Sua equipe deu o melhor. Uma nova batalha espera."}</p><button className="rematch-button" onClick={() => setBattleKey((key) => key + 1)}><ArrowsClockwise size={20} /> Nova batalha</button><Link href="/#pokedex" className="result-link">Voltar para a Pokédex</Link></motion.div></motion.div>}</AnimatePresence>
-      </div>
-    </main>
-  );
+  return <main className="battle-page"><div className="battle-shell"><header className="battle-header"><Link href="/#pokedex" className="battle-back"><ArrowLeft size={20} /> Pokédex</Link><div className="battle-title"><span>ARENA</span><h1>Batalha Pokémon</h1></div><span className="battle-round">3 × 3</span></header>{screen === "mode" && <ModeScreen onChoose={chooseMode} />}{screen === "friend" && <FriendScreen name={name} setName={setName} joinCode={joinCode} setJoinCode={setJoinCode} onCreate={createRoom} onJoin={joinRoom} notice={notice} />}{screen === "team" && <><RoomStatus mode={mode} roomCode={roomCode} player={player} presence={presence} notice={notice} onShare={shareRoom} /> <TeamSelector collection={collection} selected={selected} onToggle={togglePokemon} onReady={readyTeam} waiting={readySent} /></>}{screen === "battle" && battle && <BattleArena state={battle} role={role} onAction={sendAction} onRematch={rematch} />}</div></main>;
 }
 
-function HpBar({ current, max }) {
-  const percent = Math.max(0, (current / max) * 100);
-  return <div className="hp-wrap"><div className="hp-label"><span>HP</span><strong>{current}/{max}</strong></div><div className="hp-track"><motion.div className={`hp-fill ${percent < 35 ? "danger" : ""}`} animate={{ width: `${percent}%` }} /></div></div>;
-}
+function ModeScreen({ onChoose }) { return <section className="battle-panel mode-panel"><span className="eyebrow">ESCOLHA COMO JOGAR</span><h2>Pronto para a arena?</h2><p>Monte sua equipe capturada e desafie a CPU ou um amigo.</p><div className="mode-options"><button type="button" onClick={() => onChoose("friend")}><Users size={28} weight="fill" /><strong>Contra um amigo</strong><small>Crie ou entre em uma sala</small></button><button type="button" onClick={() => onChoose("cpu")}><GameController size={28} weight="fill" /><strong>Contra a CPU</strong><small>Treine sua equipe</small></button></div></section>; }
+function FriendScreen({ name, setName, joinCode, setJoinCode, onCreate, onJoin, notice }) { return <section className="battle-panel friend-panel"><span className="eyebrow">BATALHA ONLINE</span><h2>Entre com seu treinador</h2><label>Seu nome<input maxLength="18" value={name} onChange={(event) => setName(event.target.value)} placeholder="Ex.: Renato" /></label><div className="friend-actions"><button type="button" onClick={onCreate}><LinkSimple size={24} /> Criar sala</button><div><label>Código da sala<input value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase())} placeholder="PKDX-1234" /></label><button type="button" onClick={onJoin}>Entrar na sala</button></div></div>{notice && <p className="setup-notice" role="status">{notice}</p>}</section>; }
+function RoomStatus({ mode, roomCode, player, presence, notice, onShare }) { if (mode === "cpu") return <div className="room-status"><span>Modo treino</span><strong>CPU conectada</strong></div>; const connected = Object.keys(presence).length; return <div className="room-status"><div><span>SALA CRIADA</span><strong>{roomCode}</strong></div><div><small>Você: {player?.name} ✓</small><small>Adversário: {connected > 1 ? "conectado ✓" : "aguardando..."}</small></div><button type="button" onClick={onShare}><Copy size={18} /> Compartilhar</button>{notice && <em>{notice}</em>}</div>; }
