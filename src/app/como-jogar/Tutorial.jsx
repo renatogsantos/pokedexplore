@@ -12,6 +12,7 @@ import {
   Heart,
   Lightning,
   Shield,
+  ShoppingCart,
   Sparkle,
   Sword,
   Trophy,
@@ -228,6 +229,7 @@ export default function Tutorial() {
           <a href="#time">3. Montar time</a>
           <a href="#batalhar">4. Batalhar</a>
           <a href="#vencer">5. Vencer</a>
+          <a href="#moedas-e-loja">6. Moedas e Loja</a>
         </nav>
         <div className="tutorial-steps">
           <Step
@@ -529,6 +531,41 @@ export default function Tutorial() {
           <div><span className="tutorial-eyebrow">GANHE E ESCOLHA</span><h2 id="tutorial-coins-title">Vitórias rendem novas escolhas</h2><p>Cada vitória vale {COINS_PER_WIN} moedas. Guarde-as para comprar um novo parceiro ou fortalecer um Pokémon que você já adora.</p></div>
           <div className="tutorial-coins-flow"><Trophy weight="fill" aria-hidden="true" /><ArrowRight aria-hidden="true" /><strong>+{COINS_PER_WIN} <Coins weight="fill" aria-hidden="true" /></strong><ArrowRight aria-hidden="true" /><Link href="/loja">Loja Pokémon</Link></div>
         </section>
+        <section className="tutorial-shop-guide" id="moedas-e-loja" aria-labelledby="tutorial-shop-title">
+          <div className="tutorial-shop-guide__heading">
+            <span className="tutorial-eyebrow">ECONOMIA E EVOLUÇÃO</span>
+            <h2 id="tutorial-shop-title">Use moedas para completar e fortalecer sua equipe.</h2>
+            <p>O saldo fica salvo no jogo. Ganhe batalhas, escolha um Pokémon na Loja e compre mais cópias quando quiser subir o nível dele.</p>
+          </div>
+          <ol className="tutorial-shop-guide__flow">
+            <li>
+              <span>1</span>
+              <Trophy weight="fill" aria-hidden="true" />
+              <strong>Vença uma batalha</strong>
+              <small>Receba {COINS_PER_WIN} moedas por vitória.</small>
+            </li>
+            <li>
+              <span>2</span>
+              <ShoppingCart weight="fill" aria-hidden="true" />
+              <strong>Abra a Loja</strong>
+              <small>Busque, filtre e compare os Pokémon pelo preço.</small>
+            </li>
+            <li>
+              <span>3</span>
+              <Sparkle weight="fill" aria-hidden="true" />
+              <strong>Compre uma cópia</strong>
+              <small>Novo Pokémon entra no nível 1; uma cópia repetida aumenta 1 nível.</small>
+            </li>
+          </ol>
+          <div className="tutorial-shop-guide__rules">
+            <div><Coins weight="fill" aria-hidden="true" /><p><strong>Preço</strong> varia conforme força e raridade. Lendários e míticos exigem mais moedas.</p></div>
+            <div><Sparkle weight="fill" aria-hidden="true" /><p><strong>Evolução de nível</strong> vai até Lv. {MAX_POKEMON_LEVEL}. Cada nível adiciona {levelBonus}% aos atributos; no Lv. {MAX_POKEMON_LEVEL}, o bônus total é de {levelBonus * (MAX_POKEMON_LEVEL - 1)}%.</p></div>
+          </div>
+          <div className="tutorial-shop-guide__actions">
+            <Link href="/loja" className="tutorial-primary"><ShoppingCart weight="fill" aria-hidden="true" /> Ir para a Loja</Link>
+            <Link href="/pokedex" className="tutorial-secondary">Ver minha Pokédex</Link>
+          </div>
+        </section>
         <section className="tutorial-play-modes">
           <div>
             <span className="tutorial-eyebrow">NOVO POR AQUI?</span>
@@ -577,6 +614,12 @@ export default function Tutorial() {
             <li>
               <Trophy aria-hidden="true" /> Derrube os 3 adversários para
               vencer.
+            </li>
+            <li>
+              <Coins aria-hidden="true" /> Cada vitória rende {COINS_PER_WIN} moedas.
+            </li>
+            <li>
+              <ShoppingCart aria-hidden="true" /> Compre cópias na Loja para subir de nível.
             </li>
           </ul>
         </section>

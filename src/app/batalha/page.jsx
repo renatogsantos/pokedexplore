@@ -18,6 +18,8 @@ import CoinBalance from "@/components/CoinBalance";
 import "./style.scss";
 
 const makeCode = () => `PKDX-${Math.floor(1000 + Math.random() * 9000)}`;
+const ROOM_PREFIX = "PKDX-";
+const getRoomDigits = (value = "") => String(value).replace(/\D/g, "").slice(0, 4);
 const makePlayer = (name) => ({ id: crypto.randomUUID(), name: name.trim() || "Treinador" });
 const makeMatchId = () => crypto.randomUUID();
 
@@ -28,7 +30,7 @@ export default function BattlePage() {
   const [screen, setScreen] = useState("mode");
   const [collection, setCollection] = useState([]); const [selected, setSelected] = useState([]);
   const [mode, setMode] = useState(null); const [name, setName] = useState("Treinador");
-  const [roomCode, setRoomCode] = useState(""); const [joinCode, setJoinCode] = useState(params.get("room")?.toUpperCase() || "");
+  const [roomCode, setRoomCode] = useState(""); const [joinCode, setJoinCode] = useState(getRoomDigits(params.get("room")));
   const [player, setPlayer] = useState(null); const [role, setRole] = useState("host"); const [presence, setPresence] = useState({});
   const [remoteTeam, setRemoteTeam] = useState(null); const [battle, setBattle] = useState(null); const [notice, setNotice] = useState("");
   const [readySent, setReadySent] = useState(false);
@@ -111,7 +113,7 @@ export default function BattlePage() {
     }).catch((error) => setNotice(error.message));
   }
   function createRoom() { if (!hasRealtimeConfig()) { setNotice("Configure as variáveis do Supabase para jogar contra um amigo."); return; } const currentPlayer = makePlayer(name); const code = makeCode(); setPlayer(currentPlayer); setRole("host"); setRoomCode(code); setScreen("team"); connectRoom(code, currentPlayer, "host"); }
-  function joinRoom() { if (!hasRealtimeConfig()) { setNotice("Configure as variáveis do Supabase para jogar contra um amigo."); return; } if (!joinCode.trim()) { setNotice("Digite o código da sala."); return; } const currentPlayer = makePlayer(name); const code = joinCode.trim().toUpperCase(); setPlayer(currentPlayer); setRole("guest"); setRoomCode(code); setScreen("team"); connectRoom(code, currentPlayer, "guest"); }
+  function joinRoom() { if (!hasRealtimeConfig()) { setNotice("Configure as variáveis do Supabase para jogar contra um amigo."); return; } if (joinCode.length !== 4) { setNotice("Digite os 4 números do código da sala."); return; } const currentPlayer = makePlayer(name); const code = `${ROOM_PREFIX}${joinCode}`; setPlayer(currentPlayer); setRole("guest"); setRoomCode(code); setScreen("team"); connectRoom(code, currentPlayer, "guest"); }
   function sendAction(action) { if (mode === "cpu") setBattle((current) => rewardFinishedBattle(current, resolveAction(current, "host", action), "host")); else if (role === "host") setBattle((current) => { const next = resolveAction(current, "host", action); broadcast(BATTLE_EVENTS.STATE, next); return rewardFinishedBattle(current, next, "host"); }); else broadcast(BATTLE_EVENTS.ACTION, action); }
   function rematch() { if (mode === "friend") broadcast(BATTLE_EVENTS.REMATCH, {}); setBattle(null); setSelected([]); setRemoteTeam(null); setReadySent(false); setScreen("team"); }
   async function shareRoom() { const url = `${window.location.origin}/batalha?room=${roomCode}`; try { if (navigator.share) await navigator.share({ title: "Batalha PokédExplore", text: `Entre na sala ${roomCode}`, url }); else await navigator.clipboard.writeText(url); setNotice("Convite copiado/compartilhado!"); } catch {} }
@@ -120,5 +122,5 @@ export default function BattlePage() {
 }
 
 function ModeScreen({ onChoose }) { return <section className="battle-panel mode-panel"><span className="eyebrow">ESCOLHA COMO JOGAR</span><h2>Pronto para a arena?</h2><p>Monte sua equipe capturada e desafie a CPU ou um amigo.</p><div className="mode-options"><button type="button" onClick={() => onChoose("friend")}><Users size={28} weight="fill" /><strong>Contra um amigo</strong><small>Crie ou entre em uma sala</small></button><button type="button" onClick={() => onChoose("cpu")}><GameController size={28} weight="fill" /><strong>Contra a CPU</strong><small>Treine sua equipe</small></button></div></section>; }
-function FriendScreen({ name, setName, joinCode, setJoinCode, onCreate, onJoin, notice }) { return <section className="battle-panel friend-panel"><span className="eyebrow">BATALHA ONLINE</span><h2>Entre com seu treinador</h2><label>Seu nome<input maxLength="18" value={name} onChange={(event) => setName(event.target.value)} placeholder="Ex.: Renato" /></label><div className="friend-actions"><button type="button" onClick={onCreate}><LinkSimple size={24} /> Criar sala</button><div><label>Código da sala<input value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase())} placeholder="PKDX-1234" /></label><button type="button" onClick={onJoin}>Entrar na sala</button></div></div>{notice && <p className="setup-notice" role="status">{notice}</p>}</section>; }
+function FriendScreen({ name, setName, joinCode, setJoinCode, onCreate, onJoin, notice }) { return <section className="battle-panel friend-panel"><span className="eyebrow">BATALHA ONLINE</span><h2>Entre com seu treinador</h2><label>Seu nome<input maxLength="18" value={name} onChange={(event) => setName(event.target.value)} placeholder="Ex.: Renato" /></label><div className="friend-actions"><button type="button" onClick={onCreate}><LinkSimple size={24} /> Criar sala</button><div><label>Código da sala<span className="room-code-input"><b aria-hidden="true">{ROOM_PREFIX}</b><input value={joinCode} onChange={(event) => setJoinCode(getRoomDigits(event.target.value))} inputMode="numeric" pattern="[0-9]*" maxLength="4" placeholder="1234" aria-label="Quatro números do código da sala" /></span><small>Digite somente os 4 números.</small></label><button type="button" onClick={onJoin}>Entrar na sala</button></div></div>{notice && <p className="setup-notice" role="status">{notice}</p>}</section>; }
 function RoomStatus({ mode, roomCode, player, presence, notice, connection, ready, onShare }) { if (mode === "cpu") return <div className="room-status"><span>Modo treino</span><strong>CPU conectada</strong></div>; const connected = Object.keys(presence).length; return <div className="room-status"><div><span>SALA</span><strong>{roomCode}</strong></div><div><small>Conexão: {connection === "CONNECTED" ? "conectada ✓" : connection.toLowerCase()}</small><small>Você: {ready ? "PRONTO ✓" : `${player?.name} selecionando...`}</small><small>Adversário: {connected > 1 ? "conectado ✓" : "aguardando..."}</small></div><button type="button" onClick={onShare}><Copy size={18} /> Compartilhar</button>{notice && <em>{notice}</em>}</div>; }

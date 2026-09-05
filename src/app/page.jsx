@@ -16,10 +16,12 @@ import ButtonPrimary from "../components/ButtonPrimary";
 import {
   CaretUp,
   Clipboard,
+  GameController,
   GithubLogo,
   House,
   LinkedinLogo,
   MagnifyingGlass,
+  ShoppingCart,
   WhatsappLogo,
 } from "@phosphor-icons/react";
 import { pokemonData } from "../helpers/PokemonTypes";
@@ -207,6 +209,32 @@ export default function Home() {
               </div>
             </Col>
           </Row>
+        </section>
+      </Container>
+
+      <Container className="home-destinations text-light">
+        <section aria-labelledby="home-destinations-title">
+          <div className="home-destinations__heading">
+            <span>SEU PRÓXIMO PASSO</span>
+            <h2 id="home-destinations-title">Escolha como continuar sua jornada.</h2>
+          </div>
+          <div className="home-destinations__grid">
+            <Link href="#Pokemons" className="home-destination home-destination--discover">
+              <MagnifyingGlass size={26} weight="duotone" aria-hidden="true" />
+              <div><strong>Explorar Pokémon</strong><small>Busque por nome ou tipo</small></div>
+              <span aria-hidden="true">01</span>
+            </Link>
+            <Link href="/loja" className="home-destination home-destination--shop">
+              <ShoppingCart size={26} weight="duotone" aria-hidden="true" />
+              <div><strong>Fortalecer equipe</strong><small>Compre cópias na Loja</small></div>
+              <span aria-hidden="true">02</span>
+            </Link>
+            <Link href="/batalha" className="home-destination home-destination--battle">
+              <GameController size={26} weight="duotone" aria-hidden="true" />
+              <div><strong>Entrar na arena</strong><small>Treine contra a CPU</small></div>
+              <span aria-hidden="true">03</span>
+            </Link>
+          </div>
         </section>
       </Container>
 

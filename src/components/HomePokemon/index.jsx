@@ -4,12 +4,12 @@ import { pokemonHome } from "@/helpers/PokemonHome";
 import { getPokemon } from "@/redux/pokemons";
 import {
   GithubLogo,
+  GameController,
   Lightning,
   LinkedinLogo,
   WhatsappLogo,
 } from "@phosphor-icons/react";
 import Link from "next/link";
-import { useEffect } from "react";
 import { Col, Container, Row } from "react-bootstrap";
 import { useDispatch } from "react-redux";
 import Waves from "../Waves";
@@ -52,18 +52,23 @@ export default function HomePokemon({ name }) {
               })}
             </div>
             <p className="home-hero__description">{Pokemon.description}</p>
+            <div className="home-hero__actions">
+              <Link href="#Pokemons" className="home-hero__explore">
+                Explorar Pokémon <Lightning size={21} weight="fill" aria-hidden="true" />
+              </Link>
+              <Link href="/batalha" className="home-hero__battle">
+                <GameController size={20} weight="fill" aria-hidden="true" /> Ir para a arena
+              </Link>
+            </div>
             <ButtonPrimary
               type="button"
               title={`Conhecer ${Pokemon.name}`}
-              variant="home-hero__primary"
-              icon={<Lightning size={24} weight="duotone" />}
+              variant="home-hero__detail"
+              icon={<Lightning size={20} weight="duotone" />}
               onClick={() => {
                 dispatch(getPokemon(Pokemon.name));
               }}
             />
-            <Link href="#pokedex" className="home-hero__secondary">
-              Ver minha Pokédex
-            </Link>
             <div className="home-hero__socials" aria-label="Redes e contato do projeto">
               <Link
                 href="https://github.com/renatogsantos/pokedexplore"
