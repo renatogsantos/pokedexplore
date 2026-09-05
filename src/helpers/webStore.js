@@ -6,7 +6,8 @@ const DATABASE_VERSION = 2;
 const POKEDEX_STORE = "pokedex";
 const PLAYER_STORE = "player";
 const ECONOMY_KEY = "economy";
-const EMPTY_ECONOMY = { key: ECONOMY_KEY, coins: 0, rewardedMatchIds: [] };
+const EMPTY_ECONOMY = { key: ECONOMY_KEY, coins: 0, rewardedMatchIds: [], secretRewards: {} };
+const normalizeEconomy = (economy) => ({ ...EMPTY_ECONOMY, ...(economy || {}), secretRewards: { ...EMPTY_ECONOMY.secretRewards, ...(economy?.secretRewards || {}) } });
 
 function openDatabase() {
   return new Promise((resolve, reject) => {
@@ -57,7 +58,7 @@ export const webStore = {
         const store = transaction.objectStore(PLAYER_STORE);
         const request = store.get(ECONOMY_KEY);
         request.onsuccess = () => {
-          const economy = { ...EMPTY_ECONOMY, ...(request.result || {}) };
+          const economy = normalizeEconomy(request.result);
           if (!request.result) store.put(economy);
           transaction.result = economy;
         };
@@ -74,7 +75,7 @@ export const webStore = {
         const store = transaction.objectStore(PLAYER_STORE);
         const request = store.get(ECONOMY_KEY);
         request.onsuccess = () => {
-          const economy = { ...EMPTY_ECONOMY, ...(request.result || {}) };
+          const economy = normalizeEconomy(request.result);
           const rewardedMatchIds = economy.rewardedMatchIds || [];
           const rewarded = !rewardedMatchIds.includes(matchId);
           const next = rewarded ? { ...economy, coins: economy.coins + amount, rewardedMatchIds: [...rewardedMatchIds, matchId].slice(-100) } : economy;
@@ -86,7 +87,22 @@ export const webStore = {
       }));
     } catch (error) { console.error("Erro ao conceder moedas:", error); return { rewarded: false, coins: 0 }; }
   },
-  async purchasePokemon(pokemon, price) {
+  async claimSecretReward(rewardId, amount) {
+    try {
+      return await withDatabase((database) => new Promise((resolve, reject) => {
+        const transaction = database.transaction(PLAYER_STORE, "readwrite"); const store = transaction.objectStore(PLAYER_STORE); const request = store.get(ECONOMY_KEY);
+        request.onsuccess = () => {
+          const economy = normalizeEconomy(request.result);
+          const claimed = !economy.secretRewards[rewardId];
+          const next = claimed ? { ...economy, coins: economy.coins + amount, secretRewards: { ...economy.secretRewards, [rewardId]: true } } : economy;
+          if (claimed) store.put(next);
+          transaction.result = { claimed, coins: next.coins };
+        };
+        transaction.oncomplete = () => resolve(transaction.result); transaction.onerror = () => reject(transaction.error); request.onerror = () => reject(request.error);
+      }));
+    } catch (error) { console.error("Erro ao resgatar recompensa secreta:", error); return { claimed: false, coins: 0 }; }
+  },
+  async purchasePokemon(pokemon, price, quantity = 1) {
     try {
       return await withDatabase((database) => new Promise((resolve, reject) => {
         const transaction = database.transaction([PLAYER_STORE, POKEDEX_STORE], "readwrite");
@@ -95,15 +111,18 @@ export const webStore = {
         let economy; let existing;
         const finish = () => {
           if (!economy || existing === undefined) return;
-          if (economy.coins < price) { transaction.result = { ok: false, reason: "insufficient", coins: economy.coins }; return; }
+          const requestedQuantity = Math.max(1, Math.floor(Number(quantity) || 1));
+          const totalPrice = price * requestedQuantity;
+          if (economy.coins < totalPrice) { transaction.result = { ok: false, reason: "insufficient", coins: economy.coins }; return; }
           const owned = existing ? normalizeCapturedPokemon(existing) : null;
-          if (owned?.level >= MAX_POKEMON_LEVEL) { transaction.result = { ok: false, reason: "max-level", coins: economy.coins, pokemon: owned }; return; }
-          const nextPokemon = owned ? { ...owned, level: owned.level + 1 } : normalizeCapturedPokemon(pokemon);
-          const nextEconomy = { ...economy, coins: economy.coins - price };
+          const availableQuantity = owned ? MAX_POKEMON_LEVEL - owned.level : MAX_POKEMON_LEVEL;
+          if (availableQuantity <= 0 || requestedQuantity > availableQuantity) { transaction.result = { ok: false, reason: "max-level", coins: economy.coins, pokemon: owned, availableQuantity: Math.max(0, availableQuantity) }; return; }
+          const nextPokemon = owned ? { ...owned, level: owned.level + requestedQuantity } : { ...normalizeCapturedPokemon(pokemon), level: requestedQuantity };
+          const nextEconomy = { ...economy, coins: economy.coins - totalPrice };
           pokedexStore.put(nextPokemon); playerStore.put(nextEconomy);
-          transaction.result = { ok: true, coins: nextEconomy.coins, pokemon: nextPokemon, duplicate: Boolean(owned), previousLevel: owned?.level || 0 };
+          transaction.result = { ok: true, coins: nextEconomy.coins, pokemon: nextPokemon, duplicate: Boolean(owned), previousLevel: owned?.level || 0, quantity: requestedQuantity, totalPrice };
         };
-        economyRequest.onsuccess = () => { economy = { ...EMPTY_ECONOMY, ...(economyRequest.result || {}) }; finish(); };
+        economyRequest.onsuccess = () => { economy = normalizeEconomy(economyRequest.result); finish(); };
         pokemonRequest.onsuccess = () => { existing = pokemonRequest.result || null; finish(); };
         transaction.oncomplete = () => resolve(transaction.result);
         transaction.onerror = () => reject(transaction.error);

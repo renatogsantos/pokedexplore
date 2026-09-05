@@ -35,8 +35,11 @@ import CardPokedex from "@/components/CardPokedex";
 import Link from "next/link";
 import { getPokemonPage } from "@/services/pokemons";
 import Paginate from "@/components/Paginate";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import CoinBalance from "@/components/CoinBalance";
+import { actCoins } from "@/redux/economy";
+import { SECRET_REWARD_COINS, SECRET_REWARD_ID, advancePokemonSecret } from "@/lib/easter-egg/pokemonSequence";
+import { formatCoins } from "@/lib/economy";
 
 export default function Home() {
   const dispatch = useDispatch();
@@ -52,6 +55,8 @@ export default function Home() {
     Pokedex,
   } = useSelector((state) => state.pokemons);
   const divRef = useRef(null);
+  const secretProgress = useRef({ index: 0, lastInputAt: 0 });
+  const [secretReward, setSecretReward] = useState(false);
 
   const handleDragStart = (e) => {
     e.preventDefault();
@@ -67,6 +72,19 @@ export default function Home() {
   function buscaPokemon(e) {
     e.preventDefault();
     dispatch(getPokemon(search.toLowerCase()));
+  }
+
+  async function handleHomePokemonOpen(id) {
+    const next = advancePokemonSecret(secretProgress.current, Number(id));
+    secretProgress.current = next.progress;
+    if (process.env.NODE_ENV !== "production") console.info(`[EasterEgg] input Pokémon #${id} — progress ${next.unlocked ? 6 : next.progress.index}/6`);
+    if (!next.unlocked) return;
+    if (process.env.NODE_ENV !== "production") console.info("[EasterEgg] secret unlocked");
+    const reward = await webStore.claimSecretReward(SECRET_REWARD_ID, SECRET_REWARD_COINS);
+    if (!reward.claimed) return;
+    dispatch(actCoins(reward.coins));
+    setSecretReward(true);
+    if (process.env.NODE_ENV !== "production") console.info("[EasterEgg] reward persisted");
   }
 
   useEffect(() => {
@@ -140,6 +158,10 @@ export default function Home() {
             <CardPokemon pokemon={Pokemon} />
           </div>
         )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {secretReward && <motion.div className="secret-reward-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><motion.section role="dialog" aria-modal="true" aria-labelledby="secret-reward-title" initial={{ opacity: 0, scale: .84, y: 18 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: .9, y: 16 }} transition={{ type: "spring", stiffness: 260, damping: 22 }}><div className="secret-coin-burst" aria-hidden="true">{Array.from({ length: 9 }, (_, index) => <img key={index} src="/coin.png" alt="" />)}</div><span>SEGREDO DESCOBERTO!</span><h2 id="secret-reward-title">Você descobriu um segredo do Pokédex!</h2><strong><img src="/coin.png" alt="" /> +{formatCoins(SECRET_REWARD_COINS)}</strong><button type="button" onClick={() => setSecretReward(false)}>Continuar</button></motion.section></motion.div>}
       </AnimatePresence>
 
       <AnimatePresence>
@@ -311,7 +333,7 @@ export default function Home() {
                 >
                   <div className="loading-block">
                     <CardPoke
-                      id={pokemon.name}
+                      id={pokemon.id}
                       name={pokemon.name}
                       img={
                         pokemon.sprites.other["official-artwork"].front_default
@@ -324,6 +346,7 @@ export default function Home() {
                       types={pokemon.types}
                       height={pokemon.height}
                       weight={pokemon.weight}
+                      onOpen={handleHomePokemonOpen}
                     />
                   </div>
                 </Col>

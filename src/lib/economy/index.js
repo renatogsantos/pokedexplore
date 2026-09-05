@@ -2,6 +2,8 @@ import { getPokemonRarity, POKEMON_RARITY } from "@/lib/pokemon/rarity";
 
 export const COINS_PER_WIN = 15;
 
+export const formatCoins = (value) => new Intl.NumberFormat("pt-BR").format(Math.max(0, Number(value) || 0));
+
 const roundToVictory = (value) => Math.ceil(value / COINS_PER_WIN) * COINS_PER_WIN;
 
 export function getPokemonBaseStatTotal(pokemon) {

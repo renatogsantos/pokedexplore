@@ -8,7 +8,7 @@ import { getPokemon } from "@/redux/pokemons";
 import { easeInOut, motion } from "framer-motion";
 import ReactParallaxTilt from "react-parallax-tilt";
 
-export default function CardPoke({ id, img, name, types, weight, height }) {
+export default function CardPoke({ id, img, name, types, weight, height, onOpen }) {
   const [color, setColor] = useState("#fff");
   const dispatch = useDispatch();
 
@@ -26,6 +26,7 @@ export default function CardPoke({ id, img, name, types, weight, height }) {
   useEffect(() => {
     setColor(Color);
   }, []);
+  const openPokemon = () => { onOpen?.(id); dispatch(getPokemon(name)); };
 
   return (
     <motion.div
@@ -37,9 +38,7 @@ export default function CardPoke({ id, img, name, types, weight, height }) {
       style={{
         backgroundImage: `url('/svgs/half-pokeball.svg'), radial-gradient(80% 80% at 50% bottom, ${color}, #060e20cc)`,
       }}
-      onClick={() => {
-        dispatch(getPokemon(name));
-      }}
+      onClick={openPokemon}
     >
       <div className="card-poke-img">
         {img ? (
@@ -82,9 +81,7 @@ export default function CardPoke({ id, img, name, types, weight, height }) {
             type="button"
             title="Mais detalhes"
             icon={<Lightning size={24} weight="duotone" />}
-            onClick={() => {
-              dispatch(getPokemon(name));
-            }}
+            onClick={(event) => { event.stopPropagation(); openPokemon(); }}
           />
         </div>
       </div>
