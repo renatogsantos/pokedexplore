@@ -159,3 +159,50 @@
     margin-left: 0;
   }
 }
+
+// Mobile shop hero: keep the opening message and balance scan-friendly on narrow screens.
+@media (max-width: 640px) {
+  .shop-hero h1 {
+    max-inline-size: 17ch;
+    font-size: clamp(2rem, 8.5vw, 2.25rem);
+    line-height: 1.02;
+    letter-spacing: -.025em;
+    text-wrap: balance;
+  }
+
+  .shop-balance {
+    grid-template-areas:
+      "coin label value"
+      "coin caption value";
+    grid-template-columns: 36px minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 9px;
+    row-gap: 2px;
+    padding: 12px 14px;
+  }
+
+  .shop-balance > .coin-image {
+    grid-area: coin;
+  }
+
+  .shop-balance span {
+    grid-area: label;
+    align-self: end;
+    line-height: 1.1;
+  }
+
+  .shop-balance small {
+    grid-area: caption;
+    align-self: start;
+    line-height: 1.1;
+  }
+
+  .shop-balance strong {
+    grid-area: value;
+    align-self: center;
+    font-size: clamp(1.38rem, 6.5vw, 1.7rem);
+    line-height: 1;
+    text-align: right;
+    white-space: nowrap;
+  }
+}
