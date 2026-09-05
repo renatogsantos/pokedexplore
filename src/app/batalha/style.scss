@@ -100,3 +100,17 @@
 /* Result feedback is semantic as well as colorful: green celebrates, orange signals retry. */
 .result-card.is-victory { border-color: #76e6a5aa; background: linear-gradient(145deg, #1c5a43, #0b2b25); box-shadow: 0 20px 80px #000b, 0 0 38px #54dc9255; }.result-card.is-victory > svg { color: #8ff2ba; filter: drop-shadow(0 0 12px #8ff2ba99); }.result-card.is-victory .eyebrow { color: #c8ffdc; }.result-card.is-victory h2 { color: #f3fff8; }.result-card.is-victory .rematch-button { background: #8ff2ba; color: #123226; }
 .result-card.is-defeat { border-color: #ffad5fbb; background: linear-gradient(145deg, #704121, #30170f); box-shadow: 0 20px 80px #000b, 0 0 38px #ff8d4c44; }.result-card.is-defeat > svg { color: #ffc07e; filter: drop-shadow(0 0 12px #ff9d54aa); }.result-card.is-defeat .eyebrow { color: #ffd2a4; }.result-card.is-defeat h2 { color: #fff7ef; }.result-card.is-defeat .rematch-button { background: #ffb36b; color: #40200f; }
+
+/* Give each fighter its own territory and let taller phone screens showcase the artwork. */
+@media (max-width: 600px) and (min-height: 701px) {
+  .battle-page:has(.battle-arena) .opponent, .battle-page:has(.battle-arena) .player { align-self: stretch; justify-self: stretch; transform: none; }
+  .battle-page:has(.battle-arena) .fighter-art { width: min(40vw, 22svh, 170px); height: min(40vw, 22svh, 170px); }
+  .battle-page:has(.battle-arena) .fighter-shadow { width: 80%; height: 15%; filter: blur(8px); }
+}
+
+/* Keep the team confirmation within thumb reach while the collection scrolls. */
+@media (max-width: 600px) {
+  .team-selector { padding-bottom: 94px; }
+  .team-selector .ready-button { position: fixed; z-index: 25; bottom: max(14px, env(safe-area-inset-bottom)); left: 50%; width: min(calc(100% - 32px), 380px); min-height: 56px; margin: 0; transform: translateX(-50%); border: 1px solid #ffdf5d; box-shadow: 0 12px 30px #0008, 0 0 0 4px #ffcb0526; }
+  .team-selector .ready-button:disabled { box-shadow: 0 12px 30px #0008; }
+}
