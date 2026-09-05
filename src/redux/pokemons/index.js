@@ -4,8 +4,6 @@ import { createAction, createReducer } from "@reduxjs/toolkit";
 import axios from "axios";
 import { Block, Loading, Notify } from "notiflix";
 
-const listPokedex = webStore.getData("Pokedex");
-
 //Estado inicial
 const initialState = {
   Pokemons: [],
@@ -243,10 +241,10 @@ export const addPokemonCard = (pokemon) => {
   return async (dispatch) => {
     axios
       .get(`https://pokeapi.co/api/v2/pokemon/${pokemon}`)
-      .then((resp) => {
+      .then(async (resp) => {
         dispatch(actPokemon(resp.data));
-        webStore.saveData("Pokedex", resp.data);
-        dispatch(actAddPokedex(webStore.getData("Pokedex")));
+        await webStore.saveData("Pokedex", resp.data);
+        dispatch(actAddPokedex(await webStore.getData("Pokedex")));
         dispatch(actOpenCardPokedex(false));
         Notify.success("Você capturou um Pokémon!", {
           position: "center-top",

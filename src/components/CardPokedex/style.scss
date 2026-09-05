@@ -1,24 +1,46 @@
 .pokedex-list {
   display: flex;
   align-items: center;
-  gap: 8px;
-  overflow: scroll;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(6, 11, 21, 0.8);
-  backdrop-filter: blur(10px);
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 203, 5, 0.65) transparent;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: linear-gradient(135deg, rgba(17, 29, 55, 0.94), rgba(6, 11, 21, 0.9));
+  box-shadow: 0 14px 35px rgba(0, 0, 0, 0.22), inset 0 1px rgba(255, 255, 255, 0.06);
   color: #fff;
-  padding: 12px;
-  transition: 0.2s ease-in-out;
+  padding: 16px;
+  min-height: 124px;
+  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  &:focus-within {
+    border-color: rgba(255, 203, 5, 0.65);
+    box-shadow: 0 0 0 3px rgba(255, 203, 5, 0.12), 0 14px 35px rgba(0, 0, 0, 0.22);
+  }
+}
+
+.pokedex-count {
+  margin-left: auto;
+  padding: 7px 12px;
+  border: 1px solid rgba(255, 203, 5, 0.42);
+  border-radius: 999px;
+  background: rgba(255, 203, 5, 0.12);
+  color: #ffdf5d;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .card-pokedex {
+  flex: 0 0 92px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-direction: column;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(6, 11, 20, 0.8);
   background-position: center left, bottom 50% center;
   background-size: 50%, auto;
@@ -27,11 +49,14 @@
   width: fit-content;
   color: #fff;
   transition: 0.2s ease-in-out;
-  height: 80px;
-  width: 80px;
-  padding: 2px;
-  &:hover {
-    transform: scale(1.05);
+  height: 92px;
+  padding: 5px;
+  cursor: pointer;
+  &:hover, &:focus-visible {
+    transform: translateY(-5px) scale(1.04);
+    border-color: rgba(255, 203, 5, 0.85);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28), 0 0 0 2px rgba(255, 203, 5, 0.18);
+    outline: none;
   }
   img {
     max-width: 100%;
@@ -39,6 +64,22 @@
     width: auto;
     height: auto;
     object-fit: cover;
-    filter: saturate(1.9);
+    filter: saturate(1.45) drop-shadow(0 5px 5px rgba(0, 0, 0, 0.25));
   }
+}
+
+@media (max-width: 576px) {
+  .pokedex-list {
+    border-radius: 16px;
+    padding: 12px;
+    min-height: 112px;
+  }
+  .card-pokedex {
+    flex-basis: 82px;
+    height: 82px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pokedex-list, .card-pokedex { transition: none; }
 }

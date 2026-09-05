@@ -101,7 +101,9 @@ export default function Home() {
   }, [OpenCardPokedex]);
 
   useEffect(() => {
-    dispatch(actAddPokedex(webStore.getData("Pokedex")));
+    webStore.getData("Pokedex").then((pokedex) => {
+      dispatch(actAddPokedex(pokedex));
+    });
     getPokemonPage(1);
     dispatch(getPokemons(9));
   }, []);
@@ -193,7 +195,13 @@ export default function Home() {
             width="32"
             alt="Pokeball"
           />
-          <h2 className="text-light m-0">Pokédex</h2>
+          <div>
+            <h2 className="text-light m-0">Pokédex</h2>
+            <small className="text-light opacity-75">Sua coleção de Pokémon</small>
+          </div>
+          <span className="pokedex-count" role="status" aria-live="polite" aria-atomic="true">
+            {Pokedex?.length || 0} capturados
+          </span>
         </div>
         <div className="pokedex-list" title="Ctrl + scroll para navegar.">
           <img

@@ -26,11 +26,13 @@ export default function CardPokedex({ pokemon }) {
 
   return (
     <motion.button
+      type="button"
+      aria-label={`Ver detalhes de ${pokemon.name}`}
+      title={`Ver detalhes de ${pokemon.name}`}
       initial={{ opacity: 0, scale: 0.9, z: -10 }}
       whileInView={{ opacity: 1, scale: 1, z: 0 }}
       exit={{ opacity: 0, scale: 0.9, z: 10 }}
       transition={{ duration: 0.8, bounce: 0.5, type: "spring" }}
-      href={`/${pokemon.id}`}
       onClick={() => {
         dispatch(getPokemon(pokemon.name));
       }}
