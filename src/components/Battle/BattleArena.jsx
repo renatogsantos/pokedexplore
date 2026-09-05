@@ -253,8 +253,8 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
           aria-haspopup="dialog"
         >
           <Heart size={22} weight="fill" />
-          <span>Po{"\u00e7"}{"\u00e3"}o</span>
-          <strong>Ã—{potionsRemaining}</strong>
+          <span>Usar po{"\u00e7"}{"\u00e3"}o</span>
+          <strong>{potionsRemaining} {potionsRemaining === 1 ? "restante" : "restantes"}</strong>
         </button>
         <div className="switch-row">
           <span>Reserva</span>
