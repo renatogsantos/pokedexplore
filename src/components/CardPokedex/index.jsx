@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import { getPokemonLevel } from "@/lib/pokemon/progression";
+import PokemonRarity, { getRarityClassName } from "@/components/PokemonRarity";
 
 export default function CardPokedex({ pokemon }) {
   const [color, setColor] = useState("#fff");
@@ -40,12 +41,13 @@ export default function CardPokedex({ pokemon }) {
     >
       <div
         key={pokemon.name}
-        className="card-pokedex"
+        className={`card-pokedex ${getRarityClassName(pokemon)}`}
         style={{
           backgroundImage: `url('/svgs/half-pokeball.svg'), radial-gradient(80% 80% at 50% bottom, ${color}, #060e20cc)`,
         }}
         >
           <span className="pokedex-level">Lv. {getPokemonLevel(pokemon)}</span>
+          <PokemonRarity pokemon={pokemon} compact />
           <img
           loading="lazy"
           draggable={false}

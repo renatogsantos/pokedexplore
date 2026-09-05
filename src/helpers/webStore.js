@@ -1,4 +1,5 @@
 import { MAX_POKEMON_LEVEL, normalizeCapturedPokemon } from "@/lib/pokemon/progression";
+import { enrichPokemonRarity, hasResolvedPokemonRarity } from "@/lib/pokemon/rarity";
 
 const DATABASE_NAME = "PokedExploreDB";
 const DATABASE_VERSION = 1;
@@ -55,11 +56,11 @@ export const webStore = {
     } catch (error) { console.error("Erro ao salvar dados no IndexedDB:", error); return false; }
   },
   async getData(_key) {
-    try { return await withDatabase((database) => new Promise((resolve, reject) => {
+    try { const collection = await withDatabase((database) => new Promise((resolve, reject) => {
       const request = database.transaction(POKEDEX_STORE, "readonly").objectStore(POKEDEX_STORE).getAll();
       request.onsuccess = () => resolve((request.result || []).map(normalizeCapturedPokemon));
       request.onerror = () => reject(request.error);
-    })); } catch (error) { console.error("Erro ao recuperar dados do IndexedDB:", error); return []; }
+    })); const missing = collection.filter((pokemon) => !hasResolvedPokemonRarity(pokemon)); if (!missing.length) return collection; const enriched = await Promise.all(collection.map((pokemon) => hasResolvedPokemonRarity(pokemon) ? pokemon : enrichPokemonRarity(pokemon))); await withDatabase((database) => new Promise((resolve, reject) => { const transaction = database.transaction(POKEDEX_STORE, "readwrite"); enriched.forEach((pokemon) => transaction.objectStore(POKEDEX_STORE).put(pokemon)); transaction.oncomplete = resolve; transaction.onerror = () => reject(transaction.error); })); return enriched; } catch (error) { console.error("Erro ao recuperar dados do IndexedDB:", error); return []; }
   },
   async capturePokemon(pokemon) {
     try { return await withDatabase((database) => new Promise((resolve, reject) => {

@@ -11,6 +11,7 @@ import { pokemonData } from "@/helpers/PokemonTypes";
 import { webStore } from "@/helpers/webStore";
 import { getPokemon, getPokemonToPokedex, actAddPokedex, actOpenCardPokedex, actOpenCardPokemon } from "@/redux/pokemons";
 import { getPokemonLevel, MAX_POKEMON_LEVEL } from "@/lib/pokemon/progression";
+import PokemonRarity, { getRarityClassName } from "@/components/PokemonRarity";
 
 function getArtwork(pokemon) {
   return pokemon?.sprites?.other?.["official-artwork"]?.front_default || pokemon?.sprites?.other?.home?.front_default || "/pokenull.png";
@@ -26,9 +27,10 @@ function CollectionCard({ pokemon, onOpen, index }) {
   const types = pokemon.types?.map((item) => item.type?.name || item.name).filter(Boolean) || [];
   const primary = types[0] || "normal";
   const color = pokemonData.find((item) => item.type === primary)?.color || "#64748b";
-  return <motion.button type="button" className="collection-card" style={{ "--type-color": color }} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(index * .025, .3) }} onClick={() => onOpen(pokemon.name)} aria-label={`Ver detalhes de ${pokemon.name}`}>
+  return <motion.button type="button" className={`collection-card ${getRarityClassName(pokemon)}`} style={{ "--type-color": color }} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(index * .025, .3) }} onClick={() => onOpen(pokemon.name)} aria-label={`Ver detalhes de ${pokemon.name}`}>
     <span className="collection-card-id">#{String(pokemon.id).padStart(3, "0")}</span>
     <span className="collection-level">Lv. {getPokemonLevel(pokemon)}</span>
+    <PokemonRarity pokemon={pokemon} compact />
     <img className="collection-art" src={getArtwork(pokemon)} alt="" loading="lazy" />
     <strong>{pokemon.name}</strong>
     <span className="collection-types">{types.map((type) => <TypeBadge key={type} type={type} />)}</span>

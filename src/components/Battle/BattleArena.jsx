@@ -15,6 +15,7 @@ import { MAX_POTIONS, MOVES, getOpponentWeaknesses, getPokemonMatchup, getPotion
 import { getPokemonArtwork, getReserveSprite } from "@/lib/battle/pokemon";
 import { pokemonData } from "@/helpers/PokemonTypes";
 import { playBattleSound } from "@/lib/battle/sound";
+import PokemonRarity, { getRarityClassName } from "@/components/PokemonRarity";
 
 const iconFor = { strike: Sword, "type-strike": Lightning };
 const colorFor = (type) =>
@@ -46,7 +47,7 @@ function Fighter({ side, player, isHit, isAttacking, isHealing, matchup }) {
   const weaknesses = side === "opponent" ? getOpponentWeaknesses(pokemon).slice(0, 3) : [];
   return (
     <div
-      className={`combatant ${side} ${isHit ? "is-hit" : ""} ${isAttacking ? "is-attacking" : ""} ${isHealing ? "is-healing" : ""}`}
+      className={`combatant ${side} ${isHit ? "is-hit" : ""} ${isAttacking ? "is-attacking" : ""} ${isHealing ? "is-healing" : ""} ${getRarityClassName(pokemon)}`}
     >
       <div className="fighter-meta">
         <span className="combatant-label">
@@ -54,6 +55,7 @@ function Fighter({ side, player, isHit, isAttacking, isHealing, matchup }) {
         </span>
         <h2>{pokemon.name}</h2>
         <span className="fighter-level">Lv. {pokemon.level || 1}</span>
+        <PokemonRarity pokemon={pokemon} />
         <div
           className="type-pill"
           style={{ backgroundColor: colorFor(pokemon.type) }}
@@ -272,7 +274,7 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
               <button
                 type="button"
                 key={`${pokemon.id}-${index}`}
-                className={`${index === me.active ? "selected active" : ""} ${pokemon.hp <= 0 ? "fainted" : ""} ${getPokemonMatchup(pokemon, enemy)} ${effect?.kind === "potion" && effect?.target === role && effect?.targetPokemonId === pokemon.id ? "is-healing" : ""}`}
+                className={`${index === me.active ? "selected active" : ""} ${pokemon.hp <= 0 ? "fainted" : ""} ${getPokemonMatchup(pokemon, enemy)} ${getRarityClassName(pokemon)} ${effect?.kind === "potion" && effect?.target === role && effect?.targetPokemonId === pokemon.id ? "is-healing" : ""}`}
                 disabled={!myTurn || pokemon.hp <= 0 || index === me.active}
                 onClick={() => onAction({ type: "switch", index })}
                 aria-label={`Usar ${pokemon.name}`}
@@ -282,6 +284,7 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
                   src={getReserveSprite(pokemon)}
                   alt={pokemon.name}
                 />
+                <PokemonRarity pokemon={pokemon} compact />
                 <span>{pokemon.name}</span>
                 <small>
                   {index === me.active

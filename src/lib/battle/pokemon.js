@@ -33,6 +33,7 @@ export function toBattlePokemon(pokemon) {
     attackMultiplier: getStatMultiplier(level),
     artwork: getPokemonArtwork(pokemon),
     animatedShiny: getReserveSprite(pokemon),
+    rarity: pokemon.rarity || "normal",
     maxHp,
     hp: maxHp,
   };

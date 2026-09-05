@@ -19,6 +19,7 @@ import { convertHeightToMeters, convertWeightToKilograms } from "@/helpers";
 import { pokemonData } from "@/helpers/PokemonTypes";
 import { motion } from "framer-motion";
 import ReactParallaxTilt from "react-parallax-tilt";
+import PokemonRarity, { getRarityClassName } from "@/components/PokemonRarity";
 
 export default function CardPokemon({ pokemon }) {
   const dispatch = useDispatch();
@@ -67,7 +68,7 @@ export default function CardPokemon({ pokemon }) {
       exit={{ opacity: 0, scale: 0.9, z: 10 }}
       transition={{ duration: 0.8, bounce: 0.5, type: "spring" }}
       onClick={handleClosePropagation}
-      className={`card-pokemon p-3 px-lg-5 pb-lg-5`}
+      className={`card-pokemon p-3 px-lg-5 pb-lg-5 ${getRarityClassName(pokemon)}`}
       style={{
         backgroundImage: `url('/svgs/half-pokeball.svg'), radial-gradient(80% 80% at 50% bottom, ${color}, #060e20cc)`,
       }}
@@ -95,6 +96,7 @@ export default function CardPokemon({ pokemon }) {
         alt="Pokémon selecionado"
       />
       <span className="card-pokemon-name py-2">{pokemon.name}</span>
+      <PokemonRarity pokemon={pokemon} />
 
       <div className="d-flex aling-items-center justify-content-between w-100 py-2 border-top border-bottom">
         <div className="d-flex flex-column align-items-center justify-content-center w-100 text-center mx-2">

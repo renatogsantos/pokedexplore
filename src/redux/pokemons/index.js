@@ -3,6 +3,7 @@ import { webStore } from "@/helpers/webStore";
 import { createAction, createReducer } from "@reduxjs/toolkit";
 import axios from "axios";
 import { Block, Loading, Notify } from "notiflix";
+import { enrichPokemonRarity } from "@/lib/pokemon/rarity";
 
 //Estado inicial
 const initialState = {
@@ -31,8 +32,8 @@ export const getPokemon = (pokemon) => {
     });
     axios
       .get(`https://pokeapi.co/api/v2/pokemon/${pokemon}`)
-      .then((resp) => {
-        dispatch(actPokemon(resp.data));
+      .then(async (resp) => {
+        dispatch(actPokemon(await enrichPokemonRarity(resp.data)));
         dispatch(actOpenCardPokemon(true));
       })
       .catch((error) => {
@@ -56,8 +57,8 @@ export const getPokemonToPokedex = () => {
     const number = gerarNumeroAleatorio(1000);
     axios
       .get(`https://pokeapi.co/api/v2/pokemon/${number}`)
-      .then((resp) => {
-        dispatch(actPokemon(resp.data));
+      .then(async (resp) => {
+        dispatch(actPokemon(await enrichPokemonRarity(resp.data)));
         dispatch(actOpenCardPokedex(true));
       })
       .catch((error) => {
@@ -242,8 +243,9 @@ export const addPokemonCard = (pokemon) => {
     axios
       .get(`https://pokeapi.co/api/v2/pokemon/${pokemon}`)
       .then(async (resp) => {
-        dispatch(actPokemon(resp.data));
-        const capture = await webStore.capturePokemon(resp.data);
+        const enrichedPokemon = await enrichPokemonRarity(resp.data);
+        dispatch(actPokemon(enrichedPokemon));
+        const capture = await webStore.capturePokemon(enrichedPokemon);
         dispatch(actAddPokedex(await webStore.getData("Pokedex")));
         dispatch(actOpenCardPokedex(false));
         if (capture?.duplicate) {
