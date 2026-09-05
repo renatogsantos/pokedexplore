@@ -243,9 +243,13 @@ export const addPokemonCard = (pokemon) => {
       .get(`https://pokeapi.co/api/v2/pokemon/${pokemon}`)
       .then(async (resp) => {
         dispatch(actPokemon(resp.data));
-        await webStore.saveData("Pokedex", resp.data);
+        const capture = await webStore.capturePokemon(resp.data);
         dispatch(actAddPokedex(await webStore.getData("Pokedex")));
         dispatch(actOpenCardPokedex(false));
+        if (capture?.duplicate) {
+          Notify.success(capture.maxLevel ? `${capture.pokemon.name.toUpperCase()} - NIVEL MAXIMO!` : `${capture.pokemon.name.toUpperCase()} REPETIDO! LEVEL ${capture.previousLevel} PARA ${capture.pokemon.level}. +5% PODER!`, { position: "center-top" });
+          return;
+        }
         Notify.success("Você capturou um Pokémon!", {
           position: "center-top",
         });

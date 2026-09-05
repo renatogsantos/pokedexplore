@@ -64,6 +64,7 @@
 }
 
 .card-pokedex {
+  position: relative;
   flex: 0 0 92px;
   display: flex;
   align-items: center;
@@ -105,6 +106,8 @@
   flex: 0 0 92px;
   width: 92px;
 }
+
+.pokedex-level { position: absolute; z-index: 2; top: 6px; right: 6px; padding: 2px 5px; border-radius: 999px; background: rgba(255, 203, 5, .92); color: #17243b; font-size: .55rem; font-weight: 900; }
 
 @media (max-width: 576px) {
   .pokedex-header {

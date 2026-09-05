@@ -11,7 +11,7 @@ import {
 } from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { MAX_POTIONS, MOVES, getPotionHealAmount, multiplier } from "@/lib/battle/engine";
+import { MAX_POTIONS, MOVES, getOpponentWeaknesses, getPokemonMatchup, getPotionHealAmount, multiplier } from "@/lib/battle/engine";
 import { getPokemonArtwork, getReserveSprite } from "@/lib/battle/pokemon";
 import { pokemonData } from "@/helpers/PokemonTypes";
 import { playBattleSound } from "@/lib/battle/sound";
@@ -41,8 +41,9 @@ function HpBar({ pokemon }) {
   );
 }
 
-function Fighter({ side, player, isHit, isAttacking, isHealing }) {
+function Fighter({ side, player, isHit, isAttacking, isHealing, matchup }) {
   const pokemon = player.team[player.active];
+  const weaknesses = side === "opponent" ? getOpponentWeaknesses(pokemon).slice(0, 3) : [];
   return (
     <div
       className={`combatant ${side} ${isHit ? "is-hit" : ""} ${isAttacking ? "is-attacking" : ""} ${isHealing ? "is-healing" : ""}`}
@@ -52,6 +53,7 @@ function Fighter({ side, player, isHit, isAttacking, isHealing }) {
           {side === "player" ? "VOCÊ" : "ADVERSÁRIO"} · {player.name}
         </span>
         <h2>{pokemon.name}</h2>
+        <span className="fighter-level">Lv. {pokemon.level || 1}</span>
         <div
           className="type-pill"
           style={{ backgroundColor: colorFor(pokemon.type) }}
@@ -59,6 +61,8 @@ function Fighter({ side, player, isHit, isAttacking, isHealing }) {
           {pokemon.type}
         </div>
         <HpBar pokemon={pokemon} />
+        {side === "player" && matchup === "disadvantage" && <small className="matchup-warning">Desvantagem de tipo</small>}
+        {weaknesses.length > 0 && <small className="weakness-hint">Fraco contra: {weaknesses.join(", ")}</small>}
       </div>
       <div className="fighter-art">
         <motion.img
@@ -164,6 +168,7 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
   const enemy = opponent.team[opponent.active];
   const potionsRemaining = me.potionsRemaining ?? MAX_POTIONS;
   const hasPotionTarget = me.team.some((pokemon) => pokemon.hp > 0 && pokemon.hp < pokemon.maxHp);
+  const activeMatchup = getPokemonMatchup(active, enemy);
   return (
     <>
       <section
@@ -194,6 +199,7 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
             isHit={effect?.kind === "attack" && effect?.target === role}
             isAttacking={effect?.actor === role}
             isHealing={effect?.kind === "potion" && effect?.target === role && effect?.targetPokemonId === me.team[me.active].id}
+            matchup={activeMatchup}
           />
         </div>
         <BattleNotification
@@ -221,13 +227,15 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
           {MOVES.map((move) => {
             const Icon = iconFor[move.id];
             const attackType = move.type === "own" ? active.type : move.type;
-            const strong = multiplier(attackType, enemy.type) > 1;
+            const strong = multiplier(attackType, enemy) > 1;
+            const weak = multiplier(attackType, enemy) < 1;
+            const uses = active.specialAttackUsesRemaining ?? 0;
             return (
               <button
                 type="button"
                 key={move.id}
-                className={`attack-button ${strong ? "recommended" : ""}`}
-                disabled={!myTurn}
+                className={`attack-button ${strong ? "recommended" : ""} ${weak ? "disadvantage" : ""}`}
+                disabled={!myTurn || (move.special && uses <= 0)}
                 onClick={() => {
                   playBattleSound(move.id === "strike" ? "investida" : "golpe-normal");
                   onAction({ type: "attack", moveId: move.id });
@@ -240,7 +248,7 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
                   <strong>
                     {move.type === "own" ? `Golpe ${active.type}` : move.name}
                   </strong>
-                  <small>{strong ? "Super efetivo" : attackType}</small>
+                  <small>{move.special ? uses <= 0 ? "Esgotado" : `${uses}/2 especial` : strong ? "Vantagem" : weak ? "Desvantagem" : "Ilimitado"}</small>
                 </span>
               </button>
             );
@@ -264,7 +272,7 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
               <button
                 type="button"
                 key={`${pokemon.id}-${index}`}
-                className={`${index === me.active ? "selected active" : ""} ${pokemon.hp <= 0 ? "fainted" : ""} ${effect?.kind === "potion" && effect?.target === role && effect?.targetPokemonId === pokemon.id ? "is-healing" : ""}`}
+                className={`${index === me.active ? "selected active" : ""} ${pokemon.hp <= 0 ? "fainted" : ""} ${getPokemonMatchup(pokemon, enemy)} ${effect?.kind === "potion" && effect?.target === role && effect?.targetPokemonId === pokemon.id ? "is-healing" : ""}`}
                 disabled={!myTurn || pokemon.hp <= 0 || index === me.active}
                 onClick={() => onAction({ type: "switch", index })}
                 aria-label={`Usar ${pokemon.name}`}

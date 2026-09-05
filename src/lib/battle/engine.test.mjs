@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const engineSource = await readFile(new URL("./engine.js", import.meta.url), "utf8");
-const { MAX_POTIONS, createBattleState, resolveAction } = await import(`data:text/javascript;base64,${Buffer.from(engineSource).toString("base64")}`);
+const { MAX_POTIONS, MAX_SPECIAL_ATTACK_USES, createBattleState, getPokemonMatchup, multiplier, resolveAction } = await import(`data:text/javascript;base64,${Buffer.from(engineSource).toString("base64")}`);
 
 const pokemon = (id, hp = 100, maxHp = 100) => ({ id, name: `pokemon-${id}`, type: "normal", hp, maxHp });
 const makeState = () => createBattleState(
@@ -54,4 +54,23 @@ test("a fresh rematch state resets potions", () => {
   const rematch = createBattleState(used.host, used.guest);
   assert.equal(rematch.host.potionsRemaining, MAX_POTIONS);
   assert.equal(rematch.guest.potionsRemaining, MAX_POTIONS);
+});
+
+test("special attack has two uses per Pokemon and resets in a new battle", () => {
+  const state = makeState();
+  const first = resolveAction(state, "host", { type: "attack", moveId: "type-strike" });
+  assert.equal(first.host.team[0].specialAttackUsesRemaining, 1);
+  const second = resolveAction({ ...first, turn: "host" }, "host", { type: "attack", moveId: "type-strike" });
+  assert.equal(second.host.team[0].specialAttackUsesRemaining, 0);
+  const exhausted = resolveAction({ ...second, turn: "host" }, "host", { type: "attack", moveId: "type-strike" });
+  assert.equal(exhausted.host.team[0].specialAttackUsesRemaining, 0);
+  assert.equal(exhausted.guest.team[0].hp, second.guest.team[0].hp);
+  assert.equal(createBattleState(second.host, second.guest).host.team[0].specialAttackUsesRemaining, MAX_SPECIAL_ATTACK_USES);
+});
+
+test("type helper classifies the same matchup used by battle damage", () => {
+  const electric = { type: "electric" }; const water = { types: ["water"] };
+  assert.equal(multiplier("electric", water), 1.5);
+  assert.equal(getPokemonMatchup(electric, water), "advantage");
+  assert.equal(getPokemonMatchup({ type: "fire" }, water), "disadvantage");
 });

@@ -1,3 +1,5 @@
+import { MAX_POKEMON_LEVEL, normalizeCapturedPokemon } from "@/lib/pokemon/progression";
+
 const DATABASE_NAME = "PokedExploreDB";
 const DATABASE_VERSION = 1;
 const POKEDEX_STORE = "pokedex";
@@ -55,9 +57,16 @@ export const webStore = {
   async getData(_key) {
     try { return await withDatabase((database) => new Promise((resolve, reject) => {
       const request = database.transaction(POKEDEX_STORE, "readonly").objectStore(POKEDEX_STORE).getAll();
-      request.onsuccess = () => resolve(request.result || []);
+      request.onsuccess = () => resolve((request.result || []).map(normalizeCapturedPokemon));
       request.onerror = () => reject(request.error);
     })); } catch (error) { console.error("Erro ao recuperar dados do IndexedDB:", error); return []; }
+  },
+  async capturePokemon(pokemon) {
+    try { return await withDatabase((database) => new Promise((resolve, reject) => {
+      const transaction = database.transaction(POKEDEX_STORE, "readwrite"); const store = transaction.objectStore(POKEDEX_STORE); const request = store.get(pokemon.id);
+      request.onsuccess = () => { const existing = request.result ? normalizeCapturedPokemon(request.result) : null; const previousLevel = existing?.level || 0; const maxLevel = Boolean(existing && existing.level >= MAX_POKEMON_LEVEL); const next = existing ? { ...existing, level: Math.min(MAX_POKEMON_LEVEL, existing.level + 1) } : normalizeCapturedPokemon(pokemon); store.put(next); transaction.result = { pokemon: next, duplicate: Boolean(existing), previousLevel, maxLevel }; };
+      transaction.oncomplete = () => resolve(transaction.result); transaction.onerror = () => reject(transaction.error); request.onerror = () => reject(request.error);
+    })); } catch (error) { console.error("Erro ao capturar Pokémon:", error); return null; }
   },
   async deleteData() {
     try { await withDatabase((database) => new Promise((resolve, reject) => {

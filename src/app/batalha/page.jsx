@@ -78,7 +78,8 @@ export default function BattlePage() {
     cpuTimer.current = setTimeout(() => setBattle((current) => {
       const active = current?.guest?.team[current.guest.active];
       const shouldHeal = active && active.hp > 0 && active.hp / active.maxHp <= .35 && current.guest.potionsRemaining > 0;
-      return resolveAction(current, "guest", shouldHeal ? { type: "potion", targetPokemonId: active.id } : { type: "attack", moveId: Math.random() > .35 ? "type-strike" : "strike" });
+      const useSpecial = active?.specialAttackUsesRemaining > 0 && Math.random() > .48;
+      return resolveAction(current, "guest", shouldHeal ? { type: "potion", targetPokemonId: active.id } : { type: "attack", moveId: useSpecial ? "type-strike" : "strike" });
     }), 850);
     return () => clearTimeout(cpuTimer.current);
   }, [mode, battle]);
