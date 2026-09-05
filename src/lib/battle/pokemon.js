@@ -2,6 +2,10 @@ export function getPokemonArtwork(pokemon) {
   return pokemon?.artwork || pokemon?.sprites?.other?.["official-artwork"]?.front_default || pokemon?.sprites?.other?.home?.front_default || pokemon?.sprites?.front_default || "/pokenull.png";
 }
 
+export function getReserveSprite(pokemon) {
+  return pokemon?.animatedShiny || pokemon?.sprites?.versions?.["generation-v"]?.["black-white"]?.animated?.front_shiny || getPokemonArtwork(pokemon);
+}
+
 export function getPokemonType(pokemon) {
   return pokemon?.type || pokemon?.types?.[0]?.type?.name || "normal";
 }
@@ -17,6 +21,7 @@ export function toBattlePokemon(pokemon) {
     name: pokemon.name,
     type: getPokemonType(pokemon),
     artwork: getPokemonArtwork(pokemon),
+    animatedShiny: getReserveSprite(pokemon),
     maxHp,
     hp: maxHp,
   };
