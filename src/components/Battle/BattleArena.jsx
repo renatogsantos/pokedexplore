@@ -11,11 +11,14 @@ import {
 } from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useSelector } from "react-redux";
 import { MAX_POTIONS, MOVES, getOpponentWeaknesses, getPokemonMatchup, getPotionHealAmount, multiplier } from "@/lib/battle/engine";
 import { getPokemonArtwork, getReserveSprite } from "@/lib/battle/pokemon";
 import { pokemonData } from "@/helpers/PokemonTypes";
 import { playBattleSound } from "@/lib/battle/sound";
 import PokemonRarity, { getRarityClassName } from "@/components/PokemonRarity";
+import { COINS_PER_WIN } from "@/lib/economy";
 
 const iconFor = { strike: Sword, "type-strike": Lightning };
 const colorFor = (type) =>
@@ -158,6 +161,7 @@ function BattleNotification({ state, role, opponentName }) {
 
 export default function BattleArena({ state, role, onAction, onRematch }) {
   const [isPotionOpen, setIsPotionOpen] = useState(false);
+  const coins = useSelector((store) => store.economy.coins);
   const me = state[role];
   const opponentRole = role === "host" ? "guest" : "host";
   const opponent = state[opponentRole];
@@ -333,6 +337,7 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
                   ? `${me.name} venceu esta batalha.`
                   : `${opponent.name} venceu desta vez.`}
               </p>
+              {state.winner === role && <div className="result-reward" aria-live="polite"><img src="/coin.png" alt="" aria-hidden="true" /><div><strong>+{COINS_PER_WIN} moedas</strong><span>Saldo: {coins}</span></div></div>}
               <button
                 type="button"
                 className="rematch-button"
@@ -340,6 +345,7 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
               >
                 <ArrowsClockwise size={20} /> Pedir revanche
               </button>
+              {state.winner === role && <Link href="/loja" className="result-link">Ir para a Loja Pokémon</Link>}
             </motion.div>
           </motion.div>
         )}

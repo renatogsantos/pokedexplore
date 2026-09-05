@@ -2,8 +2,11 @@ import { MAX_POKEMON_LEVEL, normalizeCapturedPokemon } from "@/lib/pokemon/progr
 import { enrichPokemonRarity, hasResolvedPokemonRarity } from "@/lib/pokemon/rarity";
 
 const DATABASE_NAME = "PokedExploreDB";
-const DATABASE_VERSION = 1;
+const DATABASE_VERSION = 2;
 const POKEDEX_STORE = "pokedex";
+const PLAYER_STORE = "player";
+const ECONOMY_KEY = "economy";
+const EMPTY_ECONOMY = { key: ECONOMY_KEY, coins: 0, rewardedMatchIds: [] };
 
 function openDatabase() {
   return new Promise((resolve, reject) => {
@@ -16,6 +19,9 @@ function openDatabase() {
       const database = request.result;
       if (!database.objectStoreNames.contains(POKEDEX_STORE)) {
         database.createObjectStore(POKEDEX_STORE, { keyPath: "id" });
+      }
+      if (!database.objectStoreNames.contains(PLAYER_STORE)) {
+        database.createObjectStore(PLAYER_STORE, { keyPath: "key" });
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -44,6 +50,67 @@ async function withDatabase(callback) {
 }
 
 export const webStore = {
+  async getEconomy() {
+    try {
+      return await withDatabase((database) => new Promise((resolve, reject) => {
+        const transaction = database.transaction(PLAYER_STORE, "readwrite");
+        const store = transaction.objectStore(PLAYER_STORE);
+        const request = store.get(ECONOMY_KEY);
+        request.onsuccess = () => {
+          const economy = { ...EMPTY_ECONOMY, ...(request.result || {}) };
+          if (!request.result) store.put(economy);
+          transaction.result = economy;
+        };
+        transaction.oncomplete = () => resolve(transaction.result);
+        transaction.onerror = () => reject(transaction.error);
+      }));
+    } catch (error) { console.error("Erro ao recuperar moedas:", error); return { ...EMPTY_ECONOMY }; }
+  },
+  async rewardVictory(matchId, amount) {
+    if (!matchId) return { rewarded: false, coins: 0 };
+    try {
+      return await withDatabase((database) => new Promise((resolve, reject) => {
+        const transaction = database.transaction(PLAYER_STORE, "readwrite");
+        const store = transaction.objectStore(PLAYER_STORE);
+        const request = store.get(ECONOMY_KEY);
+        request.onsuccess = () => {
+          const economy = { ...EMPTY_ECONOMY, ...(request.result || {}) };
+          const rewardedMatchIds = economy.rewardedMatchIds || [];
+          const rewarded = !rewardedMatchIds.includes(matchId);
+          const next = rewarded ? { ...economy, coins: economy.coins + amount, rewardedMatchIds: [...rewardedMatchIds, matchId].slice(-100) } : economy;
+          if (rewarded) store.put(next);
+          transaction.result = { rewarded, coins: next.coins };
+        };
+        transaction.oncomplete = () => resolve(transaction.result);
+        transaction.onerror = () => reject(transaction.error);
+      }));
+    } catch (error) { console.error("Erro ao conceder moedas:", error); return { rewarded: false, coins: 0 }; }
+  },
+  async purchasePokemon(pokemon, price) {
+    try {
+      return await withDatabase((database) => new Promise((resolve, reject) => {
+        const transaction = database.transaction([PLAYER_STORE, POKEDEX_STORE], "readwrite");
+        const playerStore = transaction.objectStore(PLAYER_STORE); const pokedexStore = transaction.objectStore(POKEDEX_STORE);
+        const economyRequest = playerStore.get(ECONOMY_KEY); const pokemonRequest = pokedexStore.get(pokemon.id);
+        let economy; let existing;
+        const finish = () => {
+          if (!economy || existing === undefined) return;
+          if (economy.coins < price) { transaction.result = { ok: false, reason: "insufficient", coins: economy.coins }; return; }
+          const owned = existing ? normalizeCapturedPokemon(existing) : null;
+          if (owned?.level >= MAX_POKEMON_LEVEL) { transaction.result = { ok: false, reason: "max-level", coins: economy.coins, pokemon: owned }; return; }
+          const nextPokemon = owned ? { ...owned, level: owned.level + 1 } : normalizeCapturedPokemon(pokemon);
+          const nextEconomy = { ...economy, coins: economy.coins - price };
+          pokedexStore.put(nextPokemon); playerStore.put(nextEconomy);
+          transaction.result = { ok: true, coins: nextEconomy.coins, pokemon: nextPokemon, duplicate: Boolean(owned), previousLevel: owned?.level || 0 };
+        };
+        economyRequest.onsuccess = () => { economy = { ...EMPTY_ECONOMY, ...(economyRequest.result || {}) }; finish(); };
+        pokemonRequest.onsuccess = () => { existing = pokemonRequest.result || null; finish(); };
+        transaction.oncomplete = () => resolve(transaction.result);
+        transaction.onerror = () => reject(transaction.error);
+        economyRequest.onerror = () => reject(economyRequest.error); pokemonRequest.onerror = () => reject(pokemonRequest.error);
+      }));
+    } catch (error) { console.error("Erro ao comprar Pokémon:", error); return { ok: false, reason: "persistence" }; }
+  },
   async saveData(_key, data) {
     try {
       await withDatabase((database) => new Promise((resolve, reject) => {

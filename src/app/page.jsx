@@ -36,6 +36,7 @@ import Link from "next/link";
 import { getPokemonPage } from "@/services/pokemons";
 import Paginate from "@/components/Paginate";
 import { AnimatePresence } from "framer-motion";
+import CoinBalance from "@/components/CoinBalance";
 
 export default function Home() {
   const dispatch = useDispatch();
@@ -204,6 +205,7 @@ export default function Home() {
           </span>
           <div className="pokedex-actions">
             <Link href="/como-jogar" className="pokedex-guide-link">Como jogar</Link>
+            <CoinBalance />
             <Link href="/pokedex" className="pokedex-collection-link">Minha Pokédex</Link>
             <Link href="/batalha" className="pokedex-battle-link">Batalhar</Link>
           </div>

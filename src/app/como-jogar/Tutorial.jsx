@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   ArrowRight,
   CaretRight,
+  Coins,
   FirstAid,
   GameController,
   Heart,
@@ -26,6 +27,7 @@ import {
   STAT_BONUS_PER_LEVEL,
   calculateLeveledStat,
 } from "@/lib/pokemon/progression";
+import { COINS_PER_WIN } from "@/lib/economy";
 import { Container } from "react-bootstrap";
 
 const percent = Math.round(POTION_HEAL_PERCENTAGE * 100);
@@ -523,6 +525,10 @@ export default function Tutorial() {
             <p>Quando os 3 Pokémon do outro time desmaiam, você vence!</p>
           </Step>
         </div>
+        <section className="tutorial-coins" aria-labelledby="tutorial-coins-title">
+          <div><span className="tutorial-eyebrow">GANHE E ESCOLHA</span><h2 id="tutorial-coins-title">Vitórias rendem novas escolhas</h2><p>Cada vitória vale {COINS_PER_WIN} moedas. Guarde-as para comprar um novo parceiro ou fortalecer um Pokémon que você já adora.</p></div>
+          <div className="tutorial-coins-flow"><Trophy weight="fill" aria-hidden="true" /><ArrowRight aria-hidden="true" /><strong>+{COINS_PER_WIN} <Coins weight="fill" aria-hidden="true" /></strong><ArrowRight aria-hidden="true" /><Link href="/loja">Loja Pokémon</Link></div>
+        </section>
         <section className="tutorial-play-modes">
           <div>
             <span className="tutorial-eyebrow">NOVO POR AQUI?</span>
