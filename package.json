@@ -9,7 +9,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:battle": "node --test src/lib/battle/engine.test.mjs"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.0.10",

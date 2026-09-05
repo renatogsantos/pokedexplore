@@ -3,15 +3,17 @@
 import {
   ArrowsClockwise,
   Lightning,
+  Heart,
   Shield,
   Sword,
   Trophy,
 } from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { MOVES, multiplier } from "@/lib/battle/engine";
+import { MAX_POTIONS, MOVES, getPotionHealAmount, multiplier } from "@/lib/battle/engine";
 import { getPokemonArtwork, getReserveSprite } from "@/lib/battle/pokemon";
 import { pokemonData } from "@/helpers/PokemonTypes";
+import { playBattleSound } from "@/lib/battle/sound";
 
 const iconFor = { strike: Sword, "type-strike": Lightning };
 const colorFor = (type) =>
@@ -38,11 +40,11 @@ function HpBar({ pokemon }) {
   );
 }
 
-function Fighter({ side, player, isHit, isAttacking }) {
+function Fighter({ side, player, isHit, isAttacking, isHealing }) {
   const pokemon = player.team[player.active];
   return (
     <div
-      className={`combatant ${side} ${isHit ? "is-hit" : ""} ${isAttacking ? "is-attacking" : ""}`}
+      className={`combatant ${side} ${isHit ? "is-hit" : ""} ${isAttacking ? "is-attacking" : ""} ${isHealing ? "is-healing" : ""}`}
     >
       <div className="fighter-meta">
         <span className="combatant-label">
@@ -76,6 +78,9 @@ function Fighter({ side, player, isHit, isAttacking }) {
 function BattleNotification({ state, role, opponentName }) {
   const [notification, setNotification] = useState(null);
   useEffect(() => {
+    if (state.effect?.kind === "attack") playBattleSound("dano", 0.5);
+    if (state.effect?.kind === "potion") playBattleSound("healing-pokemon-sound", 0.5);
+    if (state.status === "finished") playBattleSound(state.winner === role ? "win" : "lost", 0.62);
     if (state.status === "countdown")
       setNotification({ title: "3 · 2 · 1", detail: "BATALHA!", tone: "turn" });
     else if (state.status === "finished")
@@ -89,6 +94,12 @@ function BattleNotification({ state, role, opponentName }) {
         title: `-${state.effect.damage}`,
         detail: state.effect.effective ? "SUPER EFETIVO!" : state.log,
         tone: state.effect.effective ? "strong" : "damage",
+      });
+    else if (state.effect?.kind === "potion")
+      setNotification({
+        title: `+${state.effect.healing} HP`,
+        detail: "POÃ‡ÃƒO! RECUPEROU VIDA!",
+        tone: "healing",
       });
     else if (state.effect?.kind === "switch")
       setNotification({ title: "TROCA!", detail: state.log, tone: "turn" });
@@ -142,6 +153,7 @@ function BattleNotification({ state, role, opponentName }) {
 }
 
 export default function BattleArena({ state, role, onAction, onRematch }) {
+  const [isPotionOpen, setIsPotionOpen] = useState(false);
   const me = state[role];
   const opponentRole = role === "host" ? "guest" : "host";
   const opponent = state[opponentRole];
@@ -149,6 +161,8 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
   const effect = state.effect;
   const active = me.team[me.active];
   const enemy = opponent.team[opponent.active];
+  const potionsRemaining = me.potionsRemaining ?? MAX_POTIONS;
+  const hasPotionTarget = me.team.some((pokemon) => pokemon.hp > 0 && pokemon.hp < pokemon.maxHp);
   return (
     <>
       <section
@@ -166,8 +180,9 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
           <Fighter
             side="opponent"
             player={opponent}
-            isHit={effect?.target === opponentRole}
+            isHit={effect?.kind === "attack" && effect?.target === opponentRole}
             isAttacking={effect?.actor === opponentRole}
+            isHealing={effect?.kind === "potion" && effect?.target === opponentRole && effect?.targetPokemonId === opponent.team[opponent.active].id}
           />
           <div className="arena-divider">
             <span>VS</span>
@@ -175,8 +190,9 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
           <Fighter
             side="player"
             player={me}
-            isHit={effect?.target === role}
+            isHit={effect?.kind === "attack" && effect?.target === role}
             isAttacking={effect?.actor === role}
+            isHealing={effect?.kind === "potion" && effect?.target === role && effect?.targetPokemonId === me.team[me.active].id}
           />
         </div>
         <BattleNotification
@@ -211,7 +227,10 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
                 key={move.id}
                 className={`attack-button ${strong ? "recommended" : ""}`}
                 disabled={!myTurn}
-                onClick={() => onAction({ type: "attack", moveId: move.id })}
+                onClick={() => {
+                  playBattleSound(move.id === "strike" ? "investida" : "golpe-normal");
+                  onAction({ type: "attack", moveId: move.id });
+                }}
               >
                 <span className="attack-icon">
                   <Icon size={25} weight="fill" />
@@ -226,6 +245,17 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
             );
           })}
         </div>
+        <button
+          type="button"
+          className="potion-action"
+          disabled={!myTurn || potionsRemaining <= 0 || !hasPotionTarget}
+          onClick={() => setIsPotionOpen(true)}
+          aria-haspopup="dialog"
+        >
+          <Heart size={22} weight="fill" />
+          <span>Po{"\u00e7"}{"\u00e3"}o</span>
+          <strong>Ã—{potionsRemaining}</strong>
+        </button>
         <div className="switch-row">
           <span>Reserva</span>
           <div className="reserve-list">
@@ -233,7 +263,7 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
               <button
                 type="button"
                 key={`${pokemon.id}-${index}`}
-                className={`${index === me.active ? "selected active" : ""} ${pokemon.hp <= 0 ? "fainted" : ""}`}
+                className={`${index === me.active ? "selected active" : ""} ${pokemon.hp <= 0 ? "fainted" : ""} ${effect?.kind === "potion" && effect?.target === role && effect?.targetPokemonId === pokemon.id ? "is-healing" : ""}`}
                 disabled={!myTurn || pokemon.hp <= 0 || index === me.active}
                 onClick={() => onAction({ type: "switch", index })}
                 aria-label={`Usar ${pokemon.name}`}
@@ -256,6 +286,22 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
           </div>
         </div>
       </section>
+      <AnimatePresence>
+        {isPotionOpen && (
+          <motion.div className="potion-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="presentation">
+            <motion.section className="potion-selector" role="dialog" aria-modal="true" aria-labelledby="potion-title" initial={{ opacity: 0, y: 14, scale: .96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 14, scale: .96 }}>
+              <div className="potion-selector-heading"><div><span className="eyebrow">PO{"\u00c7"}{"\u00c3"}O Ã—{potionsRemaining}</span><h2 id="potion-title">Usar po{"\u00e7"}{"\u00e3"}o em</h2></div><button type="button" onClick={() => setIsPotionOpen(false)} aria-label="Fechar seletor de poção">×</button></div>
+              <div className="potion-target-list">
+                {me.team.map((pokemon, index) => {
+                  const healing = getPotionHealAmount(pokemon);
+                  const unavailable = pokemon.hp <= 0 || pokemon.hp >= pokemon.maxHp;
+                  return <button type="button" key={`${pokemon.id}-${index}`} disabled={unavailable} onClick={() => { setIsPotionOpen(false); onAction({ type: "potion", targetPokemonId: pokemon.id }); }}><img src={getReserveSprite(pokemon)} alt="" /><span><strong>{pokemon.name}</strong><small>{pokemon.hp <= 0 ? "DESMAIADO" : pokemon.hp >= pokemon.maxHp ? "HP CHEIO" : `${pokemon.hp} / ${pokemon.maxHp}  +${healing} HP`}</small></span></button>;
+                })}
+              </div>
+            </motion.section>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <AnimatePresence>
         {state.status === "finished" && (
           <motion.div

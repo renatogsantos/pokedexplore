@@ -5,12 +5,21 @@ export const MOVES = [
   { id: "type-strike", name: "Golpe de tipo", type: "own", power: 23 },
 ];
 
+export const MAX_POTIONS = 2;
+export const POTION_HEAL_PERCENTAGE = 0.4;
+
+export function getPotionHealAmount(pokemon) {
+  return Math.min(Math.ceil(pokemon.maxHp * POTION_HEAL_PERCENTAGE), pokemon.maxHp - pokemon.hp);
+}
+
 export function multiplier(attackType, defenseType) {
   if (ADVANTAGES[attackType]?.includes(defenseType)) return 1.5;
   return 1;
 }
 
 export function createBattleState(host, guest, firstTurn = "host") {
+  host = { ...host, potionsRemaining: MAX_POTIONS };
+  guest = { ...guest, potionsRemaining: MAX_POTIONS };
   return { host: { ...host, active: 0, team: host.team.map((pokemon) => ({ ...pokemon })) }, guest: { ...guest, active: 0, team: guest.team.map((pokemon) => ({ ...pokemon })) }, turn: firstTurn, status: "playing", winner: null, log: "A batalha começou!", effect: null, revision: 0 };
 }
 
@@ -18,6 +27,19 @@ export function resolveAction(state, actor, action) {
   if (state.status !== "playing" || state.turn !== actor) return state;
   const enemy = actor === "host" ? "guest" : "host";
   const next = structuredClone(state);
+  if (action.type === "potion") {
+    const targetIndex = next[actor].team.findIndex((pokemon) => String(pokemon.id) === String(action.targetPokemonId));
+    const target = next[actor].team[targetIndex];
+    if (!target || next[actor].potionsRemaining <= 0 || target.hp <= 0 || target.hp >= target.maxHp) return state;
+    const healing = getPotionHealAmount(target);
+    target.hp = Math.min(target.maxHp, target.hp + healing);
+    next[actor].potionsRemaining -= 1;
+    next.turn = enemy;
+    next.log = `${target.name} recuperou ${healing} HP!`;
+    next.effect = { kind: "potion", actor, target: actor, targetPokemonId: target.id, targetIndex, healing };
+    next.revision += 1;
+    return next;
+  }
   if (action.type === "switch") {
     if (!next[actor].team[action.index] || next[actor].team[action.index].hp <= 0 || action.index === next[actor].active) return state;
     next[actor].active = action.index;

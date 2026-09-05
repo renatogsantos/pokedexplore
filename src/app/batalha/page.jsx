@@ -10,6 +10,7 @@ import BattleArena from "@/components/Battle/BattleArena";
 import { CPU_TEAM, toBattlePokemon } from "@/lib/battle/pokemon";
 import { createBattleState, resolveAction } from "@/lib/battle/engine";
 import { BATTLE_EVENTS, createBattleRoom, hasRealtimeConfig } from "@/lib/battle/realtime";
+import { playBattleSound } from "@/lib/battle/sound";
 import "./style.scss";
 
 const makeCode = () => `PKDX-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -74,12 +75,16 @@ export default function BattlePage() {
   useEffect(() => {
     if (mode !== "cpu" || !battle || battle.turn !== "guest" || battle.status !== "playing") return;
     clearTimeout(cpuTimer.current);
-    cpuTimer.current = setTimeout(() => setBattle((current) => resolveAction(current, "guest", { type: "attack", moveId: Math.random() > .35 ? "type-strike" : "strike" })), 850);
+    cpuTimer.current = setTimeout(() => setBattle((current) => {
+      const active = current?.guest?.team[current.guest.active];
+      const shouldHeal = active && active.hp > 0 && active.hp / active.maxHp <= .35 && current.guest.potionsRemaining > 0;
+      return resolveAction(current, "guest", shouldHeal ? { type: "potion", targetPokemonId: active.id } : { type: "attack", moveId: Math.random() > .35 ? "type-strike" : "strike" });
+    }), 850);
     return () => clearTimeout(cpuTimer.current);
   }, [mode, battle]);
 
   function chooseMode(nextMode) { setMode(nextMode); setSelected([]); setBattle(null); setReadySent(false); setScreen(nextMode === "cpu" ? "team" : "friend"); }
-  function togglePokemon(pokemon) { setSelected((current) => current.some((item) => item.id === pokemon.id) ? current.filter((item) => item.id !== pokemon.id) : current.length < 3 ? [...current, pokemon] : current); }
+  function togglePokemon(pokemon) { playBattleSound("select-pokemon", 0.4); setSelected((current) => current.some((item) => item.id === pokemon.id) ? current.filter((item) => item.id !== pokemon.id) : current.length < 3 ? [...current, pokemon] : current); }
   function readyTeam() {
     if (mode === "cpu") { const local = makePlayer(name); setPlayer(local); startState(selected, CPU_TEAM, local, { id: "cpu", name: "CPU" }); return; }
     if (!realtime.current?.isConnected()) { setNotice("Ainda conectando à sala. Aguarde antes de confirmar."); return; }
