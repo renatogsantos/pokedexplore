@@ -99,6 +99,13 @@
   }
 }
 
+/* O card é renderizado dentro de um motion.button. Impedir o shrink do
+   wrapper mantém a largura real do card em telas estreitas. */
+.pokedex-list > button {
+  flex: 0 0 92px;
+  width: 92px;
+}
+
 @media (max-width: 576px) {
   .pokedex-header {
     grid-template-columns: auto minmax(0, 1fr) auto;
@@ -115,6 +122,10 @@
     flex-basis: 82px;
     height: 82px;
   }
+  .pokedex-list > button {
+    flex-basis: 82px;
+    width: 82px;
+  }
 }
 
 @media (max-width: 360px) {
@@ -123,6 +134,7 @@
   .pokedex-header .pokedex-battle-link { grid-column: 1 / -1; }
   .pokedex-list { gap: 9px; padding: 10px; }
   .card-pokedex { flex-basis: 76px; height: 76px; }
+  .pokedex-list > button { flex-basis: 76px; width: 76px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
