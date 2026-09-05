@@ -28,6 +28,327 @@
   .battle-shell { width: min(100%, 1080px); }.battle-arena { min-height: 620px; padding-inline: clamp(34px, 7vw, 92px); }.arena-stage { min-height: 500px; }.opponent { transform: translate(20px, 18px); }.player { transform: translate(-20px, -14px); }.fighter-art { width: clamp(190px, 25vw, 290px); height: clamp(190px, 25vw, 290px); }.combatant .fighter-meta { width: min(47%, 310px); }.battle-controls { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, .56fr); column-gap: 24px; }.battle-controls .controls-heading, .battle-controls .attack-grid { grid-column: 1; }.battle-controls .switch-row { grid-column: 2; grid-row: 1 / span 2; flex-direction: column; align-items: stretch; margin-top: 0; padding-top: 0; border-top: 0; border-left: 1px solid #ffffff12; padding-left: 22px; }.battle-controls .reserve-list { flex-direction: column; overflow: visible; }.battle-controls .reserve-list button { flex: 1 1 auto; flex-direction: row; justify-content: flex-start; min-width: 0; }.battle-controls .reserve-list button small { margin-left: auto; }.battle-controls .reserve-list button span { display: inline; }
 }
 
+/* Team building mirrors the Pokédex catalogue; selection is the only battle-specific layer. */
+.team-selector {
+  text-align: left;
+}
+
+.battle-collection-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.battle-collection-heading h2 {
+  margin: 5px 0 4px;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+}
+
+.battle-collection-heading p {
+  max-width: none;
+  margin: 0;
+}
+
+.battle-selection-count {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  min-height: 40px;
+  padding: 0 11px;
+  border: 1px solid #ffcb0577;
+  border-radius: 999px;
+  background: #ffcb0518;
+  color: #ffdf5d;
+  font-size: .72rem;
+  font-weight: 900;
+}
+
+.battle-collection-controls {
+  display: grid;
+  grid-template-columns: minmax(220px, .8fr) minmax(0, 1.2fr);
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.battle-collection-search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 47px;
+  padding: 0 12px;
+  border: 1px solid #ffffff25;
+  border-radius: 13px;
+  background: #06101f;
+  color: #aebfd7;
+}
+
+.battle-collection-search:focus-within {
+  border-color: #ffcb0599;
+  box-shadow: 0 0 0 3px #ffcb051c;
+}
+
+.battle-collection-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-size: .8rem;
+}
+
+.battle-collection-search input::placeholder {
+  color: #8296b2;
+}
+
+.battle-type-filters {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 2px;
+  scrollbar-width: none;
+}
+
+.battle-type-filters::-webkit-scrollbar {
+  display: none;
+}
+
+.battle-type-filters button {
+  display: grid;
+  place-items: center;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #ffffff20;
+  border-radius: 11px;
+  background: #0b1729;
+  color: #c5d5e9;
+  font: inherit;
+  font-size: .65rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.battle-type-filters button:first-child {
+  flex-basis: auto;
+  width: auto;
+  padding-inline: 11px;
+}
+
+.battle-type-filters button:hover:not(:disabled),
+.battle-type-filters button.selected {
+  border-color: #ffcb05;
+  background: #ffcb051c;
+  color: #ffdf5d;
+}
+
+.battle-type-filters button:disabled,
+.battle-collection-card:disabled {
+  cursor: not-allowed;
+}
+
+.battle-type-filters img {
+  width: 22px;
+  height: 22px;
+}
+
+.battle-collection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
+  gap: 11px;
+  margin-top: 21px;
+}
+
+.battle-collection-card {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  align-content: end;
+  min-height: 220px;
+  padding: 12px;
+  overflow: hidden;
+  border: 1px solid #ffffff1b;
+  border-radius: 17px;
+  background: linear-gradient(155deg, color-mix(in srgb, var(--type-color) 28%, #11223b), #081321 73%);
+  color: #f8fbff;
+  cursor: pointer;
+  text-align: center;
+  text-transform: capitalize;
+  transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+
+.battle-collection-card::before {
+  position: absolute;
+  top: -30%;
+  left: -20%;
+  width: 140%;
+  height: 74%;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--type-color) 35%, transparent);
+  filter: blur(18px);
+  content: "";
+}
+
+.battle-collection-card:hover:not(:disabled),
+.battle-collection-card:focus-visible {
+  border-color: var(--type-color);
+  box-shadow: 0 11px 23px #0006;
+  outline: none;
+  transform: translateY(-4px);
+}
+
+.battle-collection-card.selected {
+  border-color: #ffcb05;
+  box-shadow: 0 0 0 2px #ffcb0533, 0 11px 23px #0007;
+}
+
+.battle-collection-card:disabled {
+  opacity: .58;
+}
+
+.battle-collection-id,
+.battle-collection-level {
+  position: absolute;
+  z-index: 2;
+  top: 9px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: #07111fc9;
+  color: #e4efff;
+  font-size: .57rem;
+  font-weight: 850;
+}
+
+.battle-collection-id {
+  left: 9px;
+}
+
+.battle-collection-level {
+  right: 9px;
+  color: #ffdf5d;
+}
+
+.battle-collection-card .pokemon-rarity {
+  position: absolute;
+  z-index: 3;
+  top: 38px;
+  right: 9px;
+}
+
+.battle-collection-art {
+  position: relative;
+  z-index: 1;
+  width: 126px;
+  height: 126px;
+  margin-top: 14px;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 8px #0009);
+}
+
+.battle-collection-card > strong {
+  position: relative;
+  z-index: 2;
+  margin-top: -4px;
+  font-size: 1rem;
+}
+
+.battle-collection-types {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 7px;
+}
+
+.battle-collection-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: #06101fb8;
+  color: #eaf3ff;
+  font-size: .52rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.battle-collection-type img {
+  width: 13px;
+  height: 13px;
+}
+
+.battle-collection-card .selection-order {
+  z-index: 5;
+  top: auto;
+  right: 9px;
+  bottom: 9px;
+}
+
+.battle-collection-empty {
+  margin-top: 20px;
+  padding: 32px 12px;
+  border: 1px dashed #ffffff29;
+  border-radius: 16px;
+  color: #b4c7e0;
+  text-align: center;
+}
+
+.battle-collection-empty h3,
+.battle-collection-empty p {
+  margin: 0;
+}
+
+.battle-collection-empty p {
+  margin-top: 5px;
+}
+
+@media (max-width: 600px) {
+  .battle-collection-heading {
+    gap: 10px;
+  }
+
+  .battle-collection-heading h2 {
+    font-size: clamp(1.3rem, 6vw, 1.65rem);
+  }
+
+  .battle-collection-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .battle-collection-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+
+  .battle-collection-card {
+    min-height: 205px;
+    padding: 9px;
+  }
+
+  .battle-collection-art {
+    width: 108px;
+    height: 108px;
+  }
+
+  .battle-collection-card > strong {
+    font-size: .86rem;
+  }
+}
+
+@media (max-width: 350px) {
+  .battle-collection-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Help stays available before a player enters the arena. */
 .battle-header-actions { display: inline-flex; align-items: center; justify-content: flex-end; gap: 8px; }.battle-help { display: inline-flex; align-items: center; gap: 5px; min-height: 36px; padding: 0 9px; border: 1px solid #ffffff22; border-radius: 999px; color: #c9dbf4; font-size: .68rem; font-weight: 800; text-decoration: none; }.battle-help:hover, .battle-help:focus-visible { border-color: #ffcb05; color: #ffdf5d; outline: none; }
 @media (max-width: 600px) { .battle-header-actions { gap: 5px; }.battle-help { width: 34px; min-height: 34px; justify-content: center; padding: 0; }.battle-help span { display: none; } }
