@@ -54,13 +54,10 @@ function Fighter({ side, player, isHit, isAttacking, isHealing, matchup }) {
           {side === "player" ? "VOCÊ" : "ADVERSÁRIO"} · {player.name}
         </span>
         <h2>{pokemon.name}</h2>
-        <span className="fighter-level">Lv. {pokemon.level || 1}</span>
-        <PokemonRarity pokemon={pokemon} />
-        <div
-          className="type-pill"
-          style={{ backgroundColor: colorFor(pokemon.type) }}
-        >
-          {pokemon.type}
+        <div className="fighter-tags">
+          <span className="fighter-level">Lv. {pokemon.level || 1}</span>
+          <PokemonRarity pokemon={pokemon} />
+          <div className="type-pill" style={{ backgroundColor: colorFor(pokemon.type) }}>{pokemon.type}</div>
         </div>
         <HpBar pokemon={pokemon} />
         {side === "player" && matchup === "disadvantage" && <small className="matchup-warning">Desvantagem de tipo</small>}

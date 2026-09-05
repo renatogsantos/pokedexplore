@@ -9,10 +9,12 @@
 @import "/src/components/CardAddPokemon/style.scss";
 @import "/src/components/CardPokedex/style.scss";
 @import "/src/components/PokemonRarity/style.scss";
+@import "/src/components/PokemonRarity/capture.scss";
 @import "/src/components/StatusBar/style.scss";
 @import "/src/components/HomePokemon/style.scss";
 @import "/src/components/Paginate/style.scss";
 @import "./[pokemon]/style.scss";
+@import "./container.scss";
 
 body {
   margin: 0;

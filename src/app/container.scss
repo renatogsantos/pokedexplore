@@ -1,0 +1,7 @@
+/* Shared Bootstrap Container scale for pages that use custom game shells. */
+.battle-shell, .tutorial-shell, .collection-shell, .tutorial-header, .collection-header { width: 100% !important; max-width: none !important; margin-inline: auto; }
+@media (min-width: 576px) { .battle-shell, .tutorial-shell, .collection-shell, .tutorial-header, .collection-header { max-width: 540px !important; } }
+@media (min-width: 768px) { .battle-shell, .tutorial-shell, .collection-shell, .tutorial-header, .collection-header { max-width: 720px !important; } }
+@media (min-width: 992px) { .battle-shell, .tutorial-shell, .collection-shell, .tutorial-header, .collection-header { max-width: 960px !important; } }
+@media (min-width: 1200px) { .battle-shell, .tutorial-shell, .collection-shell, .tutorial-header, .collection-header { max-width: 1140px !important; } }
+@media (min-width: 1400px) { .battle-shell, .tutorial-shell, .collection-shell, .tutorial-header, .collection-header { max-width: 1320px !important; } }
