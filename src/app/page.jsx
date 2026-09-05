@@ -185,7 +185,7 @@ export default function Home() {
       <Container className="project-intro text-light">
         <section className="project-intro__panel" aria-labelledby="project-intro-title">
           <Row className="align-items-center g-0">
-            <Col sm="12" lg="4" className="project-intro__art">
+            <Col sm="12" lg="4" className="d-flex align-items-center justify-content-center project-intro__art">
               <img
                 loading="lazy"
                 draggable={false}
@@ -262,13 +262,6 @@ export default function Home() {
           </div>
         </div>
         <div className="pokedex-list" title="Ctrl + scroll para navegar.">
-          <img
-            loading="lazy"
-            draggable={false}
-            src="/pokedex.png"
-            width="60"
-            alt="Pokedex"
-          />
           {Pokedex?.map((pk, i) => {
             return <CardPokedex key={i} pokemon={pk} />;
           })}
