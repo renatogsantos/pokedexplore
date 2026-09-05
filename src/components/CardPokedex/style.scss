@@ -33,6 +33,26 @@
   white-space: nowrap;
 }
 
+.pokedex-battle-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: #ffcb05;
+  color: #17243b;
+  font-size: .78rem;
+  font-weight: 800;
+  text-decoration: none;
+  transition: transform .15s ease, box-shadow .15s ease;
+  &:hover, &:focus-visible { transform: translateY(-2px); box-shadow: 0 7px 16px rgba(255, 203, 5, .22); outline: none; }
+}
+
+@media (max-width: 576px) {
+  .pokedex-battle-link { padding: 0 10px; font-size: .7rem; }
+  .pokedex-count { padding: 6px 8px; font-size: .68rem; }
+}
+
 .card-pokedex {
   flex: 0 0 92px;
   display: flex;
