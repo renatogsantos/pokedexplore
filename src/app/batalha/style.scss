@@ -44,3 +44,59 @@
 .potion-overlay { position: fixed; z-index: 30; inset: 0; display: grid; place-items: end center; padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); background: #020610b8; backdrop-filter: blur(7px); }.potion-selector { width: min(100%, 500px); max-height: min(82svh, 620px); overflow: auto; padding: 20px; border: 1px solid #66d9a477; border-radius: 22px; background: linear-gradient(145deg, #183d32, #091a1d); box-shadow: 0 22px 70px #000b; }.potion-selector-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }.potion-selector h2 { margin: 4px 0 0; color: #f8fbff; font-size: 1.35rem; }.potion-selector-heading > button { display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid #ffffff2b; border-radius: 50%; color: #dce9fb; font-size: 1.45rem; cursor: pointer; }.potion-target-list { display: grid; gap: 9px; margin-top: 18px; }.potion-target-list > button { display: grid; grid-template-columns: 58px minmax(0, 1fr); align-items: center; gap: 11px; min-height: 66px; padding: 8px 10px; border: 1px solid #ffffff1c; border-radius: 14px; background: #0b1729; color: #f8fbff; text-align: left; cursor: pointer; }.potion-target-list > button:hover:not(:disabled), .potion-target-list > button:focus-visible { border-color: #8ff2ba; background: #174234; outline: none; }.potion-target-list > button:disabled { opacity: .52; cursor: not-allowed; }.potion-target-list img { width: 54px; height: 54px; object-fit: contain; }.potion-target-list strong, .potion-target-list small { display: block; text-transform: capitalize; }.potion-target-list small { margin-top: 3px; color: #a9c0df; font-size: .72rem; font-weight: 700; }.combatant.is-healing .fighter-art, .reserve-list button.is-healing { animation: potion-heal .7s ease-out both; }.battle-notification.healing { border-color: #66d9a4cc; background: #123b30f2; }.battle-notification.healing strong { color: #8ff2ba; font-size: 1.5rem; }@keyframes potion-heal { 45% { filter: brightness(1.55) drop-shadow(0 0 14px #67e9a9); transform: translateY(-6px) scale(1.05); } }
 @media (max-width: 430px) { .potion-action { width: 100%; justify-content: center; }.potion-selector { padding: 16px; border-radius: 19px; }.potion-target-list > button { grid-template-columns: 52px minmax(0, 1fr); }.potion-target-list img { width: 48px; height: 48px; } }
 @media (prefers-reduced-motion: reduce) { .combatant.is-healing .fighter-art, .reserve-list button.is-healing { animation: none; } }
+
+/* Compact battle viewport: the whole turn stays reachable without page scrolling. */
+@media (max-width: 600px) {
+  .battle-page:has(.battle-arena) { height: 100svh; height: 100dvh; min-height: 0; box-sizing: border-box; overflow: hidden; padding-top: max(6px, env(safe-area-inset-top)); padding-bottom: max(6px, env(safe-area-inset-bottom)); }
+  .battle-page:has(.battle-arena) .battle-shell { display: grid; grid-template-rows: 44px minmax(0, 1fr) auto; gap: 7px; height: 100%; min-height: 0; }
+  .battle-page:has(.battle-arena) .battle-header { min-height: 44px; height: 44px; }
+  .battle-page:has(.battle-arena) .battle-arena { min-height: 0; height: 100%; box-sizing: border-box; margin: 0; padding: 33px 10px 10px; border-radius: 18px; }
+  .battle-page:has(.battle-arena) .arena-stage { min-height: 0; height: 100%; grid-template-rows: minmax(0, 1fr) 36px minmax(0, 1fr); }
+  .battle-page:has(.battle-arena) .fighter-art { width: min(31vw, 17svh, 118px); height: min(31vw, 17svh, 118px); }
+  .battle-page:has(.battle-arena) .combatant .fighter-meta { width: 54%; }
+  .battle-page:has(.battle-arena) .combatant h2 { margin: 1px 0 4px; font-size: clamp(.82rem, 4vw, 1rem); }
+  .battle-page:has(.battle-arena) .combatant-label { font-size: .5rem; letter-spacing: .06em; }
+  .battle-page:has(.battle-arena) .type-pill { padding: 2px 6px; font-size: .5rem; }
+  .battle-page:has(.battle-arena) .hp-wrap { margin-top: 5px; }
+  .battle-page:has(.battle-arena) .hp-label { font-size: .52rem; }
+  .battle-page:has(.battle-arena) .hp-track { height: 7px; margin-top: 3px; }
+  .battle-page:has(.battle-arena) .arena-divider { width: 36px; height: 36px; font-size: .62rem; box-shadow: 0 0 0 4px #0a162899, 0 0 16px #ffcb0544; }
+  .battle-page:has(.battle-arena) .persistent-turn { top: 7px; padding: 4px 9px; font-size: .53rem; }
+  .battle-page:has(.battle-arena) .battle-controls { box-sizing: border-box; margin: 0; padding: 9px 10px; border-radius: 16px; }
+  .battle-page:has(.battle-arena) .controls-heading h2 { margin-top: 1px; font-size: .98rem; }
+  .battle-page:has(.battle-arena) .controls-heading .eyebrow { font-size: .54rem; letter-spacing: .11em; }
+  .battle-page:has(.battle-arena) .team-left { font-size: .57rem; }
+  .battle-page:has(.battle-arena) .team-left svg { width: 14px; height: 14px; }
+  .battle-page:has(.battle-arena) .attack-grid { gap: 6px; margin-top: 7px; }
+  .battle-page:has(.battle-arena) .attack-button { min-height: 48px; padding: 6px 8px; gap: 6px; border-radius: 12px; }
+  .battle-page:has(.battle-arena) .attack-icon { width: 29px; height: 29px; flex-basis: 29px; border-radius: 9px; }
+  .battle-page:has(.battle-arena) .attack-icon svg { width: 19px; height: 19px; }
+  .battle-page:has(.battle-arena) .attack-button strong { font-size: .68rem; }
+  .battle-page:has(.battle-arena) .attack-button small { margin-top: 1px; font-size: .5rem; }
+  .battle-page:has(.battle-arena) .potion-action { min-height: 40px; margin-top: 7px; padding: 0 10px; font-size: .7rem; }
+  .battle-page:has(.battle-arena) .potion-action strong { font-size: .58rem; }
+  .battle-page:has(.battle-arena) .switch-row { align-items: center; flex-direction: row; gap: 7px; margin-top: 7px; padding-top: 7px; }
+  .battle-page:has(.battle-arena) .switch-row > span { flex: 0 0 auto; font-size: .58rem; }
+  .battle-page:has(.battle-arena) .reserve-list { flex: 1; justify-content: flex-end; gap: 4px; overflow: visible; padding: 0; }
+  .battle-page:has(.battle-arena) .reserve-list button { flex: 1 1 0; flex-basis: 0; min-width: 0; min-height: 45px; padding: 2px; }
+  .battle-page:has(.battle-arena) .reserve-list .reserve-sprite { width: 29px; height: 29px; }
+  .battle-page:has(.battle-arena) .reserve-list button small { font-size: .43rem; }
+}
+
+@media (max-width: 600px) and (max-height: 700px) {
+  .battle-page:has(.battle-arena) .battle-shell { grid-template-rows: 40px minmax(0, 1fr) auto; gap: 5px; }
+  .battle-page:has(.battle-arena) .battle-header { min-height: 40px; height: 40px; }
+  .battle-page:has(.battle-arena) .battle-title span, .battle-page:has(.battle-arena) .team-left { display: none; }
+  .battle-page:has(.battle-arena) .battle-arena { padding-top: 29px; }
+  .battle-page:has(.battle-arena) .fighter-art { width: min(28vw, 16svh, 104px); height: min(28vw, 16svh, 104px); }
+  .battle-page:has(.battle-arena) .battle-controls { padding: 7px 9px; }
+  .battle-page:has(.battle-arena) .attack-button { min-height: 44px; }
+  .battle-page:has(.battle-arena) .potion-action { min-height: 36px; margin-top: 5px; }
+  .battle-page:has(.battle-arena) .switch-row { margin-top: 5px; padding-top: 5px; }
+  .battle-page:has(.battle-arena) .reserve-list button { min-height: 39px; }
+  .battle-page:has(.battle-arena) .reserve-list .reserve-sprite { width: 25px; height: 25px; }
+}
+
+/* Result feedback is semantic as well as colorful: green celebrates, orange signals retry. */
+.result-card.is-victory { border-color: #76e6a5aa; background: linear-gradient(145deg, #1c5a43, #0b2b25); box-shadow: 0 20px 80px #000b, 0 0 38px #54dc9255; }.result-card.is-victory > svg { color: #8ff2ba; filter: drop-shadow(0 0 12px #8ff2ba99); }.result-card.is-victory .eyebrow { color: #c8ffdc; }.result-card.is-victory h2 { color: #f3fff8; }.result-card.is-victory .rematch-button { background: #8ff2ba; color: #123226; }
+.result-card.is-defeat { border-color: #ffad5fbb; background: linear-gradient(145deg, #704121, #30170f); box-shadow: 0 20px 80px #000b, 0 0 38px #ff8d4c44; }.result-card.is-defeat > svg { color: #ffc07e; filter: drop-shadow(0 0 12px #ff9d54aa); }.result-card.is-defeat .eyebrow { color: #ffd2a4; }.result-card.is-defeat h2 { color: #fff7ef; }.result-card.is-defeat .rematch-button { background: #ffb36b; color: #40200f; }

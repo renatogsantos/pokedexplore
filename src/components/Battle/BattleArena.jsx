@@ -7,6 +7,7 @@ import {
   Shield,
   Sword,
   Trophy,
+  WarningCircle,
 } from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
@@ -310,11 +311,11 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
             animate={{ opacity: 1 }}
           >
             <motion.div
-              className="result-card"
+              className={`result-card ${state.winner === role ? "is-victory" : "is-defeat"}`}
               initial={{ scale: 0.8, y: 20 }}
               animate={{ scale: 1, y: 0 }}
             >
-              <Trophy size={42} weight="fill" />
+              {state.winner === role ? <Trophy size={42} weight="fill" /> : <WarningCircle size={42} weight="fill" />}
               <span className="eyebrow">
                 {state.winner === role ? "VOCÊ VENCEU" : "BOA BATALHA"}
               </span>
