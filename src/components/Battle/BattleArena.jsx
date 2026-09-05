@@ -26,7 +26,7 @@ function BattleNotification({ state, role, opponentName }) {
     const timer = setTimeout(() => setNotification(null), state.status === "countdown" ? 1450 : 1050);
     return () => clearTimeout(timer);
   }, [state.revision, state.status, state.effect?.kind, state.turn, state.log, role, opponentName]);
-  return <AnimatePresence mode="wait">{notification && <motion.div key={`${state.revision}-${notification.title}-${state.status}`} className={`battle-notification ${notification.tone}`} initial={{ opacity: 0, scale: .72, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 1.08, y: -10 }} transition={{ duration: .2 }} role="status" aria-live="polite"><strong>{notification.title}</strong><span>{notification.detail}</span></motion.div>}</AnimatePresence>;
+  return <AnimatePresence mode="wait">{notification && <div className="battle-notification-anchor"><motion.div key={`${state.revision}-${notification.title}-${state.status}`} className={`battle-notification ${notification.tone}`} initial={{ opacity: 0, scale: .72, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 1.08, y: -10 }} transition={{ duration: .2 }} role="status" aria-live="polite"><strong>{notification.title}</strong><span>{notification.detail}</span></motion.div></div>}</AnimatePresence>;
 }
 
 export default function BattleArena({ state, role, onAction, onRematch }) {

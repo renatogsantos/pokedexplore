@@ -187,7 +187,7 @@ export default function Home() {
       </Container>
 
       <Container>
-        <div id="pokedex" className="d-flex align-items-center gap-2 my-3">
+        <div id="pokedex" className="pokedex-header my-3">
           <img
             loading="lazy"
             draggable={false}
