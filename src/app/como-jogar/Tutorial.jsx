@@ -29,7 +29,6 @@ import {
   calculateLeveledStat,
 } from "@/lib/pokemon/progression";
 import { COINS_PER_WIN } from "@/lib/economy";
-import { Container } from "react-bootstrap";
 
 const percent = Math.round(POTION_HEAL_PERCENTAGE * 100);
 const levelBonus = Math.round(STAT_BONUS_PER_LEVEL * 100);
@@ -139,7 +138,7 @@ function MatchupDemo() {
   const [choice, setChoice] = useState("pikachu");
   const isGood = choice === "pikachu";
   return (
-    <Container className="tutorial-matchup-demo">
+    <div className="tutorial-matchup-demo">
       <div className="tutorial-opponent">
         <span>ADVERSÁRIO</span>
         <Pokemon name="squirtle" type="water" />
@@ -175,7 +174,7 @@ function MatchupDemo() {
           ? "Boa escolha! Pikachu tem vantagem contra Água."
           : "Charizard pode lutar, mas Pikachu é uma opção melhor."}
       </p>
-    </Container>
+    </div>
   );
 }
 

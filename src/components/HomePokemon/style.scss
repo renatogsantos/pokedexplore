@@ -511,6 +511,11 @@
     min-height: 0;
   }
 
+  .home-hero__art {
+    width: 100%;
+    min-width: 0;
+  }
+
   .home-hero__copy {
     gap: .85rem;
   }
@@ -525,6 +530,7 @@
   }
 
   .home-hero__art img {
+    max-width: 100%;
     max-height: 310px;
   }
 

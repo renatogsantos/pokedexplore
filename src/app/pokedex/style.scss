@@ -3,3 +3,10 @@
 @media (max-width: 720px) { .collection-page { padding-inline: max(11px, env(safe-area-inset-left)); }.collection-hero { grid-template-columns: 1fr; padding: 25px 20px 14px; border-radius: 22px; }.collection-hero-art { min-height: 160px; }.collection-hero-art img:last-child { height: 165px; }.collection-hero-art img:first-child { width: 88px; transform: translate(-48px, 28px) rotate(-16deg); }.collection-stats { grid-template-columns: repeat(3, 1fr); }.collection-stats > div { min-height: 91px; padding: 11px; }.collection-stats strong { font-size: 1.17rem; }.collection-stats > div > span { font-size: .61rem; }.collection-progress { grid-column: 1 / -1; min-height: 74px !important; }.collection-controls { grid-template-columns: 1fr; }.collection-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }.collection-card { min-height: 196px; padding: 9px; }.collection-art { width: 105px; height: 105px; }.collection-browser { padding: 17px 12px; border-radius: 20px; }.collection-tip { align-items: flex-start; flex-wrap: wrap; }.collection-tip a { width: 100%; margin-left: 0; text-align: center; }.collection-header-links a:first-child { display: none; } }
 @media (max-width: 360px) { .collection-hero-actions { display: grid; grid-template-columns: 1fr; }.collection-hero-actions > * { width: 100%; }.collection-card { min-height: 178px; }.collection-art { width: 91px; height: 91px; }.collection-card > strong { font-size: .76rem; }.collection-type { font-size: .49rem; } }
 @media (prefers-reduced-motion: reduce) { .collection-page *, .collection-page *::before, .collection-page *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+
+/* Match filter controls to the mobile touch target used across the game. */
+.collection-type-filters button {
+  flex-basis: 44px;
+  width: 44px;
+  height: 44px;
+}
