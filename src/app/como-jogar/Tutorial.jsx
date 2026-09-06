@@ -183,7 +183,7 @@ export default function Tutorial() {
   const levelOneHp = 100;
   const levelTwoHp = calculateLeveledStat(levelOneHp, 2);
   return (
-    <main className="tutorial-page">
+    <main className=" tutorial-page">
       <a className="tutorial-skip" href="#tutorial-content">
         Pular para o tutorial
       </a>
@@ -231,7 +231,7 @@ export default function Tutorial() {
           <a href="#vencer">5. Vencer</a>
           <a href="#moedas-e-loja">6. Moedas e Loja</a>
         </nav> */}
-        <div className="tutorial-steps">
+        <div className="tutorial-steps d-flex flex-column gap-4" aria-label="Etapas do tutorial">
           <Step
             number="1"
             eyebrow="COMECE SUA COLEÇÃO"
