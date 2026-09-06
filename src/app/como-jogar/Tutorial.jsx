@@ -29,6 +29,7 @@ import {
   calculateLeveledStat,
 } from "@/lib/pokemon/progression";
 import { COINS_PER_WIN } from "@/lib/economy";
+import { FAST_VICTORY_BONUS_COINS, ONE_POKEMON_VICTORY_BONUS_COINS } from "@/lib/battle/rewards";
 import PokemonTypeIcon from "@/components/PokemonTypeIcon";
 
 const percent = Math.round(POTION_HEAL_PERCENTAGE * 100);
@@ -529,7 +530,7 @@ export default function Tutorial() {
         </div>
         <section className="tutorial-coins" aria-labelledby="tutorial-coins-title">
           <div><span className="tutorial-eyebrow">GANHE E ESCOLHA</span><h2 id="tutorial-coins-title">Vitórias rendem novas escolhas</h2><p>Cada vitória vale {COINS_PER_WIN} moedas. Guarde-as para comprar um novo parceiro ou fortalecer um Pokémon que você já adora.</p></div>
-          <div className="tutorial-coins-flow"><Trophy weight="fill" aria-hidden="true" /><ArrowRight aria-hidden="true" /><strong>+{COINS_PER_WIN} <Coins weight="fill" aria-hidden="true" /></strong><ArrowRight aria-hidden="true" /><Link href="/loja">Loja Pokémon</Link></div>
+          <div className="tutorial-coins-flow"><Trophy weight="fill" aria-hidden="true" /><ArrowRight aria-hidden="true" /><strong>+{COINS_PER_WIN} <Coins weight="fill" aria-hidden="true" /></strong><ArrowRight aria-hidden="true" /><Link href="/loja">Loja Pokémon</Link></div><p className="tutorial-reward-bonuses">⚡ Vitória em menos de 1 minuto: +{FAST_VICTORY_BONUS_COINS}. 🏆 Sem trocar de Pokémon: +{ONE_POKEMON_VICTORY_BONUS_COINS}. Faça os dois desafios para ganhar até {COINS_PER_WIN + FAST_VICTORY_BONUS_COINS + ONE_POKEMON_VICTORY_BONUS_COINS} moedas.</p>
         </section>
         <section className="tutorial-shop-guide" id="moedas-e-loja" aria-labelledby="tutorial-shop-title">
           <div className="tutorial-shop-guide__heading">

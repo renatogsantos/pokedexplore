@@ -18,7 +18,7 @@ import { getPokemonArtwork, getReserveSprite } from "@/lib/battle/pokemon";
 import { pokemonData } from "@/helpers/PokemonTypes";
 import { playBattleSound } from "@/lib/battle/sound";
 import PokemonRarity, { getRarityClassName } from "@/components/PokemonRarity";
-import { COINS_PER_WIN } from "@/lib/economy";
+import { calculateBattleRewards } from "@/lib/battle/rewards";
 import PokemonTypeIcon from "@/components/PokemonTypeIcon";
 
 const iconFor = { strike: Sword, "type-strike": Lightning };
@@ -188,6 +188,11 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
   const potionsRemaining = me.potionsRemaining ?? MAX_POTIONS;
   const hasPotionTarget = me.team.some((pokemon) => pokemon.hp > 0 && pokemon.hp < pokemon.maxHp);
   const activeMatchup = getPokemonMatchup(active, enemy);
+  const victoryReward = calculateBattleRewards({
+    won: state.status === "finished" && state.winner === role,
+    durationMs: (state.performance?.endedAt || 0) - (state.performance?.startedAt || 0),
+    usedOnlyOnePokemon: !state.performance?.players?.[role]?.hasSwitched,
+  });
   return (
     <>
       <section
@@ -353,7 +358,7 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
                   ? `${me.name} venceu esta batalha.`
                   : `${opponent.name} venceu desta vez.`}
               </p>
-              {state.winner === role && <div className="result-reward" aria-live="polite"><img src="/coin.png" alt="" aria-hidden="true" /><div><strong>+{COINS_PER_WIN} moedas</strong><span>Saldo: {coins}</span></div></div>}
+              {state.winner === role && <div className={`result-reward ${victoryReward.total === 60 ? "is-perfect" : ""}`} aria-live="polite"><div className="reward-breakdown"><span>Vitória <b>+{victoryReward.base}</b></span>{victoryReward.bonuses.fastVictory > 0 && <span>⚡ Vitória rápida <b>+{victoryReward.bonuses.fastVictory}</b></span>}{victoryReward.bonuses.onePokemonVictory > 0 && <span>🏆 Um Pokémon só <b>+{victoryReward.bonuses.onePokemonVictory}</b></span>}</div><div className="reward-total"><img src="/coin.png" alt="" aria-hidden="true" /><div><strong>+{victoryReward.total} moedas</strong><span>Saldo: {coins}</span></div></div></div>}
               <button
                 type="button"
                 className="rematch-button"

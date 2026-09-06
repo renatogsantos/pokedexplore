@@ -1,6 +1,7 @@
 import { getPokemonRarity, POKEMON_RARITY } from "@/lib/pokemon/rarity";
+import { COINS_PER_WIN } from "../battle/rewards";
 
-export const COINS_PER_WIN = 15;
+export { COINS_PER_WIN };
 
 export const formatCoins = (value) => new Intl.NumberFormat("pt-BR").format(Math.max(0, Number(value) || 0));
 

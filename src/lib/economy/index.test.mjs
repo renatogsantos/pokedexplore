@@ -4,7 +4,8 @@ import fs from "node:fs/promises";
 
 const source = await fs.readFile(new URL("./index.js", import.meta.url), "utf8");
 const rarityStub = `const POKEMON_RARITY = { NORMAL: "normal", LEGENDARY: "legendary", MYTHICAL: "mythical" }; const getPokemonRarity = (pokemon) => pokemon.rarity || POKEMON_RARITY.NORMAL;`;
-const economySource = source.replace('import { getPokemonRarity, POKEMON_RARITY } from "@/lib/pokemon/rarity";', rarityStub);
+const rewardStub = "const COINS_PER_WIN = 15;";
+const economySource = source.replace('import { getPokemonRarity, POKEMON_RARITY } from "@/lib/pokemon/rarity";', rarityStub).replace('import { COINS_PER_WIN } from "../battle/rewards";', rewardStub).replace('export { COINS_PER_WIN };', 'export { COINS_PER_WIN };');
 const { COINS_PER_WIN, getPokemonBaseStatTotal, getPokemonPrice, getPurchaseLabel } = await import(`data:text/javascript;base64,${Buffer.from(economySource).toString("base64")}`);
 
 const pokemon = (stats, extra = {}) => ({ stats: stats.map((base_stat) => ({ base_stat })), ...extra });

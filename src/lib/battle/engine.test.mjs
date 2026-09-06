@@ -74,3 +74,13 @@ test("type helper classifies the same matchup used by battle damage", () => {
   assert.equal(getPokemonMatchup(electric, water), "advantage");
   assert.equal(getPokemonMatchup({ type: "fire" }, water), "disadvantage");
 });
+
+test("successful and forced switches permanently invalidate the one-Pokémon challenge", () => {
+  const switched = resolveAction(makeState(), "host", { type: "switch", index: 1 });
+  assert.equal(switched.performance.players.host.hasSwitched, true);
+  const forced = makeState();
+  forced.guest.team[0].hp = 1;
+  const resolved = resolveAction(forced, "host", { type: "attack", moveId: "strike" });
+  assert.equal(resolved.guest.active, 1);
+  assert.equal(resolved.performance.players.guest.hasSwitched, true);
+});

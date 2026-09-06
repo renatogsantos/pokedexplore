@@ -23,7 +23,7 @@ import {
   hasRealtimeConfig,
 } from "@/lib/battle/realtime";
 import { playBattleSound } from "@/lib/battle/sound";
-import { COINS_PER_WIN } from "@/lib/economy";
+import { calculateBattleRewards } from "@/lib/battle/rewards";
 import { actCoins } from "@/redux/economy";
 import CoinBalance from "@/components/CoinBalance";
 import { celebrateBattleVictory } from "@/lib/celebration";
@@ -94,6 +94,7 @@ export default function BattlePage() {
         const playing = {
           ...next,
           status: "playing",
+          performance: { ...next.performance, startedAt: Date.now() },
           log: `SUA VEZ, ${host.name.toUpperCase()}!`,
         };
         setBattle(playing);
@@ -103,8 +104,8 @@ export default function BattlePage() {
     [broadcast],
   );
   const awardVictory = useCallback(
-    async (matchId) => {
-      const reward = await webStore.rewardVictory(matchId, COINS_PER_WIN);
+    async (matchId, amount) => {
+      const reward = await webStore.rewardVictory(matchId, amount);
       dispatch(actCoins(reward.coins));
       return reward;
     },
@@ -117,8 +118,14 @@ export default function BattlePage() {
         next?.status === "finished" &&
         next.winner === localRole
       ) {
+        const performance = next.performance || {};
+        const reward = calculateBattleRewards({
+          won: true,
+          durationMs: performance.endedAt - performance.startedAt,
+          usedOnlyOnePokemon: !performance.players?.[localRole]?.hasSwitched,
+        });
         celebrateBattleVictory();
-        void awardVictory(next.matchId);
+        void awardVictory(next.matchId, reward.total);
       }
       return next;
     },

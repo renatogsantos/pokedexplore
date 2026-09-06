@@ -1210,6 +1210,8 @@
     width: 100%;
   }
 }
+
+.tutorial-reward-bonuses { grid-column: 1 / -1; margin: 0; color: #dce9fb; font-size: .76rem; font-weight: 700; line-height: 1.45; }
 @media (max-width: 390px) {
   .tutorial-header-cta span {
     display: none;
