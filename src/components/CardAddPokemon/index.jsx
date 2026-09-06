@@ -10,7 +10,7 @@ import {
   Sword,
   XCircle,
 } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Col, Row } from "react-bootstrap";
 import { useDispatch, useSelector } from "react-redux";
 import StatusBar from "../StatusBar";
@@ -26,6 +26,7 @@ import { getPokemonRarityPresentation } from "@/lib/pokemon/rarity";
 
 export default function CardAddPokemon({ pokemon }) {
   const dispatch = useDispatch();
+  const revealRef = useRef(null);
   const [color, setColor] = useState("#fff");
   const { Weaknesses, OpenCardPokedex } = useSelector((state) => state.pokemons);
   const rarity = getPokemonRarityPresentation(pokemon);
@@ -72,6 +73,7 @@ export default function CardAddPokemon({ pokemon }) {
       exit={{ opacity: 0, scale: 0.9, z: 10 }}
       transition={{ duration: 0.8, bounce: 0.5, type: "spring" }}
       onClick={handleClosePropagation}
+      ref={revealRef}
       className={`card-add-pokemon p-3 px-lg-5 ${getRarityClassName(pokemon)}`}
       style={{
         backgroundImage: `url('/svgs/half-pokeball.svg'), radial-gradient(80% 80% at 50% bottom, ${color}, #060e20cc)`,
@@ -100,7 +102,6 @@ export default function CardAddPokemon({ pokemon }) {
       />
       {rarity.rarity !== "normal" && <div className={`rarity-capture-reveal ${rarity.className}`} role="status"><PokemonRarity pokemon={pokemon} /><strong>Pokémon {rarity.label}!</strong></div>}
       <span className="card-pokemon-name py-2">{pokemon.name}</span>
-      <PokemonRarity pokemon={pokemon} />
 
       <div className="d-flex aling-items-center justify-content-between w-100 py-2 border-top border-bottom">
         <div className="d-flex flex-column align-items-center justify-content-center w-100 text-center mx-2">
@@ -174,7 +175,7 @@ export default function CardAddPokemon({ pokemon }) {
           title="Capturar Pokémon!"
           variant="w-100 mt-2"
           onClick={() => {
-            dispatch(addPokemonCard(pokemon.name));
+            dispatch(addPokemonCard(pokemon.name, revealRef.current));
           }}
         />
       </div>

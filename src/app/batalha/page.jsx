@@ -26,6 +26,7 @@ import { playBattleSound } from "@/lib/battle/sound";
 import { COINS_PER_WIN } from "@/lib/economy";
 import { actCoins } from "@/redux/economy";
 import CoinBalance from "@/components/CoinBalance";
+import { celebrateBattleVictory } from "@/lib/celebration";
 import "./style.scss";
 
 const makeCode = () => `PKDX-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -115,8 +116,10 @@ export default function BattlePage() {
         previous?.status !== "finished" &&
         next?.status === "finished" &&
         next.winner === localRole
-      )
+      ) {
+        celebrateBattleVictory();
         void awardVictory(next.matchId);
+      }
       return next;
     },
     [awardVictory],

@@ -4,6 +4,7 @@ import { createAction, createReducer } from "@reduxjs/toolkit";
 import axios from "axios";
 import { Block, Loading, Notify } from "notiflix";
 import { enrichPokemonRarity } from "@/lib/pokemon/rarity";
+import { celebratePokemonCapture } from "@/lib/celebration";
 
 //Estado inicial
 const initialState = {
@@ -238,7 +239,7 @@ export const compararPokemons = (pokemon1, pokemon2) => {
   };
 };
 
-export const addPokemonCard = (pokemon) => {
+export const addPokemonCard = (pokemon, revealElement) => {
   return async (dispatch) => {
     axios
       .get(`https://pokeapi.co/api/v2/pokemon/${pokemon}`)
@@ -246,12 +247,18 @@ export const addPokemonCard = (pokemon) => {
         const enrichedPokemon = await enrichPokemonRarity(resp.data);
         dispatch(actPokemon(enrichedPokemon));
         const capture = await webStore.capturePokemon(enrichedPokemon);
+        if (!capture) {
+          Notify.failure("NÃ£o foi possÃ­vel salvar este PokÃ©mon. Tente novamente.", { position: "center-top" });
+          return;
+        }
         dispatch(actAddPokedex(await webStore.getData("Pokedex")));
-        dispatch(actOpenCardPokedex(false));
         if (capture?.duplicate) {
+          dispatch(actOpenCardPokedex(false));
           Notify.success(capture.maxLevel ? `${capture.pokemon.name.toUpperCase()} - NIVEL MAXIMO!` : `${capture.pokemon.name.toUpperCase()} REPETIDO! LEVEL ${capture.previousLevel} PARA ${capture.pokemon.level}. +5% PODER!`, { position: "center-top" });
           return;
         }
+        celebratePokemonCapture({ rarity: capture?.pokemon?.rarity, element: revealElement });
+        dispatch(actOpenCardPokedex(false));
         Notify.success("Você capturou um Pokémon!", {
           position: "center-top",
         });
