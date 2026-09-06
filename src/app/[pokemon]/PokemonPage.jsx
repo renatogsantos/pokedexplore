@@ -2,6 +2,7 @@
 import ButtonPrimary from "@/components/ButtonPrimary";
 import StatusBar from "@/components/StatusBar";
 import Waves from "@/components/Waves";
+import PokemonTypeIcon from "@/components/PokemonTypeIcon";
 import { convertHeightToMeters, convertWeightToKilograms } from "@/helpers";
 import { pokemonData } from "@/helpers/PokemonTypes";
 import { getPokemonWeaknesses } from "@/redux/pokemons";
@@ -104,14 +105,7 @@ export default function PokemonPage({ pokemon }) {
                   <div className="d-flex align-items-center justify-content-center w-100 gap-3 border-end border-start px-3">
                     {pokemon.types.map((type, i) => {
                       return (
-                        <img
-                          loading="lazy"
-                          key={i}
-                          draggable={false}
-                          width={40}
-                          src={`/types/${type.type.name}.svg`}
-                          alt=""
-                        />
+                        <PokemonTypeIcon key={i} type={type.type.name} size={40} decorative />
                       );
                     })}
                   </div>
@@ -186,15 +180,7 @@ export default function PokemonPage({ pokemon }) {
                     <div className="d-flex gap-2">
                       {Weaknesses.map((weak, i) => {
                         return (
-                          <img
-                            loading="lazy"
-                            className="scale-in-center"
-                            key={i}
-                            draggable={false}
-                            width={28}
-                            src={`/types/${weak}.svg`}
-                            alt={weak}
-                          />
+                          <PokemonTypeIcon key={`${weak}-${i}`} type={weak} size={28} className="scale-in-center" label={`Fraco contra ${weak}`} />
                         );
                       })}
                     </div>

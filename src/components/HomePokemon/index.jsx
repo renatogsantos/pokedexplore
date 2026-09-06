@@ -13,6 +13,7 @@ import Link from "next/link";
 import { Col, Container, Row } from "react-bootstrap";
 import { useDispatch } from "react-redux";
 import Waves from "../Waves";
+import PokemonTypeIcon from "@/components/PokemonTypeIcon";
 
 export default function HomePokemon({ name }) {
   const dispatch = useDispatch();
@@ -40,14 +41,7 @@ export default function HomePokemon({ name }) {
             <div className="home-hero__types fade-in-top" aria-label={`Tipos: ${Pokemon.types.join(", ")}`}>
               {Pokemon.types.map((type) => {
                 return (
-                  <img
-                    loading="lazy"
-                    key={type}
-                    draggable={false}
-                    width={40}
-                    src={`/types/${type}.svg`}
-                    alt={type}
-                  />
+                  <PokemonTypeIcon key={type} type={type} size={40} />
                 );
               })}
             </div>

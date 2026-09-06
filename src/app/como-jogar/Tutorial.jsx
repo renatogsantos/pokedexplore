@@ -29,6 +29,7 @@ import {
   calculateLeveledStat,
 } from "@/lib/pokemon/progression";
 import { COINS_PER_WIN } from "@/lib/economy";
+import PokemonTypeIcon from "@/components/PokemonTypeIcon";
 
 const percent = Math.round(POTION_HEAL_PERCENTAGE * 100);
 const levelBonus = Math.round(STAT_BONUS_PER_LEVEL * 100);
@@ -49,7 +50,7 @@ function Pokeball({ size = 24 }) {
 function Type({ name }) {
   return (
     <span className={`tutorial-type type-${name}`}>
-      <img src={`/types/${name}.svg`} alt="" />
+      <PokemonTypeIcon type={name} size={24} decorative />
       {name}
     </span>
   );
@@ -186,16 +187,16 @@ export default function Tutorial() {
       <a className="tutorial-skip" href="#tutorial-content">
         Pular para o tutorial
       </a>
-      <header className="tutorial-header">
+      <header className="tutorial-header mb-2">
         <Link href="/" className="tutorial-back">
           <ArrowLeft size={20} aria-hidden="true" /> Pokédex
         </Link>
-        <Link href="/batalha" className="tutorial-header-cta">
-          <GameController size={19} aria-hidden="true" /> Batalhar
+        <Link href="/batalha" className="tutorial-header-cta d-flex align-items-center justify-content-center">
+          <GameController size={19} aria-hidden="true" />
         </Link>
       </header>
       <div className="tutorial-shell" id="tutorial-content">
-        <section className="tutorial-hero" aria-labelledby="tutorial-title">
+        <section className="tutorial-hero mb-4" aria-labelledby="tutorial-title">
           <div className="tutorial-hero-copy">
             <span className="tutorial-eyebrow">GUIA DO TREINADOR</span>
             <h1 id="tutorial-title">Como jogar</h1>
@@ -222,14 +223,14 @@ export default function Tutorial() {
             <img src="/pokemons/squirtle.png" alt="Squirtle" />
           </div>
         </section>
-        <nav className="tutorial-progress" aria-label="Etapas do tutorial">
+        {/* <nav className="tutorial-progress" aria-label="Etapas do tutorial">
           <a href="#capturar">1. Capturar</a>
           <a href="#fortalecer">2. Fortalecer</a>
           <a href="#time">3. Montar time</a>
           <a href="#batalhar">4. Batalhar</a>
           <a href="#vencer">5. Vencer</a>
           <a href="#moedas-e-loja">6. Moedas e Loja</a>
-        </nav>
+        </nav> */}
         <div className="tutorial-steps">
           <Step
             number="1"

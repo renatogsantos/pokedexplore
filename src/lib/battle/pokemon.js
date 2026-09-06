@@ -2,8 +2,16 @@ export function getPokemonArtwork(pokemon) {
   return pokemon?.artwork || pokemon?.sprites?.other?.["official-artwork"]?.front_default || pokemon?.sprites?.other?.home?.front_default || pokemon?.sprites?.front_default || "/pokenull.png";
 }
 
+export function getHomeShinySprite(pokemon) {
+  return pokemon?.homeShinySprite || pokemon?.sprites?.other?.home?.front_shiny || null;
+}
+
+export function getHomeDefaultSprite(pokemon) {
+  return pokemon?.homeDefaultSprite || pokemon?.sprites?.other?.home?.front_default || null;
+}
+
 export function getReserveSprite(pokemon) {
-  return pokemon?.animatedShiny || pokemon?.sprites?.versions?.["generation-v"]?.["black-white"]?.animated?.front_shiny || getPokemonArtwork(pokemon);
+  return getHomeShinySprite(pokemon) || getHomeDefaultSprite(pokemon) || pokemon?.animatedShiny || pokemon?.sprites?.versions?.["generation-v"]?.["black-white"]?.animated?.front_shiny || getPokemonArtwork(pokemon);
 }
 
 export function getPokemonType(pokemon) {
@@ -32,6 +40,8 @@ export function toBattlePokemon(pokemon) {
     baseStats,
     attackMultiplier: getStatMultiplier(level),
     artwork: getPokemonArtwork(pokemon),
+    homeShinySprite: getHomeShinySprite(pokemon),
+    homeDefaultSprite: getHomeDefaultSprite(pokemon),
     animatedShiny: getReserveSprite(pokemon),
     rarity: pokemon.rarity || "normal",
     maxHp,

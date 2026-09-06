@@ -19,6 +19,7 @@ import { pokemonData } from "@/helpers/PokemonTypes";
 import { playBattleSound } from "@/lib/battle/sound";
 import PokemonRarity, { getRarityClassName } from "@/components/PokemonRarity";
 import { COINS_PER_WIN } from "@/lib/economy";
+import PokemonTypeIcon from "@/components/PokemonTypeIcon";
 
 const iconFor = { strike: Sword, "type-strike": Lightning };
 const colorFor = (type) =>
@@ -47,7 +48,7 @@ function HpBar({ pokemon }) {
 
 function Fighter({ side, player, isHit, isAttacking, isHealing, matchup }) {
   const pokemon = player.team[player.active];
-  const weaknesses = side === "opponent" ? getOpponentWeaknesses(pokemon).slice(0, 3) : [];
+  const weaknesses = side === "opponent" ? getOpponentWeaknesses(pokemon) : [];
   return (
     <div
       className={`combatant ${side} ${isHit ? "is-hit" : ""} ${isAttacking ? "is-attacking" : ""} ${isHealing ? "is-healing" : ""} ${getRarityClassName(pokemon)}`}
@@ -64,7 +65,22 @@ function Fighter({ side, player, isHit, isAttacking, isHealing, matchup }) {
         </div>
         <HpBar pokemon={pokemon} />
         {side === "player" && matchup === "disadvantage" && <small className="matchup-warning">Desvantagem de tipo</small>}
-        {weaknesses.length > 0 && <small className="weakness-hint">Fraco contra: {weaknesses.join(", ")}</small>}
+        {weaknesses.length > 0 && (
+          <div className="weakness-hint" aria-label="Fraquezas">
+            <span>Fraco contra:</span>
+            <span className="weakness-icons">
+              {weaknesses.map((weakness) => (
+                <PokemonTypeIcon
+                  key={weakness}
+                  type={weakness}
+                  size={26}
+                  label={`Fraco contra ${weakness}`}
+                  interactive
+                />
+              ))}
+            </span>
+          </div>
+        )}
       </div>
       <div className="fighter-art">
         <motion.img

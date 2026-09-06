@@ -33,6 +33,7 @@ import { pokemonHome } from "@/helpers/PokemonHome";
 import { gerarNumeroAleatorio, scrollTo } from "@/helpers";
 import AliceCarousel from "react-alice-carousel";
 import CardAddPokemon from "@/components/CardAddPokemon";
+import PokemonTypeIcon from "@/components/PokemonTypeIcon";
 import CardPokedex from "@/components/CardPokedex";
 import Link from "next/link";
 import { getPokemonPage } from "@/services/pokemons";
@@ -306,13 +307,7 @@ export default function Home() {
                             dispatch(getTypesPokemons(type.type));
                           }}
                         >
-                          <img
-                            loading="lazy"
-                            draggable={false}
-                            width={30}
-                            src={`/types/${type.type}.svg`}
-                            alt={type.type}
-                          />
+                          <PokemonTypeIcon type={type.type} size={30} />
                         </button>
                       </div>
                     );

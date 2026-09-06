@@ -21,6 +21,7 @@ import ButtonPrimary from "../ButtonPrimary";
 import { motion } from "framer-motion";
 import ReactParallaxTilt from "react-parallax-tilt";
 import PokemonRarity, { getRarityClassName } from "@/components/PokemonRarity";
+import PokemonTypeIcon from "@/components/PokemonTypeIcon";
 import { getPokemonRarityPresentation } from "@/lib/pokemon/rarity";
 
 export default function CardAddPokemon({ pokemon }) {
@@ -109,11 +110,9 @@ export default function CardAddPokemon({ pokemon }) {
           </p>
         </div>
         <div className="d-flex align-items-center justify-content-center w-100 gap-3 border-end border-start px-3">
-          {pokemon.types.map((type, i) => {
-            return (
-              <img loading="lazy" key={i} draggable={false} width={40} src={`/types/${type.type.name}.svg`} alt="" />
-            );
-          })}
+          {pokemon.types.map((type, i) => (
+            <PokemonTypeIcon key={i} type={type.type.name} size={40} decorative />
+          ))}
         </div>
         <div className="d-flex flex-column align-items-center justify-content-center w-100 text-center mx-2">
           <span className="pokemon-stats mx-4 w-100">{convertWeightToKilograms(pokemon.weight)} Kg</span>
@@ -156,19 +155,15 @@ export default function CardAddPokemon({ pokemon }) {
         <div className="d-flex gap-2 align-items-center pt-2">
           <span>Fraquezas:</span>
           <div className="d-flex gap-2">
-            {Weaknesses.map((weak, i) => {
-              return (
-                <img
-                  loading="lazy"
-                  className="scale-in-center"
-                  key={i}
-                  draggable={false}
-                  width={28}
-                  src={`/types/${weak}.svg`}
-                  alt={weak}
-                />
-              );
-            })}
+            {Weaknesses.map((weak, i) => (
+              <PokemonTypeIcon
+                key={`${weak}-${i}`}
+                type={weak}
+                size={28}
+                className="scale-in-center"
+                label={`Fraco contra ${weak}`}
+              />
+            ))}
           </div>
         </div>
       </div>
