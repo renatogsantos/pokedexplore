@@ -13,7 +13,14 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSelector } from "react-redux";
-import { MAX_POTIONS, MOVES, getOpponentWeaknesses, getPokemonMatchup, getPotionHealAmount, multiplier } from "@/lib/battle/engine";
+import {
+  BATTLE_BAG,
+  getOpponentWeaknesses,
+  getPokemonMatchup,
+  getPotionHealAmount,
+  getSupportedAbility,
+  multiplier,
+} from "@/lib/battle/engine";
 import { getPokemonArtwork, getReserveSprite } from "@/lib/battle/pokemon";
 import { pokemonData } from "@/helpers/PokemonTypes";
 import { playBattleSound } from "@/lib/battle/sound";
@@ -21,7 +28,6 @@ import PokemonRarity, { getRarityClassName } from "@/components/PokemonRarity";
 import { calculateBattleRewards } from "@/lib/battle/rewards";
 import PokemonTypeIcon from "@/components/PokemonTypeIcon";
 
-const iconFor = { strike: Sword, "type-strike": Lightning };
 const colorFor = (type) =>
   pokemonData.find((item) => item.type === type)?.color || "#64748b";
 
@@ -46,8 +52,26 @@ function HpBar({ pokemon }) {
   );
 }
 
+const STATUS_LABELS = {
+  burn: "Queimado",
+  poison: "Envenenado",
+  paralysis: "Paralisado",
+  sleep: "Dormindo",
+};
+
+function useBattleElapsed(startedAt, active) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!active || !startedAt) return undefined;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [active, startedAt]);
+  return startedAt ? Math.max(0, now - startedAt) : 0;
+}
+
 function Fighter({ side, player, isHit, isAttacking, isHealing, matchup }) {
   const pokemon = player.team[player.active];
+  const ability = getSupportedAbility(pokemon.ability);
   const weaknesses = side === "opponent" ? getOpponentWeaknesses(pokemon) : [];
   return (
     <div
@@ -61,10 +85,27 @@ function Fighter({ side, player, isHit, isAttacking, isHealing, matchup }) {
         <div className="fighter-tags">
           <span className="fighter-level">Lv. {pokemon.level || 1}</span>
           <PokemonRarity pokemon={pokemon} />
-          <div className="type-pill" style={{ backgroundColor: colorFor(pokemon.type) }}>{pokemon.type}</div>
+          <div
+            className="type-pill"
+            style={{ backgroundColor: colorFor(pokemon.type) }}
+          >
+            {pokemon.type}
+          </div>
         </div>
         <HpBar pokemon={pokemon} />
-        {side === "player" && matchup === "disadvantage" && <small className="matchup-warning">Desvantagem de tipo</small>}
+        {ability && (
+          <span className="battle-ability" title={ability.description}>
+            {ability.id}
+          </span>
+        )}
+        {pokemon.status && (
+          <span className={`battle-status is-${pokemon.status.id}`}>
+            {STATUS_LABELS[pokemon.status.id] || pokemon.status.id}
+          </span>
+        )}
+        {side === "player" && matchup === "disadvantage" && (
+          <small className="matchup-warning">Desvantagem de tipo</small>
+        )}
         {weaknesses.length > 0 && (
           <div className="weakness-hint" aria-label="Fraquezas">
             <span>Fraco contra:</span>
@@ -102,8 +143,10 @@ function BattleNotification({ state, role, opponentName }) {
   const [notification, setNotification] = useState(null);
   useEffect(() => {
     if (state.effect?.kind === "attack") playBattleSound("dano", 0.5);
-    if (state.effect?.kind === "potion") playBattleSound("healing-pokemon-sound", 0.5);
-    if (state.status === "finished") playBattleSound(state.winner === role ? "win" : "lost", 0.62);
+    if (state.effect?.kind === "potion")
+      playBattleSound("healing-pokemon-sound", 0.5);
+    if (state.status === "finished")
+      playBattleSound(state.winner === role ? "win" : "lost", 0.62);
     if (state.status === "countdown")
       setNotification({ title: "3 · 2 · 1", detail: "BATALHA!", tone: "turn" });
     else if (state.status === "finished")
@@ -111,6 +154,12 @@ function BattleNotification({ state, role, opponentName }) {
         title: "BATALHA ENCERRADA",
         detail: state.log,
         tone: "result",
+      });
+    else if (state.effect?.ability)
+      setNotification({
+        title: state.effect.ability.toUpperCase() + "!",
+        detail: "Habilidade ativada",
+        tone: "strong",
       });
     else if (state.effect?.kind === "attack")
       setNotification({
@@ -176,7 +225,9 @@ function BattleNotification({ state, role, opponentName }) {
 }
 
 export default function BattleArena({ state, role, onAction, onRematch }) {
-  const [isPotionOpen, setIsPotionOpen] = useState(false);
+  const [isBagOpen, setIsBagOpen] = useState(false);
+  const [isSwitchOpen, setIsSwitchOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
   const coins = useSelector((store) => store.economy.coins);
   const me = state[role];
   const opponentRole = role === "host" ? "guest" : "host";
@@ -185,12 +236,25 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
   const effect = state.effect;
   const active = me.team[me.active];
   const enemy = opponent.team[opponent.active];
-  const potionsRemaining = me.potionsRemaining ?? MAX_POTIONS;
-  const hasPotionTarget = me.team.some((pokemon) => pokemon.hp > 0 && pokemon.hp < pokemon.maxHp);
+  const bag = me.bag || { potion: me.potionsRemaining || 0, "full-heal": 0 };
+  const potionsRemaining = bag.potion;
+  const selectedBagItem =
+    selectedItem || (potionsRemaining ? "potion" : "full-heal");
+  const setIsPotionOpen = setIsBagOpen;
+  const hasPotionTarget = me.team.some(
+    (pokemon) => pokemon.hp > 0 && pokemon.hp < pokemon.maxHp,
+  );
   const activeMatchup = getPokemonMatchup(active, enemy);
+  const elapsed = useBattleElapsed(
+    state.performance?.startedAt,
+    state.status === "playing",
+  );
+  const fastAvailable = elapsed < 60_000;
+  const onePokemonAvailable = !state.performance?.players?.[role]?.hasSwitched;
   const victoryReward = calculateBattleRewards({
     won: state.status === "finished" && state.winner === role,
-    durationMs: (state.performance?.endedAt || 0) - (state.performance?.startedAt || 0),
+    durationMs:
+      (state.performance?.endedAt || 0) - (state.performance?.startedAt || 0),
     usedOnlyOnePokemon: !state.performance?.players?.[role]?.hasSwitched,
   });
   return (
@@ -206,13 +270,24 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
               ? "PREPARE-SE"
               : `VEZ DE ${opponent.name.toUpperCase()}`}
         </div>
+        <div className="battle-challenges" aria-label="Desafios da batalha">
+          <span className={fastAvailable ? "" : "is-lost"}>
+            ⏱ {String(Math.floor(elapsed / 60000)).padStart(2, "0")}:
+            {String(Math.floor(elapsed / 1000) % 60).padStart(2, "0")} ⚡ +15
+          </span>
+          <span className={onePokemonAvailable ? "" : "is-lost"}>🏆 +30</span>
+        </div>
         <div className="arena-stage">
           <Fighter
             side="opponent"
             player={opponent}
             isHit={effect?.kind === "attack" && effect?.target === opponentRole}
             isAttacking={effect?.actor === opponentRole}
-            isHealing={effect?.kind === "potion" && effect?.target === opponentRole && effect?.targetPokemonId === opponent.team[opponent.active].id}
+            isHealing={
+              effect?.kind === "potion" &&
+              effect?.target === opponentRole &&
+              effect?.targetPokemonId === opponent.team[opponent.active].id
+            }
           />
           <div className="arena-divider">
             <span>VS</span>
@@ -222,7 +297,11 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
             player={me}
             isHit={effect?.kind === "attack" && effect?.target === role}
             isAttacking={effect?.actor === role}
-            isHealing={effect?.kind === "potion" && effect?.target === role && effect?.targetPokemonId === me.team[me.active].id}
+            isHealing={
+              effect?.kind === "potion" &&
+              effect?.target === role &&
+              effect?.targetPokemonId === me.team[me.active].id
+            }
             matchup={activeMatchup}
           />
         </div>
@@ -248,8 +327,7 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
           </span>
         </div>
         <div className="attack-grid">
-          {MOVES.map((move) => {
-            const Icon = iconFor[move.id];
+          {active.moves.map((move) => {
             const attackType = move.type === "own" ? active.type : move.type;
             const strong = multiplier(attackType, enemy) > 1;
             const weak = multiplier(attackType, enemy) < 1;
@@ -261,18 +339,22 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
                 className={`attack-button ${strong ? "recommended" : ""} ${weak ? "disadvantage" : ""}`}
                 disabled={!myTurn || (move.special && uses <= 0)}
                 onClick={() => {
-                  playBattleSound(move.id === "strike" ? "investida" : "golpe-normal");
+                  playBattleSound(move.special ? "golpe-normal" : "investida");
                   onAction({ type: "attack", moveId: move.id });
                 }}
               >
                 <span className="attack-icon">
-                  <Icon size={25} weight="fill" />
+                  <PokemonTypeIcon type={attackType} size={27} decorative />
                 </span>
                 <span>
-                  <strong>
-                    {move.type === "own" ? `Golpe ${active.type}` : move.name}
-                  </strong>
-                  <small>{move.special ? uses <= 0 ? "Esgotado" : `${uses}/2 especial` : strong ? "Vantagem" : weak ? "Desvantagem" : "Ilimitado"}</small>
+                  <strong>{move.name}</strong>
+                  <small>
+                    {move.special
+                      ? uses <= 0
+                        ? "Esgotado"
+                        : `${uses}/2 especial`
+                      : `${move.power} poder${strong ? " · Forte" : weak ? " · Fraco" : ""}`}
+                  </small>
                 </span>
               </button>
             );
@@ -281,25 +363,39 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
         <button
           type="button"
           className="potion-action"
-          disabled={!myTurn || potionsRemaining <= 0 || !hasPotionTarget}
-          onClick={() => setIsPotionOpen(true)}
+          disabled={!myTurn || !Object.values(bag).some(Boolean)}
+          onClick={() => {
+            setSelectedItem(null);
+            setIsBagOpen(true);
+          }}
           aria-haspopup="dialog"
         >
           <Heart size={22} weight="fill" />
-          <span>Usar po{"\u00e7"}{"\u00e3"}o</span>
-          <strong>{potionsRemaining} {potionsRemaining === 1 ? "restante" : "restantes"}</strong>
+          <span>Itens</span>
+          <strong>
+            {Object.values(bag).reduce((total, amount) => total + amount, 0)}{" "}
+            disponíveis
+          </strong>
         </button>
         <div className="switch-row">
-          <span>Reserva</span>
+          <button
+            type="button"
+            className="switch-trigger"
+            disabled={!myTurn}
+            onClick={() => setIsSwitchOpen(true)}
+            aria-haspopup="dialog"
+          >
+            Trocar
+          </button>
           <div className="reserve-list">
             {me.team.map((pokemon, index) => (
               <button
                 type="button"
-                key={`${pokemon.id}-${index}`}
-                className={`${index === me.active ? "selected active" : ""} ${pokemon.hp <= 0 ? "fainted" : ""} ${getPokemonMatchup(pokemon, enemy)} ${getRarityClassName(pokemon)} ${effect?.kind === "potion" && effect?.target === role && effect?.targetPokemonId === pokemon.id ? "is-healing" : ""}`}
                 disabled={!myTurn || pokemon.hp <= 0 || index === me.active}
                 onClick={() => onAction({ type: "switch", index })}
                 aria-label={`Usar ${pokemon.name}`}
+                key={`${pokemon.id}-${index}`}
+                className={`${index === me.active ? "selected active" : ""} ${pokemon.hp <= 0 ? "fainted" : ""} ${getPokemonMatchup(pokemon, enemy)} ${getRarityClassName(pokemon)} ${effect?.kind === "potion" && effect?.target === role && effect?.targetPokemonId === pokemon.id ? "is-healing" : ""}`}
               >
                 <img
                   className="reserve-sprite"
@@ -321,16 +417,175 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
         </div>
       </section>
       <AnimatePresence>
-        {isPotionOpen && (
-          <motion.div className="potion-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="presentation">
-            <motion.section className="potion-selector" role="dialog" aria-modal="true" aria-labelledby="potion-title" initial={{ opacity: 0, y: 14, scale: .96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 14, scale: .96 }}>
-              <div className="potion-selector-heading"><div><span className="eyebrow">PO{"\u00c7"}{"\u00c3"}O Ã—{potionsRemaining}</span><h2 id="potion-title">Usar po{"\u00e7"}{"\u00e3"}o em</h2></div><button type="button" onClick={() => setIsPotionOpen(false)} aria-label="Fechar seletor de poção">×</button></div>
+        {isBagOpen && (
+          <motion.div
+            className="potion-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            role="presentation"
+          >
+            <motion.section
+              className="potion-selector"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="potion-title"
+              initial={{ opacity: 0, y: 14, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 14, scale: 0.96 }}
+            >
+              <div className="potion-selector-heading">
+                <div>
+                  <span className="eyebrow">
+                    PO{"\u00c7"}
+                    {"\u00c3"}O Ã—{potionsRemaining}
+                  </span>
+                  <h2 id="potion-title">
+                    Usar po{"\u00e7"}
+                    {"\u00e3"}o em
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsPotionOpen(false)}
+                  aria-label="Fechar seletor de poção"
+                >
+                  ×
+                </button>
+              </div>
+              <div
+                className="bag-item-picker"
+                role="group"
+                aria-label="Escolher item"
+              >
+                <button
+                  type="button"
+                  className={selectedBagItem === "potion" ? "selected" : ""}
+                  disabled={!bag.potion}
+                  onClick={() => setSelectedItem("potion")}
+                >
+                  Poção ×{bag.potion || 0}
+                </button>
+                <button
+                  type="button"
+                  className={selectedBagItem === "full-heal" ? "selected" : ""}
+                  disabled={!bag["full-heal"]}
+                  onClick={() => setSelectedItem("full-heal")}
+                >
+                  Cura Total ×{bag["full-heal"] || 0}
+                </button>
+              </div>
               <div className="potion-target-list">
                 {me.team.map((pokemon, index) => {
-                  const healing = getPotionHealAmount(pokemon);
-                  const unavailable = pokemon.hp <= 0 || pokemon.hp >= pokemon.maxHp;
-                  return <button type="button" key={`${pokemon.id}-${index}`} disabled={unavailable} onClick={() => { setIsPotionOpen(false); onAction({ type: "potion", targetPokemonId: pokemon.id }); }}><img src={getReserveSprite(pokemon)} alt="" /><span><strong>{pokemon.name}</strong><small>{pokemon.hp <= 0 ? "DESMAIADO" : pokemon.hp >= pokemon.maxHp ? "HP CHEIO" : `${pokemon.hp} / ${pokemon.maxHp}  +${healing} HP`}</small></span></button>;
+                  const healing =
+                    selectedBagItem === "potion"
+                      ? getPotionHealAmount(pokemon)
+                      : 0;
+                  const unavailable =
+                    pokemon.hp <= 0 ||
+                    (selectedBagItem === "potion"
+                      ? pokemon.hp >= pokemon.maxHp
+                      : !pokemon.status);
+                  return (
+                    <button
+                      type="button"
+                      key={`${pokemon.id}-${index}`}
+                      disabled={unavailable}
+                      onClick={() => {
+                        setIsPotionOpen(false);
+                        onAction(
+                          selectedBagItem === "potion"
+                            ? { type: "potion", targetPokemonId: pokemon.id }
+                            : {
+                                type: "item",
+                                itemId: selectedBagItem,
+                                targetPokemonId: pokemon.id,
+                              },
+                        );
+                      }}
+                    >
+                      <img src={getReserveSprite(pokemon)} alt="" />
+                      <span>
+                        <strong>{pokemon.name}</strong>
+                        <small>
+                          {pokemon.hp <= 0
+                            ? "DESMAIADO"
+                            : selectedBagItem === "potion" &&
+                                pokemon.hp >= pokemon.maxHp
+                              ? "HP CHEIO"
+                              : selectedBagItem === "full-heal"
+                                ? pokemon.status
+                                  ? `CURAR ${pokemon.status.id.toUpperCase()}`
+                                  : "SEM STATUS"
+                                : `${pokemon.hp} / ${pokemon.maxHp}  +${healing} HP`}
+                        </small>
+                      </span>
+                    </button>
+                  );
                 })}
+              </div>
+            </motion.section>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {isSwitchOpen && (
+          <motion.div
+            className="potion-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            role="presentation"
+          >
+            <motion.section
+              className="potion-selector"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="switch-title"
+              initial={{ opacity: 0, y: 14, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 14, scale: 0.96 }}
+            >
+              <div className="potion-selector-heading">
+                <div>
+                  <span className="eyebrow">RESERVA</span>
+                  <h2 id="switch-title">Trocar Pokémon</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsSwitchOpen(false)}
+                  aria-label="Fechar troca"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="potion-target-list">
+                {me.team.map((pokemon, index) => (
+                  <button
+                    type="button"
+                    key={pokemon.id + "-" + index}
+                    disabled={index === me.active || pokemon.hp <= 0}
+                    onClick={() => {
+                      setIsSwitchOpen(false);
+                      onAction({ type: "switch", index });
+                    }}
+                  >
+                    <img src={getReserveSprite(pokemon)} alt="" />
+                    <span>
+                      <strong>{pokemon.name}</strong>
+                      <small>
+                        {index === me.active
+                          ? "ATIVO"
+                          : pokemon.hp +
+                            " / " +
+                            pokemon.maxHp +
+                            (getPokemonMatchup(pokemon, enemy) === "advantage"
+                              ? " · VANTAGEM"
+                              : "")}
+                      </small>
+                    </span>
+                  </button>
+                ))}
               </div>
             </motion.section>
           </motion.div>
@@ -348,7 +603,11 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
               initial={{ scale: 0.8, y: 20 }}
               animate={{ scale: 1, y: 0 }}
             >
-              {state.winner === role ? <Trophy size={42} weight="fill" /> : <WarningCircle size={42} weight="fill" />}
+              {state.winner === role ? (
+                <Trophy size={42} weight="fill" />
+              ) : (
+                <WarningCircle size={42} weight="fill" />
+              )}
               <span className="eyebrow">
                 {state.winner === role ? "VOCÊ VENCEU" : "BOA BATALHA"}
               </span>
@@ -358,7 +617,37 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
                   ? `${me.name} venceu esta batalha.`
                   : `${opponent.name} venceu desta vez.`}
               </p>
-              {state.winner === role && <div className={`result-reward ${victoryReward.total === 60 ? "is-perfect" : ""}`} aria-live="polite"><div className="reward-breakdown"><span>Vitória <b>+{victoryReward.base}</b></span>{victoryReward.bonuses.fastVictory > 0 && <span>⚡ Vitória rápida <b>+{victoryReward.bonuses.fastVictory}</b></span>}{victoryReward.bonuses.onePokemonVictory > 0 && <span>🏆 Um Pokémon só <b>+{victoryReward.bonuses.onePokemonVictory}</b></span>}</div><div className="reward-total"><img src="/coin.png" alt="" aria-hidden="true" /><div><strong>+{victoryReward.total} moedas</strong><span>Saldo: {coins}</span></div></div></div>}
+              {state.winner === role && (
+                <div
+                  className={`result-reward ${victoryReward.total === 60 ? "is-perfect" : ""}`}
+                  aria-live="polite"
+                >
+                  <div className="reward-breakdown">
+                    <span>
+                      Vitória <b>+{victoryReward.base}</b>
+                    </span>
+                    {victoryReward.bonuses.fastVictory > 0 && (
+                      <span>
+                        ⚡ Vitória rápida{" "}
+                        <b>+{victoryReward.bonuses.fastVictory}</b>
+                      </span>
+                    )}
+                    {victoryReward.bonuses.onePokemonVictory > 0 && (
+                      <span>
+                        🏆 Um Pokémon só{" "}
+                        <b>+{victoryReward.bonuses.onePokemonVictory}</b>
+                      </span>
+                    )}
+                  </div>
+                  <div className="reward-total">
+                    <img src="/coin.png" alt="" aria-hidden="true" height="24" width="24" />
+                    <div>
+                      <strong>+{victoryReward.total} moedas</strong>
+                      <span>Saldo: {coins}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
               <button
                 type="button"
                 className="rematch-button"
@@ -366,7 +655,11 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
               >
                 <ArrowsClockwise size={20} /> Pedir revanche
               </button>
-              {state.winner === role && <Link href="/loja" className="result-link">Ir para a Loja Pokémon</Link>}
+              {state.winner === role && (
+                <Link href="/loja" className="result-link">
+                  Ir para a Loja Pokémon
+                </Link>
+              )}
             </motion.div>
           </motion.div>
         )}
