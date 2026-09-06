@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const engineSource = await readFile(new URL("./engine.js", import.meta.url), "utf8");
-const { MAX_POTIONS, MAX_SPECIAL_ATTACK_USES, createBattleState, getPokemonMatchup, multiplier, resolveAction } = await import(`data:text/javascript;base64,${Buffer.from(engineSource).toString("base64")}`);
+const { MAX_POTIONS, MAX_SPECIAL_ATTACK_USES, calculateDamage, createBattleState, getPokemonMatchup, multiplier, resolveAction } = await import(`data:text/javascript;base64,${Buffer.from(engineSource).toString("base64")}`);
 
 const pokemon = (id, hp = 100, maxHp = 100) => ({ id, name: `pokemon-${id}`, type: "normal", hp, maxHp });
 const makeState = () => createBattleState(
@@ -70,9 +70,18 @@ test("special attack has two uses per Pokemon and resets in a new battle", () =>
 
 test("type helper classifies the same matchup used by battle damage", () => {
   const electric = { type: "electric" }; const water = { types: ["water"] };
-  assert.equal(multiplier("electric", water), 1.5);
+  assert.equal(multiplier("electric", water), 1.3);
   assert.equal(getPokemonMatchup(electric, water), "advantage");
   assert.equal(getPokemonMatchup({ type: "fire" }, water), "disadvantage");
+});
+
+test("normalized damage preserves decision windows and caps extreme matchups", () => {
+  const attacker = { type: "electric", types: ["electric"], level: 5, maxHp: 100, hp: 100, stats: { attack: 55, defense: 45, specialAttack: 60, specialDefense: 50, speed: 80 } };
+  const defender = { type: "water", types: ["water"], level: 5, maxHp: 110, hp: 110, stats: { attack: 50, defense: 60, specialAttack: 55, specialDefense: 60, speed: 45 } };
+  const standard = calculateDamage({ attacker, defender, move: { type: "electric", power: 60, damageClass: "physical", special: false } });
+  const special = calculateDamage({ attacker, defender, move: { type: "electric", power: 90, damageClass: "special", special: true } });
+  assert.ok(standard.damage / defender.maxHp >= .22 && standard.damage / defender.maxHp <= .35);
+  assert.ok(special.damage / defender.maxHp >= .30 && special.damage / defender.maxHp <= .45);
 });
 
 test("successful and forced switches permanently invalidate the one-Pokémon challenge", () => {

@@ -16,7 +16,7 @@ import { webStore } from "@/helpers/webStore";
 import TeamSelector from "@/components/Battle/TeamSelector";
 import BattleArena from "@/components/Battle/BattleArena";
 import { CPU_ROSTER, CPU_TEAM, toBattlePokemon } from "@/lib/battle/pokemon";
-import { createBattleState, getPokemonMatchup, multiplier, resolveAction } from "@/lib/battle/engine";
+import { calculateDamage, createBattleState, getPokemonMatchup, resolveAction } from "@/lib/battle/engine";
 import {
   BATTLE_EVENTS,
   createBattleRoom,
@@ -260,7 +260,7 @@ export default function BattlePage() {
           const regularMove = availableMoves.find((move) => !move.special) || availableMoves[0];
           const useSpecial = specialMove && Math.random() > 0.48;
           const enemy = current?.host?.team[current.host.active];
-          const bestMove = [...availableMoves].sort((a, b) => (b.power * multiplier(b.type, enemy)) - (a.power * multiplier(a.type, enemy)))[0];
+          const bestMove = [...availableMoves].sort((a, b) => calculateDamage({ attacker: active, defender: enemy, move: b }).damage - calculateDamage({ attacker: active, defender: enemy, move: a }).damage)[0];
           const reserveIndex = current?.guest?.team.findIndex((pokemon, index) => index !== current.guest.active && pokemon.hp > 0 && getPokemonMatchup(pokemon, enemy) === "advantage");
           const shouldSwitch = cpuDifficulty === "hard" && reserveIndex >= 0 && getPokemonMatchup(active, enemy) === "disadvantage" && active.hp / active.maxHp < .65;
           return rewardFinishedBattle(

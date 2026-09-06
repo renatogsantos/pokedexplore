@@ -10,7 +10,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:battle": "node --test src/lib/battle/engine.test.mjs src/lib/battle/rewards.test.mjs src/lib/pokemon/progression.test.mjs src/lib/economy/index.test.mjs src/lib/easter-egg/pokemonSequence.test.mjs"
+    "test:battle": "node --test src/lib/battle/engine.test.mjs src/lib/battle/rewards.test.mjs src/lib/pokemon/progression.test.mjs src/lib/economy/index.test.mjs src/lib/easter-egg/pokemonSequence.test.mjs",
+    "balance:battle": "node src/lib/battle/balanceReport.mjs"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.0.10",
