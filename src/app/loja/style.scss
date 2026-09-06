@@ -88,6 +88,88 @@
   }
 }
 
+// Equipment is intentionally a separate shop surface: players can scan its
+// permanent TMs and consumable stock without competing with Pokémon cards.
+.shop-tabs,
+.shop-upgrade-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.shop-tabs {
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #ffffff16;
+}
+
+.shop-tabs button,
+.shop-upgrade-filters button {
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid #ffffff28;
+  border-radius: 11px;
+  background: #0b1b30;
+  color: #bfd0e5;
+  font-size: .72rem;
+  font-weight: 900;
+}
+
+.shop-tabs button.selected,
+.shop-upgrade-filters button.selected {
+  border-color: #ffcb05;
+  background: #ffcb0522;
+  color: #ffdf5d;
+}
+
+.shop-upgrade-filters {
+  margin: 14px 0 18px;
+}
+
+.shop-upgrade-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.shop-upgrade {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  min-height: 184px;
+  padding: 15px;
+  border: 1px solid #ffffff20;
+  border-radius: 17px;
+  background: linear-gradient(145deg, #102744, #071321);
+}
+
+.shop-upgrade--tm { border-color: #8f79ff66; background: linear-gradient(145deg, #241c53, #081526); }
+.shop-upgrade--held { border-color: #6fe5a266; background: linear-gradient(145deg, #163b36, #071722); }
+.shop-upgrade-icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 13px; background: #ffcb05; color: #17243a; }
+.shop-upgrade--tm .shop-upgrade-icon { background: #a98cff; }
+.shop-upgrade--held .shop-upgrade-icon { background: #7ae2ac; }
+.shop-upgrade-content { min-width: 0; }
+.shop-upgrade-content > span { color: #ffdf5d; font-size: .6rem; font-weight: 900; letter-spacing: .11em; }
+.shop-upgrade-content h2 { margin: 3px 0 5px; font-size: 1rem; }
+.shop-upgrade-content p { margin: 0; color: #c0d0e5; font-size: .72rem; line-height: 1.42; }
+.shop-upgrade-footer { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 5px 10px; margin-top: auto; }
+.shop-upgrade-footer strong { display: inline-flex; align-items: center; gap: 6px; color: #ffdf5d; font-size: .9rem; }
+.shop-upgrade-footer strong .coin-image { width: 18px; height: 18px; }
+.shop-upgrade-footer small { color: #a9bfda; font-size: .62rem; font-weight: 750; text-align: right; }
+.shop-upgrade-footer button { grid-column: 1 / -1; min-height: 42px; border: 1px solid #ffcb05; border-radius: 10px; background: #ffcb05; color: #16243b; font-size: .68rem; font-weight: 950; text-transform: uppercase; }
+.shop-upgrade-footer button:disabled { border-color: #ffffff1e; background: #233348; color: #8fa2ba; cursor: not-allowed; }
+
+@media (max-width: 760px) {
+  .shop-upgrade-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 430px) {
+  .shop-tabs button { flex: 1; padding-inline: 8px; }
+  .shop-upgrade-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .shop-upgrade-filters button { min-width: 0; padding-inline: 8px; }
+  .shop-upgrade-grid { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 430px) {
   .shop-page {
     padding-inline: max(10px, env(safe-area-inset-left));

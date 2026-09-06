@@ -84,3 +84,41 @@ test("successful and forced switches permanently invalidate the one-Pokémon cha
   assert.equal(resolved.guest.active, 1);
   assert.equal(resolved.performance.players.guest.hasSwitched, true);
 });
+
+test("battle bag Full Heal consumes the turn and clears a supported status", () => {
+  const state = makeState();
+  state.host.team[0].status = { id: "burn", turns: 0 };
+  const next = resolveAction(state, "host", { type: "item", itemId: "full-heal", targetPokemonId: 1 });
+  assert.equal(next.host.team[0].status, null);
+  assert.equal(next.host.bag["full-heal"], 0);
+  assert.equal(next.turn, "guest");
+});
+
+test("berries activate automatically once at their configured HP threshold", () => {
+  const state = makeState();
+  state.guest.team[0].heldItem = "oran";
+  state.guest.team[0].hp = 55;
+  const next = resolveAction(state, "host", { type: "attack", moveId: "strike" });
+  assert.equal(next.guest.team[0].heldItem, null);
+  assert.ok(next.effect.berry?.healing > 0);
+});
+
+test("supported low-HP abilities are resolved by the engine", () => {
+  const boosted = makeState();
+  boosted.host.team[0] = { ...boosted.host.team[0], type: "fire", types: ["fire"], ability: "blaze", hp: 20, moves: [{ id: "fire-special", name: "Flamethrower", type: "fire", power: 90, accuracy: 100, damageClass: "special", special: true }] };
+  const normal = structuredClone(boosted);
+  normal.host.team[0].ability = null;
+  const withBlaze = resolveAction(boosted, "host", { type: "attack", moveId: "fire-special" });
+  const withoutBlaze = resolveAction(normal, "host", { type: "attack", moveId: "fire-special" });
+  assert.ok(withBlaze.effect.damage > withoutBlaze.effect.damage);
+  assert.equal(withBlaze.effect.ability, "blaze");
+});
+
+test("a persisted four-move build replaces the default battle moves", () => {
+  const state = createBattleState(
+    { id: "host", name: "Host", team: [{ ...pokemon(1), moveset: [{ id: "one", name: "One", type: "normal", power: 40 }, { id: "two", name: "Two", type: "normal", power: 50 }, { id: "three", name: "Three", type: "normal", power: 60 }, { id: "tm", name: "TM", type: "electric", power: 90, damageClass: "special", special: true }] }] },
+    { id: "guest", name: "Guest", team: [pokemon(2), pokemon(3), pokemon(4)] },
+  );
+  assert.equal(state.host.team[0].moves.length, 4);
+  assert.equal(state.host.team[0].moves[3].id, "tm");
+});

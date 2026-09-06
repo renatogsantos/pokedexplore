@@ -532,6 +532,16 @@ export default function Tutorial() {
           <div><span className="tutorial-eyebrow">GANHE E ESCOLHA</span><h2 id="tutorial-coins-title">Vitórias rendem novas escolhas</h2><p>Cada vitória vale {COINS_PER_WIN} moedas. Guarde-as para comprar um novo parceiro ou fortalecer um Pokémon que você já adora.</p></div>
           <div className="tutorial-coins-flow"><Trophy weight="fill" aria-hidden="true" /><ArrowRight aria-hidden="true" /><strong>+{COINS_PER_WIN} <Coins weight="fill" aria-hidden="true" /></strong><ArrowRight aria-hidden="true" /><Link href="/loja">Loja Pokémon</Link></div><p className="tutorial-reward-bonuses">⚡ Vitória em menos de 1 minuto: +{FAST_VICTORY_BONUS_COINS}. 🏆 Sem trocar de Pokémon: +{ONE_POKEMON_VICTORY_BONUS_COINS}. Faça os dois desafios para ganhar até {COINS_PER_WIN + FAST_VICTORY_BONUS_COINS + ONE_POKEMON_VICTORY_BONUS_COINS} moedas.</p>
         </section>
+        <section className="tutorial-progression-guide" aria-labelledby="tutorial-progression-title">
+          <div><span className="tutorial-eyebrow">PREPARE SUA EQUIPE</span><h2 id="tutorial-progression-title">Mais escolhas, sem complicação</h2><p>Cada Pokémon entra na Arena com movimentos próprios. O especial continua limitado a {MAX_SPECIAL_ATTACK_USES} usos; TMs permitem montar até 4 golpes e você sempre escolhe qual esquecer.</p></div>
+          <div className="tutorial-progression-guide__cards">
+            <article><strong>Itens segurados</strong><small>Equipe uma Berry para sobreviver ou um amplificador de tipo para causar +10% de dano.</small></article>
+            <article><strong>Bolsa e estados</strong><small>Poção recupera HP; Cura Total remove queimadura, veneno, paralisia ou sono. Ambos gastam o turno.</small></article>
+            <article><strong>Habilidades</strong><small>Algumas habilidades ativam em condições específicas, como Blaze com HP baixo.</small></article>
+            <article><strong>Jornada</strong><small>Vença rotas, enfrente ginásios e adicione insígnias à sua coleção.</small></article>
+          </div>
+          <div className="tutorial-progression-guide__actions"><Link href="/pokedex">Preparar Pokémon</Link><Link href="/jornada">Abrir Jornada</Link></div>
+        </section>
         <section className="tutorial-shop-guide" id="moedas-e-loja" aria-labelledby="tutorial-shop-title">
           <div className="tutorial-shop-guide__heading">
             <span className="tutorial-eyebrow">ECONOMIA E EVOLUÇÃO</span>

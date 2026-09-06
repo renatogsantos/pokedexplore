@@ -6,6 +6,9 @@ import PokemonTypeIcon from "@/components/PokemonTypeIcon";
 import { convertHeightToMeters, convertWeightToKilograms } from "@/helpers";
 import { pokemonData } from "@/helpers/PokemonTypes";
 import { getPokemonWeaknesses } from "@/redux/pokemons";
+import { webStore } from "@/helpers/webStore";
+import { getBattleMoves } from "@/lib/battle/engine";
+import { getCompatibleTms, MAX_BATTLE_MOVES } from "@/lib/battle/tms";
 import {
   ArrowCircleLeft,
   Barbell,
@@ -24,6 +27,11 @@ import { useDispatch, useSelector } from "react-redux";
 export default function PokemonPage({ pokemon }) {
   const dispatch = useDispatch();
   const [color, setColor] = useState("#000");
+  const [heldItem, setHeldItem] = useState(null);
+  const [isCaptured, setIsCaptured] = useState(false);
+  const [moveset, setMoveset] = useState([]);
+  const [pendingTm, setPendingTm] = useState(null);
+  const [economy, setEconomy] = useState({ inventory: {}, ownedTms: [] });
   const { Weaknesses, OpenCardPokemon } = useSelector(
     (state) => state.pokemons
   );
@@ -47,6 +55,27 @@ export default function PokemonPage({ pokemon }) {
   useEffect(() => {
     dispatch(getPokemonWeaknesses(pokemon.name));
   }, [pokemon]);
+
+  useEffect(() => {
+    Promise.all([webStore.getData("Pokedex"), webStore.getEconomy()]).then(([collection, player]) => {
+      const captured = collection.find((item) => String(item.id) === String(pokemon.id));
+      setIsCaptured(Boolean(captured));
+      setHeldItem(captured?.heldItem || null);
+      setMoveset(captured?.moveset?.length ? captured.moveset : getBattleMoves(pokemon));
+      setEconomy(player);
+    });
+  }, [pokemon.id]);
+
+  async function equipHeldItem(item) {
+    const result = await webStore.setHeldItem(pokemon.id, item);
+    if (result?.ok) setHeldItem(result.pokemon.heldItem);
+  }
+
+  async function learnTm(tm, replaceIndex) {
+    const nextMoves = replaceIndex === undefined ? [...moveset, tm] : moveset.map((move, index) => index === replaceIndex ? tm : move);
+    const updated = await webStore.setMoveset(pokemon.id, nextMoves);
+    if (updated) { setMoveset(updated.moveset); setPendingTm(null); }
+  }
 
   return (
     <div
@@ -185,6 +214,23 @@ export default function PokemonPage({ pokemon }) {
                       })}
                     </div>
                   </div>
+                  <section className="held-item-panel" aria-labelledby="held-item-title">
+                    <div>
+                      <span className="eyebrow">ITEM SEGURADO</span>
+                      <h2 id="held-item-title">{heldItem ? heldItem.replace("-", " ") : "Nenhum item equipado"}</h2>
+                      <p>{isCaptured ? "Escolha um item. Cada Pokémon pode levar apenas um para a batalha." : "Capture este Pokémon para equipar um item."}</p>
+                    </div>
+                    {isCaptured && <div className="held-item-options" role="group" aria-label="Escolher item segurado">
+                      <button type="button" className={!heldItem ? "selected" : ""} onClick={() => equipHeldItem(null)}>Sem item</button>
+                      <button type="button" disabled={!economy.inventory?.oran && heldItem !== "oran"} className={heldItem === "oran" ? "selected" : ""} onClick={() => equipHeldItem("oran")}>Oran<br /><small>{economy.inventory?.oran || 0} disponível</small></button>
+                      <button type="button" disabled={!economy.inventory?.sitrus && heldItem !== "sitrus"} className={heldItem === "sitrus" ? "selected" : ""} onClick={() => equipHeldItem("sitrus")}>Sitrus<br /><small>{economy.inventory?.sitrus || 0} disponível</small></button>
+                      <button type="button" disabled={!economy.inventory?.["type-boost"] && heldItem !== pokemon.types[0].type.name + "-boost"} className={heldItem === pokemon.types[0].type.name + "-boost" ? "selected" : ""} onClick={() => equipHeldItem(pokemon.types[0].type.name + "-boost")}>Amplificador<br /><small>{economy.inventory?.["type-boost"] || 0} disponível</small></button>
+                    </div>}
+                  </section>
+                  <section className="held-item-panel" aria-labelledby="moveset-title">
+                    <div><span className="eyebrow">MOVIMENTOS</span><h2 id="moveset-title">{moveset.length}/{MAX_BATTLE_MOVES} espaços</h2><p>{pendingTm ? "Escolha qual movimento esquecer para aprender a TM." : "Seu moveset é usado diretamente na Arena."}</p></div>
+                    {isCaptured && <><div className="moveset-slots">{moveset.map((move, index) => <button type="button" key={move.id + index} className={pendingTm ? "replace-target" : ""} onClick={() => pendingTm && learnTm(pendingTm, index)}><strong>{move.name}</strong><small>{move.type} · {move.power}</small></button>)}</div><div className="tm-list">{getCompatibleTms(pokemon).map((tm) => { const owned = economy.ownedTms?.includes(tm.id); return <button type="button" key={tm.id} disabled={!owned || moveset.some((move) => move.id === tm.id)} onClick={() => moveset.length < MAX_BATTLE_MOVES ? learnTm(tm) : setPendingTm(tm)}><strong>{tm.name}</strong><small>{owned ? `TM · ${tm.power} poder` : "Compre na Loja"}</small></button>; })}</div></>}
+                  </section>
                 </div>
               </div>
             </Col>

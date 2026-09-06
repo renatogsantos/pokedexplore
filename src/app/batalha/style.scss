@@ -36,6 +36,13 @@
 @container battle-team (min-width: 920px) { .team-selector .battle-collection-grid { --cards-per-row: 5; } }
 @container battle-team (min-width: 1100px) { .team-selector .battle-collection-grid { --cards-per-row: 6; } }
 
+/* Compact, event-driven battle HUD: status and challenges remain secondary to actions. */
+.battle-status { display: inline-flex; width: fit-content; margin-top: 4px; padding: 2px 6px; border-radius: 999px; background: #ffffff18; color: #f8fbff; font-size: .53rem; font-weight: 850; text-transform: uppercase; }.battle-status.is-burn { color: #ffbd93; }.battle-status.is-poison { color: #e6a2ff; }.battle-status.is-paralysis { color: #ffdf5d; }.battle-status.is-sleep { color: #b9d4ff; }.battle-challenges { position: absolute; z-index: 8; right: 12px; bottom: 10px; display: inline-flex; gap: 5px; color: #dce9fb; font-size: .55rem; font-weight: 850; }.battle-challenges span { padding: 3px 5px; border: 1px solid #ffffff22; border-radius: 999px; background: #07111fb8; }.battle-challenges .is-lost { color: #8293a9; text-decoration: line-through; }
+.battle-ability { display: inline-flex; width: fit-content; margin-top: 4px; padding: 2px 6px; border: 1px solid #cda8ff88; border-radius: 999px; background: #8f59bf24; color: #e9c8ff; font-size: .52rem; font-weight: 850; text-transform: uppercase; }
+.cpu-difficulty { display: inline-flex; gap: 8px; margin-top: 14px; padding: 5px; border: 1px solid #ffffff1c; border-radius: 14px; background: #07111f; }.cpu-difficulty button { min-height: 40px; padding: 0 12px; border: 1px solid transparent; border-radius: 10px; background: transparent; color: #b9cce5; font-size: .72rem; font-weight: 850; }.cpu-difficulty button.selected { border-color: #ffcb05; background: #3b3215; color: #ffdf5d; }.cpu-difficulty button:focus-visible { outline: 2px solid #ffdf5d; outline-offset: 2px; }
+.switch-trigger { min-height: 40px; padding: 0 12px; border: 1px solid #7cb4f577; border-radius: 11px; background: #142b4a; color: #dce9fb; font-size: .7rem; font-weight: 850; }.switch-trigger:disabled { opacity: .48; }.switch-trigger:focus-visible { outline: 2px solid #ffdf5d; outline-offset: 2px; }
+@media (max-width: 600px) { .battle-page:has(.battle-arena) .attack-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }.battle-page:has(.battle-arena) .attack-button { justify-content: center; text-align: center; }.battle-page:has(.battle-arena) .attack-button > span:last-child { min-width: 0; }.battle-page:has(.battle-arena) .attack-button strong, .battle-page:has(.battle-arena) .attack-button small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } }
+
 .result-reward { display: grid; gap: 8px; }.reward-breakdown { display: grid; gap: 4px; width: 100%; padding-bottom: 8px; border-bottom: 1px solid #9bf0bc44; }.reward-breakdown span { display: flex; justify-content: space-between; gap: 12px; color: #d2f7df; font-size: .7rem; font-weight: 750; }.reward-breakdown b { color: #ffdf5d; }.reward-total { display: flex; align-items: center; gap: 9px; }.result-reward.is-perfect { border-color: #ffdf5dcc; box-shadow: 0 0 22px #ffcb0540; }
 
 /* The team catalogue follows its available width and shows at most three rows per page. */
@@ -631,3 +638,23 @@
 @container battle-team (min-width: 740px) { .team-selector .battle-collection-grid { --cards-per-row: 4; } }
 @container battle-team (min-width: 920px) { .team-selector .battle-collection-grid { --cards-per-row: 5; } }
 @container battle-team (min-width: 1100px) { .team-selector .battle-collection-grid { --cards-per-row: 6; } }
+// Bag item choice stays compact above the existing target list on every viewport.
+.bag-item-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.bag-item-picker button {
+  min-height: 40px;
+  border: 1px solid #ffffff2b;
+  border-radius: 10px;
+  background: #10223b;
+  color: #d9e8fa;
+  font-size: .68rem;
+  font-weight: 850;
+}
+
+.bag-item-picker button.selected { border-color: #ffcb05; background: #ffcb0522; color: #ffdf5d; }
+.bag-item-picker button:disabled { opacity: .45; cursor: not-allowed; }

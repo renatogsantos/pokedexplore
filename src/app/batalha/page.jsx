@@ -16,7 +16,7 @@ import { webStore } from "@/helpers/webStore";
 import TeamSelector from "@/components/Battle/TeamSelector";
 import BattleArena from "@/components/Battle/BattleArena";
 import { CPU_TEAM, toBattlePokemon } from "@/lib/battle/pokemon";
-import { createBattleState, resolveAction } from "@/lib/battle/engine";
+import { createBattleState, getPokemonMatchup, multiplier, resolveAction } from "@/lib/battle/engine";
 import {
   BATTLE_EVENTS,
   createBattleRoom,
@@ -27,6 +27,7 @@ import { calculateBattleRewards } from "@/lib/battle/rewards";
 import { actCoins } from "@/redux/economy";
 import CoinBalance from "@/components/CoinBalance";
 import { celebrateBattleVictory } from "@/lib/celebration";
+import { getJourneyNode } from "@/lib/journey";
 import "./style.scss";
 
 const makeCode = () => `PKDX-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -42,13 +43,16 @@ const makeMatchId = () => crypto.randomUUID();
 export default function BattlePage() {
   const dispatch = useDispatch();
   const params = useSearchParams();
+  const journeyNode = getJourneyNode(params.get("journey"));
   const realtime = useRef(null);
   const cpuTimer = useRef(null);
   const introTimer = useRef(null);
   const [screen, setScreen] = useState("mode");
   const [collection, setCollection] = useState([]);
+  const [inventory, setInventory] = useState({});
   const [selected, setSelected] = useState([]);
   const [mode, setMode] = useState(null);
+  const [cpuDifficulty, setCpuDifficulty] = useState("normal");
   const [name, setName] = useState("Treinador");
   const [roomCode, setRoomCode] = useState("");
   const [joinCode, setJoinCode] = useState(getRoomDigits(params.get("room")));
@@ -63,6 +67,7 @@ export default function BattlePage() {
 
   useEffect(() => {
     webStore.getData("Pokedex").then(setCollection);
+    webStore.getEconomy().then((economy) => setInventory(economy.inventory || {}));
     return () => {
       realtime.current?.leave();
       clearTimeout(cpuTimer.current);
@@ -80,7 +85,7 @@ export default function BattlePage() {
   const startState = useCallback(
     (hostTeam, guestTeam, host, guest) => {
       const next = createBattleState(
-        { ...host, team: hostTeam.map(toBattlePokemon) },
+        { ...host, inventory: { potion: inventory.potion || 0, "full-heal": inventory["full-heal"] || 0 }, team: hostTeam.map(toBattlePokemon) },
         { ...guest, team: guestTeam.map(toBattlePokemon) },
       );
       next.matchId = makeMatchId();
@@ -101,7 +106,7 @@ export default function BattlePage() {
         broadcast(BATTLE_EVENTS.STATE, playing);
       }, 1650);
     },
-    [broadcast],
+    [broadcast, inventory],
   );
   const awardVictory = useCallback(
     async (matchId, amount) => {
@@ -113,6 +118,22 @@ export default function BattlePage() {
   );
   const rewardFinishedBattle = useCallback(
     (previous, next, localRole) => {
+      if (previous?.status !== "finished" && next?.status === "finished") {
+        const performance = next.performance || {};
+        const won = next.winner === localRole;
+        void webStore.recordBattleOutcome(next.matchId, {
+          won,
+          durationMs: performance.endedAt - performance.startedAt,
+          usedOnlyOnePokemon: !performance.players?.[localRole]?.hasSwitched,
+        }).then((result) => {
+          if (result.rewardCoins) dispatch(actCoins(result.coins));
+          if (result.unlocked?.length) setNotice("CONQUISTA DESBLOQUEADA: " + result.unlocked.join(", ").toUpperCase() + (result.rewardCoins ? ` +${result.rewardCoins} moedas` : ""));
+        });
+        const playerState = next[localRole];
+        const spent = Object.fromEntries(Object.entries(playerState?.initialBag || {}).map(([id, quantity]) => [id, Math.max(0, quantity - (playerState.bag?.[id] || 0))]));
+        void webStore.consumeInventory(spent).then((result) => { if (result.ok) setInventory(result.economy.inventory || {}); });
+        if (journeyNode && won) void webStore.completeJourneyNode(journeyNode).then((result) => { if (result.completed) setNotice(journeyNode.badge ? "INSÍGNIA CONQUISTADA: " + journeyNode.badge : "ROTA CONCLUÍDA! +" + journeyNode.reward + " moedas"); });
+      }
       if (
         previous?.status !== "finished" &&
         next?.status === "finished" &&
@@ -129,7 +150,7 @@ export default function BattlePage() {
       }
       return next;
     },
-    [awardVictory],
+    [awardVictory, journeyNode],
   );
 
   const connectRoom = useCallback(
@@ -234,18 +255,26 @@ export default function BattlePage() {
             active.hp > 0 &&
             active.hp / active.maxHp <= 0.35 &&
             current.guest.potionsRemaining > 0;
-          const useSpecial =
-            active?.specialAttackUsesRemaining > 0 && Math.random() > 0.48;
+          const availableMoves = (active?.moves || []).filter((move) => !move.special || active?.specialAttackUsesRemaining > 0);
+          const specialMove = availableMoves.find((move) => move.special && active?.specialAttackUsesRemaining > 0);
+          const regularMove = availableMoves.find((move) => !move.special) || availableMoves[0];
+          const useSpecial = specialMove && Math.random() > 0.48;
+          const enemy = current?.host?.team[current.host.active];
+          const bestMove = [...availableMoves].sort((a, b) => (b.power * multiplier(b.type, enemy)) - (a.power * multiplier(a.type, enemy)))[0];
+          const reserveIndex = current?.guest?.team.findIndex((pokemon, index) => index !== current.guest.active && pokemon.hp > 0 && getPokemonMatchup(pokemon, enemy) === "advantage");
+          const shouldSwitch = cpuDifficulty === "hard" && reserveIndex >= 0 && getPokemonMatchup(active, enemy) === "disadvantage" && active.hp / active.maxHp < .65;
           return rewardFinishedBattle(
             current,
             resolveAction(
               current,
               "guest",
-              shouldHeal
+              shouldSwitch
+                ? { type: "switch", index: reserveIndex }
+                : shouldHeal
                 ? { type: "potion", targetPokemonId: active.id }
                 : {
                     type: "attack",
-                    moveId: useSpecial ? "type-strike" : "strike",
+                    moveId: (cpuDifficulty === "easy" ? regularMove : cpuDifficulty === "hard" ? bestMove : useSpecial ? specialMove : regularMove)?.id || "strike",
                   },
             ),
             "host",
@@ -254,10 +283,11 @@ export default function BattlePage() {
       850,
     );
     return () => clearTimeout(cpuTimer.current);
-  }, [mode, battle, rewardFinishedBattle]);
+  }, [mode, battle, cpuDifficulty, rewardFinishedBattle]);
 
-  function chooseMode(nextMode) {
+  function chooseMode(nextMode, difficulty = "normal") {
     setMode(nextMode);
+    setCpuDifficulty(difficulty);
     setSelected([]);
     setBattle(null);
     setReadySent(false);
@@ -277,7 +307,8 @@ export default function BattlePage() {
     if (mode === "cpu") {
       const local = makePlayer(name);
       setPlayer(local);
-      startState(selected, CPU_TEAM, local, { id: "cpu", name: "CPU" });
+      const journeyTeam = journeyNode ? journeyNode.team.map((id) => CPU_TEAM.find((pokemon) => pokemon.id === id) || CPU_TEAM[0]) : CPU_TEAM;
+      startState(selected, journeyTeam, local, { id: "cpu", name: journeyNode?.badge ? "Líder do Ginásio" : journeyNode ? journeyNode.title : "CPU" });
       return;
     }
     if (!realtime.current?.isConnected()) {
@@ -435,6 +466,7 @@ export default function BattlePage() {
 }
 
 function ModeScreen({ onChoose }) {
+  const [difficulty, setDifficulty] = useState("normal");
   return (
     <section className="battle-panel mode-panel">
       <span className="eyebrow">ESCOLHA COMO JOGAR</span>
@@ -446,11 +478,14 @@ function ModeScreen({ onChoose }) {
           <strong>Contra um amigo</strong>
           <small>Crie ou entre em uma sala</small>
         </button>
-        <button type="button" onClick={() => onChoose("cpu")}>
+        <button type="button" onClick={() => onChoose("cpu", difficulty)}>
           <GameController size={28} weight="fill" />
-          <strong>Contra a CPU</strong>
+          <strong>Contra a CPU · {difficulty}</strong>
           <small>Treine sua equipe</small>
         </button>
+      </div>
+      <div className="cpu-difficulty" role="group" aria-label="Dificuldade da CPU">
+        {["easy", "normal", "hard"].map((option) => <button type="button" key={option} className={difficulty === option ? "selected" : ""} onClick={() => setDifficulty(option)} aria-pressed={difficulty === option}>{option === "easy" ? "Fácil" : option === "normal" ? "Normal" : "Difícil"}</button>)}
       </div>
     </section>
   );

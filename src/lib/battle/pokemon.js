@@ -30,6 +30,7 @@ export function getPokemonHp(pokemon) {
 export function toBattlePokemon(pokemon) {
   const level = getPokemonLevel(pokemon);
   const baseStats = getBaseStats(pokemon);
+  const levelStat = (stat) => calculateLeveledStat(baseStats[stat] || 50, level);
   const maxHp = calculateLeveledStat(baseStats.hp || getPokemonHp(pokemon), level);
   return {
     id: pokemon.id,
@@ -39,11 +40,15 @@ export function toBattlePokemon(pokemon) {
     level,
     baseStats,
     attackMultiplier: getStatMultiplier(level),
+    stats: { attack: levelStat("attack"), defense: levelStat("defense"), specialAttack: levelStat("specialAttack"), specialDefense: levelStat("specialDefense"), speed: levelStat("speed") },
     artwork: getPokemonArtwork(pokemon),
     homeShinySprite: getHomeShinySprite(pokemon),
     homeDefaultSprite: getHomeDefaultSprite(pokemon),
     animatedShiny: getReserveSprite(pokemon),
     rarity: pokemon.rarity || "normal",
+    ability: pokemon.ability || pokemon.abilities?.find((entry) => !entry.is_hidden)?.ability?.name || null,
+    heldItem: pokemon.heldItem || null,
+    moveset: pokemon.moveset || [],
     maxHp,
     hp: maxHp,
   };

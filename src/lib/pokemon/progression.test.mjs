@@ -16,5 +16,5 @@ test("levels use base stats without compounding and clamp at level ten", () => {
 test("legacy captured Pokemon normalize safely to level one with base stats", () => {
   const legacy = normalizeCapturedPokemon({ id: 25, stats: [{ stat: { name: "hp" }, base_stat: 35 }, { stat: { name: "attack" }, base_stat: 55 }] });
   assert.equal(legacy.level, 1);
-  assert.deepEqual(legacy.baseStats, { hp: 35, attack: 55 });
+  assert.deepEqual(legacy.baseStats, { hp: 35, attack: 55, defense: 50, specialAttack: 50, specialDefense: 50, speed: 50 });
 });
