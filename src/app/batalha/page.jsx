@@ -15,7 +15,7 @@ import { useDispatch } from "react-redux";
 import { webStore } from "@/helpers/webStore";
 import TeamSelector from "@/components/Battle/TeamSelector";
 import BattleArena from "@/components/Battle/BattleArena";
-import { CPU_TEAM, toBattlePokemon } from "@/lib/battle/pokemon";
+import { CPU_ROSTER, CPU_TEAM, toBattlePokemon } from "@/lib/battle/pokemon";
 import { createBattleState, getPokemonMatchup, multiplier, resolveAction } from "@/lib/battle/engine";
 import {
   BATTLE_EVENTS,
@@ -307,7 +307,7 @@ export default function BattlePage() {
     if (mode === "cpu") {
       const local = makePlayer(name);
       setPlayer(local);
-      const journeyTeam = journeyNode ? journeyNode.team.map((id) => CPU_TEAM.find((pokemon) => pokemon.id === id) || CPU_TEAM[0]) : CPU_TEAM;
+      const journeyTeam = journeyNode ? journeyNode.team.map((entry) => { const rosterEntry = CPU_ROSTER.find((pokemon) => pokemon.id === (entry.id || entry)) || CPU_TEAM[0]; return { ...rosterEntry, level: entry.level || rosterEntry.level }; }) : CPU_TEAM;
       startState(selected, journeyTeam, local, { id: "cpu", name: journeyNode?.badge ? "Líder do Ginásio" : journeyNode ? journeyNode.title : "CPU" });
       return;
     }

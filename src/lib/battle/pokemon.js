@@ -54,9 +54,22 @@ export function toBattlePokemon(pokemon) {
   };
 }
 
-export const CPU_TEAM = [
-  { id: 7, name: "squirtle", type: "water", types: ["water"], level: 1, baseStats: { hp: 88, attack: 48 }, maxHp: 88, hp: 88, artwork: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/7.png" },
-  { id: 1, name: "bulbasaur", type: "grass", types: ["grass", "poison"], level: 1, baseStats: { hp: 92, attack: 49 }, maxHp: 92, hp: 92, artwork: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/1.png" },
-  { id: 4, name: "charmander", type: "fire", types: ["fire"], level: 1, baseStats: { hp: 84, attack: 52 }, maxHp: 84, hp: 84, artwork: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/4.png" },
-];
+const cpuPokemon = (id, name, type, types, baseStats) => ({ id, name, type, types, level: 1, baseStats, maxHp: baseStats.hp, hp: baseStats.hp, artwork: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png` });
+
+export const CPU_ROSTER = Object.freeze([
+  cpuPokemon(1, "bulbasaur", "grass", ["grass", "poison"], { hp: 92, attack: 49, defense: 49, specialAttack: 65, specialDefense: 65, speed: 45 }),
+  cpuPokemon(4, "charmander", "fire", ["fire"], { hp: 84, attack: 52, defense: 43, specialAttack: 60, specialDefense: 50, speed: 65 }),
+  cpuPokemon(7, "squirtle", "water", ["water"], { hp: 88, attack: 48, defense: 65, specialAttack: 50, specialDefense: 64, speed: 43 }),
+  cpuPokemon(19, "rattata", "normal", ["normal"], { hp: 80, attack: 56, defense: 35, specialAttack: 25, specialDefense: 35, speed: 72 }),
+  cpuPokemon(25, "pikachu", "electric", ["electric"], { hp: 70, attack: 55, defense: 40, specialAttack: 50, specialDefense: 50, speed: 90 }),
+  cpuPokemon(27, "sandshrew", "ground", ["ground"], { hp: 80, attack: 75, defense: 85, specialAttack: 20, specialDefense: 30, speed: 40 }),
+  cpuPokemon(41, "zubat", "poison", ["poison", "flying"], { hp: 80, attack: 45, defense: 35, specialAttack: 30, specialDefense: 40, speed: 55 }),
+  cpuPokemon(54, "psyduck", "water", ["water"], { hp: 100, attack: 52, defense: 48, specialAttack: 65, specialDefense: 50, speed: 55 }),
+  cpuPokemon(66, "machop", "fighting", ["fighting"], { hp: 90, attack: 80, defense: 50, specialAttack: 35, specialDefense: 35, speed: 35 }),
+  cpuPokemon(74, "geodude", "rock", ["rock", "ground"], { hp: 90, attack: 80, defense: 100, specialAttack: 30, specialDefense: 30, speed: 20 }),
+  cpuPokemon(92, "gastly", "ghost", ["ghost", "poison"], { hp: 60, attack: 35, defense: 30, specialAttack: 100, specialDefense: 35, speed: 80 }),
+  cpuPokemon(95, "onix", "rock", ["rock", "ground"], { hp: 70, attack: 45, defense: 160, specialAttack: 30, specialDefense: 45, speed: 70 }),
+]);
+
+export const CPU_TEAM = CPU_ROSTER.slice(0, 3);
 import { calculateLeveledStat, getBaseStats, getPokemonLevel, getStatMultiplier } from "@/lib/pokemon/progression";
