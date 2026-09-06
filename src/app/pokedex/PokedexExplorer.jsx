@@ -13,6 +13,8 @@ import { getPokemon, getPokemonToPokedex, actAddPokedex, actOpenCardPokedex, act
 import { getPokemonLevel, MAX_POKEMON_LEVEL } from "@/lib/pokemon/progression";
 import PokemonRarity, { getRarityClassName } from "@/components/PokemonRarity";
 import CoinBalance from "@/components/CoinBalance";
+import PokemonPagination from "@/components/PokemonPagination";
+import useThreeRowPagination from "@/hooks/useThreeRowPagination";
 
 function getArtwork(pokemon) {
   return pokemon?.sprites?.other?.["official-artwork"]?.front_default || pokemon?.sprites?.other?.home?.front_default || "/pokenull.png";
@@ -43,6 +45,8 @@ export default function PokedexExplorer() {
   const { Pokedex, Pokemon, OpenCardPokedex, OpenCardPokemon } = useSelector((state) => state.pokemons);
   const [query, setQuery] = useState("");
   const [selectedType, setSelectedType] = useState("all");
+  const [page, setPage] = useState(1);
+  const { pageSize } = useThreeRowPagination({ selector: ".collection-grid" });
 
   useEffect(() => { webStore.getData("Pokedex").then((collection) => dispatch(actAddPokedex(collection))); }, [dispatch]);
 
@@ -53,6 +57,11 @@ export default function PokedexExplorer() {
     const types = pokemon.types?.map((item) => item.type?.name || item.name) || [];
     return matchesName && (selectedType === "all" || types.includes(selectedType));
   }).sort((a, b) => a.id - b.id), [collection, query, selectedType]);
+  const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const visiblePokemon = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => { setPage(1); }, [query, selectedType]);
+  useEffect(() => { setPage((current) => Math.min(current, pages)); }, [pages]);
 
   function closeCapture() { dispatch(actOpenCardPokedex(false)); }
   function closeDetail() { dispatch(actOpenCardPokemon(false)); }
@@ -65,7 +74,7 @@ export default function PokedexExplorer() {
       <section className="collection-stats" aria-label="Resumo da coleção"><div><Ball size={24} /><strong>{collection.length}</strong><span>capturados</span></div><div><Sparkle weight="fill" aria-hidden="true" /><strong>{totalLevels}</strong><span>níveis somados</span></div><div><GameController weight="fill" aria-hidden="true" /><strong>{Math.min(collection.length, 3)} / 3</strong><span>prontos para lutar</span></div><div className="collection-progress"><span>Progresso da coleção</span><strong>{collection.length} de 1000</strong><i><b style={{ width: `${Math.min(collection.length / 10, 100)}%` }} /></i></div></section>
       <section className="collection-browser" aria-labelledby="collection-title"><div className="collection-browser-heading"><div><span className="collection-eyebrow">SEUS POKÉMON</span><h2 id="collection-title">{filtered.length === collection.length ? `${collection.length} na sua Pokédex` : `${filtered.length} encontrados`}</h2></div><button type="button" className="collection-capture mini" onClick={() => dispatch(getPokemonToPokedex())}><Ball size={19} /> Capturar</button></div>
         <div className="collection-controls"><label className="collection-search"><MagnifyingGlass size={20} aria-hidden="true" /><span className="sr-only">Buscar Pokémon capturado</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar na coleção" /></label><div className="collection-type-filters" aria-label="Filtrar por tipo"><button type="button" className={selectedType === "all" ? "selected" : ""} onClick={() => setSelectedType("all")}>Todos</button>{pokemonData.map((type) => <button type="button" key={type.type} title={type.type} className={selectedType === type.type ? "selected" : ""} onClick={() => setSelectedType(type.type)}><img src={`/types/${type.type}.svg`} alt={type.type} /></button>)}</div></div>
-        {filtered.length > 0 ? <div className="collection-grid">{filtered.map((pokemon, index) => <CollectionCard key={pokemon.id} pokemon={pokemon} index={index} onOpen={(name) => dispatch(getPokemon(name))} />)}</div> : <div className="collection-empty"><img src="/pokeball.png" alt="" /><h3>{collection.length ? "Nenhum Pokémon encontrado" : "Sua Pokédex está esperando"}</h3><p>{collection.length ? "Tente outro nome ou tipo." : "Abra uma Pokébola para fazer sua primeira captura."}</p><button type="button" className="collection-capture" onClick={() => dispatch(getPokemonToPokedex())}><Ball size={21} /> Capturar Pokémon</button></div>}
+        {filtered.length > 0 ? <><div className="collection-grid">{visiblePokemon.map((pokemon, index) => <CollectionCard key={pokemon.id} pokemon={pokemon} index={index} onOpen={(name) => dispatch(getPokemon(name))} />)}</div><PokemonPagination page={page} pages={pages} onChange={setPage} label="Paginação da Pokédex" /></> : <div className="collection-empty"><img src="/pokeball.png" alt="" /><h3>{collection.length ? "Nenhum Pokémon encontrado" : "Sua Pokédex está esperando"}</h3><p>{collection.length ? "Tente outro nome ou tipo." : "Abra uma Pokébola para fazer sua primeira captura."}</p><button type="button" className="collection-capture" onClick={() => dispatch(getPokemonToPokedex())}><Ball size={21} /> Capturar Pokémon</button></div>}
       </section>
       <section className="collection-tip"><Sparkle size={28} weight="fill" aria-hidden="true" /><div><strong>Encontrar um repetido é uma boa notícia.</strong><span>Cada captura repetida aumenta 1 nível, até o nível {MAX_POKEMON_LEVEL}.</span></div><Link href="/loja">Visitar loja</Link></section>
     </div>

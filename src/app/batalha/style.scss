@@ -28,6 +28,23 @@
   .battle-shell { width: min(100%, 1080px); }.battle-arena { min-height: 620px; padding-inline: clamp(34px, 7vw, 92px); }.arena-stage { min-height: 500px; }.opponent { transform: translate(20px, 18px); }.player { transform: translate(-20px, -14px); }.fighter-art { width: clamp(190px, 25vw, 290px); height: clamp(190px, 25vw, 290px); }.combatant .fighter-meta { width: min(47%, 310px); }.battle-controls { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, .56fr); column-gap: 24px; }.battle-controls .controls-heading, .battle-controls .attack-grid { grid-column: 1; }.battle-controls .switch-row { grid-column: 2; grid-row: 1 / span 2; flex-direction: column; align-items: stretch; margin-top: 0; padding-top: 0; border-top: 0; border-left: 1px solid #ffffff12; padding-left: 22px; }.battle-controls .reserve-list { flex-direction: column; overflow: visible; }.battle-controls .reserve-list button { flex: 1 1 auto; flex-direction: row; justify-content: flex-start; min-width: 0; }.battle-controls .reserve-list button small { margin-left: auto; }.battle-controls .reserve-list button span { display: inline; }
 }
 
+/* Keep this after legacy grid rules so the paginated team grid owns its column count. */
+.team-selector .battle-collection-grid { --cards-per-row: 1; grid-template-columns: repeat(var(--cards-per-row), minmax(0, 1fr)); }
+@container battle-team (min-width: 361px) { .team-selector .battle-collection-grid { --cards-per-row: 2; } }
+@container battle-team (min-width: 560px) { .team-selector .battle-collection-grid { --cards-per-row: 3; } }
+@container battle-team (min-width: 740px) { .team-selector .battle-collection-grid { --cards-per-row: 4; } }
+@container battle-team (min-width: 920px) { .team-selector .battle-collection-grid { --cards-per-row: 5; } }
+@container battle-team (min-width: 1100px) { .team-selector .battle-collection-grid { --cards-per-row: 6; } }
+
+/* The team catalogue follows its available width and shows at most three rows per page. */
+.battle-collection-grid { --cards-per-row: 1; grid-template-columns: repeat(var(--cards-per-row), minmax(0, 1fr)); }
+.pokemon-pagination { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 20px; color: #b8cce5; font-size: .75rem; font-weight: 800; }.pokemon-pagination button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 44px; padding: 0 12px; border: 1px solid #ffffff27; border-radius: 11px; background: #0b1729; color: #e8f2ff; font: inherit; cursor: pointer; }.pokemon-pagination button:hover:not(:disabled) { border-color: #ffcb05; color: #ffdf5d; }.pokemon-pagination button:disabled { opacity: .45; cursor: not-allowed; }
+@container battle-team (min-width: 361px) { .battle-collection-grid { --cards-per-row: 2; } }
+@container battle-team (min-width: 560px) { .battle-collection-grid { --cards-per-row: 3; } }
+@container battle-team (min-width: 740px) { .battle-collection-grid { --cards-per-row: 4; } }
+@container battle-team (min-width: 920px) { .battle-collection-grid { --cards-per-row: 5; } }
+@container battle-team (min-width: 1100px) { .battle-collection-grid { --cards-per-row: 6; } }
+
 /* Team building mirrors the Pokédex catalogue; selection is the only battle-specific layer. */
 .team-selector {
   container: battle-team / inline-size;
@@ -604,3 +621,11 @@
     height: 38px;
   }
 }
+
+/* Overrides legacy auto-fit rules after all battle breakpoints. */
+.team-selector .battle-collection-grid { --cards-per-row: 1; grid-template-columns: repeat(var(--cards-per-row), minmax(0, 1fr)); }
+@container battle-team (min-width: 361px) { .team-selector .battle-collection-grid { --cards-per-row: 2; } }
+@container battle-team (min-width: 560px) { .team-selector .battle-collection-grid { --cards-per-row: 3; } }
+@container battle-team (min-width: 740px) { .team-selector .battle-collection-grid { --cards-per-row: 4; } }
+@container battle-team (min-width: 920px) { .team-selector .battle-collection-grid { --cards-per-row: 5; } }
+@container battle-team (min-width: 1100px) { .team-selector .battle-collection-grid { --cards-per-row: 6; } }

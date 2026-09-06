@@ -4,6 +4,16 @@
 @media (max-width: 360px) { .collection-hero-actions { display: grid; grid-template-columns: 1fr; }.collection-hero-actions > * { width: 100%; }.collection-card { min-height: 178px; }.collection-art { width: 91px; height: 91px; }.collection-card > strong { font-size: .76rem; }.collection-type { font-size: .49rem; } }
 @media (prefers-reduced-motion: reduce) { .collection-page *, .collection-page *::before, .collection-page *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
 
+/* Three rows per page, with the capacity following the collection container. */
+.collection-browser { container: collection-browser / inline-size; }
+.collection-grid { --cards-per-row: 1; grid-template-columns: repeat(var(--cards-per-row), minmax(0, 1fr)); }
+.pokemon-pagination { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 20px; color: #b8cce5; font-size: .75rem; font-weight: 800; }.pokemon-pagination button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 44px; padding: 0 12px; border: 1px solid #ffffff27; border-radius: 11px; background: #0b1729; color: #e8f2ff; font: inherit; cursor: pointer; }.pokemon-pagination button:hover:not(:disabled) { border-color: #ffcb05; color: #ffdf5d; }.pokemon-pagination button:disabled { opacity: .45; cursor: not-allowed; }
+@container collection-browser (min-width: 361px) { .collection-grid { --cards-per-row: 2; } }
+@container collection-browser (min-width: 560px) { .collection-grid { --cards-per-row: 3; } }
+@container collection-browser (min-width: 740px) { .collection-grid { --cards-per-row: 4; } }
+@container collection-browser (min-width: 920px) { .collection-grid { --cards-per-row: 5; } }
+@container collection-browser (min-width: 1100px) { .collection-grid { --cards-per-row: 6; } }
+
 /* Match filter controls to the mobile touch target used across the game. */
 .collection-type-filters button {
   flex-basis: 44px;

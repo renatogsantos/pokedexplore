@@ -1,11 +1,13 @@
 "use client";
 
 import { CheckCircle, GameController, MagnifyingGlass } from "@phosphor-icons/react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getPokemonArtwork, getPokemonType } from "@/lib/battle/pokemon";
 import { getPokemonLevel } from "@/lib/pokemon/progression";
 import PokemonRarity, { getRarityClassName } from "@/components/PokemonRarity";
 import { pokemonData } from "@/helpers/PokemonTypes";
+import PokemonPagination from "@/components/PokemonPagination";
+import useThreeRowPagination from "@/hooks/useThreeRowPagination";
 
 function TypeBadge({ type }) {
   return <span className="battle-collection-type"><img src={`/types/${type}.svg`} alt="" />{type}</span>;
@@ -14,10 +16,17 @@ function TypeBadge({ type }) {
 export default function TeamSelector({ collection, selected, onToggle, onReady, waiting, canReady = true }) {
   const [query, setQuery] = useState("");
   const [selectedType, setSelectedType] = useState("all");
+  const [page, setPage] = useState(1);
+  const { pageSize } = useThreeRowPagination({ selector: ".battle-collection-grid" });
   const filteredCollection = useMemo(() => collection.filter((pokemon) => {
     const types = pokemon.types?.map((item) => item.type?.name || item.name).filter(Boolean) || [];
     return pokemon.name.toLowerCase().includes(query.trim().toLowerCase()) && (selectedType === "all" || types.includes(selectedType));
   }).sort((a, b) => a.id - b.id), [collection, query, selectedType]);
+  const pages = Math.max(1, Math.ceil(filteredCollection.length / pageSize));
+  const visibleCollection = filteredCollection.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => { setPage(1); }, [query, selectedType]);
+  useEffect(() => { setPage((current) => Math.min(current, pages)); }, [pages]);
 
   if (collection.length < 3) return <section className="battle-panel empty-team"><GameController size={42} weight="fill" /><h2>Capture pelo menos 3 Pokémon</h2><p>Você precisa de três Pokémon na sua Pokédex para montar uma equipe.</p><a href="/pokedex">Capturar Pokémon</a></section>;
 
@@ -33,8 +42,8 @@ export default function TeamSelector({ collection, selected, onToggle, onReady, 
         {pokemonData.map((type) => <button type="button" key={type.type} title={type.type} className={selectedType === type.type ? "selected" : ""} onClick={() => setSelectedType(type.type)} disabled={waiting}><img src={`/types/${type.type}.svg`} alt={type.type} /></button>)}
       </div>
     </div>
-    {filteredCollection.length ? <div className="battle-collection-grid">
-      {filteredCollection.map((pokemon) => {
+    {filteredCollection.length ? <><div className="battle-collection-grid">
+      {visibleCollection.map((pokemon) => {
         const index = selected.findIndex((item) => item.id === pokemon.id);
         const isSelected = index >= 0;
         const types = pokemon.types?.map((item) => item.type?.name || item.name).filter(Boolean) || [];
@@ -50,7 +59,7 @@ export default function TeamSelector({ collection, selected, onToggle, onReady, 
           {isSelected && <span className="selection-order"><CheckCircle size={17} weight="fill" /> {index + 1}</span>}
         </button>;
       })}
-    </div> : <div className="battle-collection-empty"><h3>Nenhum Pokémon encontrado</h3><p>Tente outro nome ou tipo.</p></div>}
+    </div><PokemonPagination page={page} pages={pages} onChange={setPage} disabled={waiting} label="Paginação da equipe" /></> : <div className="battle-collection-empty"><h3>Nenhum Pokémon encontrado</h3><p>Tente outro nome ou tipo.</p></div>}
     <button type="button" className="ready-button" disabled={selected.length !== 3 || waiting || !canReady} onClick={onReady}>{waiting ? "PRONTO! Aguardando adversário..." : canReady ? "Pronto para batalhar" : "Conectando a sala..."}</button>
   </section>;
 }
