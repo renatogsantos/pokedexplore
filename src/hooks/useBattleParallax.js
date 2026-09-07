@@ -3,11 +3,11 @@
 import { useEffect, useRef } from "react";
 
 const LAYER_DEPTH = {
-  forest: 4,
-  light: -5,
-  fog: 7,
-  particles: 9,
-  foreground: 11,
+  forest: 5,
+  light: -7,
+  fog: 9,
+  particles: 12,
+  foreground: 15,
 };
 
 const clamp = (value, limit = 1) => Math.max(-limit, Math.min(limit, value));
@@ -49,8 +49,8 @@ export default function useBattleParallax(enabled) {
     const animate = () => {
       frame = 0;
       if (!isVisible || motionDisabled) return;
-      currentX += (targetX - currentX) * 0.09;
-      currentY += (targetY - currentY) * 0.09;
+      currentX += (targetX - currentX) * 0.11;
+      currentY += (targetY - currentY) * 0.11;
       applyTransforms();
       if (Math.abs(targetX - currentX) > 0.03 || Math.abs(targetY - currentY) > 0.03) {
         frame = requestAnimationFrame(animate);
@@ -73,7 +73,7 @@ export default function useBattleParallax(enabled) {
         baseline = { beta, gamma };
         return;
       }
-      setTarget((gamma - baseline.gamma) / 22, (beta - baseline.beta) / 24);
+      setTarget((gamma - baseline.gamma) / 16, (beta - baseline.beta) / 18);
     };
 
     const enableOrientation = () => {
@@ -98,7 +98,7 @@ export default function useBattleParallax(enabled) {
       const bounds = arena.getBoundingClientRect();
       const x = (event.clientX - bounds.left) / bounds.width - 0.5;
       const y = (event.clientY - bounds.top) / bounds.height - 0.5;
-      setTarget(x * 1.35, y * 1.1);
+      setTarget(x * 1.55, y * 1.3);
     };
 
     const onPointerLeave = () => setTarget(0, 0);

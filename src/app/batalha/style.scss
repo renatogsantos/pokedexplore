@@ -4485,7 +4485,7 @@
   will-change: transform;
 }
 .battle-environment__forest {
-  inset: -20px;
+  inset: -24px;
   background:
     linear-gradient(180deg, #04132666 0%, #07142688 55%, #020812bb 100%),
     url("/arena-bg.png") center / cover no-repeat;
@@ -4520,7 +4520,7 @@
 .battle-environment__particles i:nth-child(4) { top: 74%; right: 14%; width: 2px; height: 2px; }
 .battle-environment__particles i:nth-child(5) { top: 48%; left: 8%; width: 2px; height: 2px; }
 .battle-environment__foreground {
-  inset: -25px;
+  inset: -29px;
   background:
     radial-gradient(ellipse at -2% 100%, #020a0dd9 0 12%, transparent 32%),
     radial-gradient(ellipse at 101% 1%, #020a0dd6 0 11%, transparent 31%),
