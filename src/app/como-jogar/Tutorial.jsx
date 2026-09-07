@@ -5,6 +5,8 @@ import { useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
+  ArrowsClockwise,
+  Backpack,
   CaretRight,
   Coins,
   FirstAid,
@@ -17,6 +19,9 @@ import {
   Trophy,
 } from "@phosphor-icons/react";
 import {
+  BATTLE_BAG,
+  calculateDamage,
+  getTypeEffectiveness,
   MAX_POTIONS,
   MAX_SPECIAL_ATTACK_USES,
   MOVES,
@@ -28,13 +33,35 @@ import {
   calculateLeveledStat,
 } from "@/lib/pokemon/progression";
 import { COINS_PER_WIN } from "@/lib/economy";
-import { FAST_VICTORY_BONUS_COINS, ONE_POKEMON_VICTORY_BONUS_COINS } from "@/lib/battle/rewards";
+import {
+  calculateBattleRewards,
+  FAST_VICTORY_BONUS_COINS,
+  FAST_VICTORY_THRESHOLD_MS,
+  ONE_POKEMON_VICTORY_BONUS_COINS,
+} from "@/lib/battle/rewards";
 import PokemonTypeIcon from "@/components/PokemonTypeIcon";
 
 const percent = Math.round(POTION_HEAL_PERCENTAGE * 100);
 const levelBonus = Math.round(STAT_BONUS_PER_LEVEL * 100);
-const demoDamage =
-  MOVES.find((move) => move.id === "type-strike")?.power * 1.5 || 35;
+const typeStrike = MOVES.find((move) => move.id === "type-strike");
+const tutorialPikachu = {
+  type: "electric",
+  types: ["electric"],
+  level: 3,
+  stats: { attack: 55, defense: 40, specialAttack: 50, specialDefense: 50 },
+};
+const tutorialSquirtle = {
+  type: "water",
+  types: ["water"],
+  level: 2,
+  maxHp: 100,
+  stats: { attack: 48, defense: 65, specialAttack: 50, specialDefense: 64 },
+};
+const demoDamage = calculateDamage({
+  attacker: tutorialPikachu,
+  defender: tutorialSquirtle,
+  move: typeStrike,
+}).damage;
 
 function Pokeball({ size = 24 }) {
   return (
@@ -116,7 +143,7 @@ function AttackDemo() {
         >
           <Lightning size={22} weight="fill" aria-hidden="true" />
           <span>
-            <strong>Golpe elétrico</strong>
+            <strong>{typeStrike.name}</strong>
             <small>{used ? "Usado!" : "Testar ataque"}</small>
           </span>
         </button>
@@ -177,6 +204,103 @@ function MatchupDemo() {
       </p>
     </div>
   );
+}
+
+function ResetButton({ onClick }) {
+  return (
+    <button type="button" className="tutorial-reset" onClick={onClick}>
+      <ArrowsClockwise size={16} weight="bold" aria-hidden="true" /> Repetir
+    </button>
+  );
+}
+
+function LevelDemo() {
+  const [level, setLevel] = useState(3);
+  const nextLevel = Math.min(MAX_POKEMON_LEVEL, level + 1);
+  const maxed = level === MAX_POKEMON_LEVEL;
+  return (
+    <div className="tutorial-level-demo">
+      <Pokemon name="pikachu" type="electric" level={level} />
+      <div>
+        <strong>{maxed ? "NÍVEL MÁXIMO" : "Você encontrou outro Pikachu!"}</strong>
+        <span>Lv. {level} <ArrowRight aria-hidden="true" /> Lv. {nextLevel}</span>
+        <small>+{levelBonus}% nos atributos neste nível</small>
+        <button type="button" disabled={maxed} onClick={() => setLevel(nextLevel)}>
+          <Sparkle size={18} weight="fill" aria-hidden="true" /> Simular captura
+        </button>
+        {level > 3 && <ResetButton onClick={() => setLevel(3)} />}
+      </div>
+    </div>
+  );
+}
+
+function SpecialDemo() {
+  const [uses, setUses] = useState(MAX_SPECIAL_ATTACK_USES);
+  return (
+    <div className="tutorial-special-demo">
+      <Pokemon name="pikachu" type="electric" level={3} />
+      <div>
+        <span>GOLPE ESPECIAL</span>
+        <strong>{uses}/{MAX_SPECIAL_ATTACK_USES}</strong>
+        <div className="tutorial-use-dots" aria-label={`${uses} usos especiais disponíveis`}>
+          {Array.from({ length: MAX_SPECIAL_ATTACK_USES }, (_, index) => <i key={index} className={index >= uses ? "spent" : ""} />)}
+        </div>
+        <button type="button" disabled={!uses} onClick={() => setUses((value) => value - 1)}>
+          <Lightning size={19} weight="fill" aria-hidden="true" /> {uses ? "Usar especial" : "Esgotado"}
+        </button>
+        {!uses && <ResetButton onClick={() => setUses(MAX_SPECIAL_ATTACK_USES)} />}
+      </div>
+    </div>
+  );
+}
+
+function TypeTrainingDemo() {
+  const [choice, setChoice] = useState(null);
+  const isStrong = choice === "electric";
+  const factor = choice ? getTypeEffectiveness(choice, tutorialSquirtle) : 1;
+  return (
+    <div className="tutorial-type-training">
+      <div><span>ADVERSÁRIO</span><Pokemon name="squirtle" type="water" level={2} /><Hp value={choice ? (isStrong ? 65 : 82) : 100} /></div>
+      <div className="tutorial-type-training__choices">
+        <strong>Qual golpe você escolheria?</strong>
+        <button type="button" className={choice === "fire" ? "selected weak" : ""} onClick={() => setChoice("fire")}><Type name="fire" /> Golpe Fire</button>
+        <button type="button" className={choice === "electric" ? "selected strong" : ""} onClick={() => setChoice("electric")}><Type name="electric" /> Golpe Electric</button>
+        <p role="status">{!choice ? "Observe o tipo do adversário." : isStrong ? `SUPER EFETIVO! Multiplicador real: ×${factor}.` : `Pouco efetivo: ×${factor}. Tente outra opção.`}</p>
+        {choice && <ResetButton onClick={() => setChoice(null)} />}
+      </div>
+    </div>
+  );
+}
+
+function SwitchDemo() {
+  const [active, setActive] = useState("charizard");
+  const isAdvantage = active === "pikachu";
+  return (
+    <div className="tutorial-switch-demo">
+      <div className="tutorial-switch-demo__active"><span>ATIVO</span><Pokemon name={active} type={active === "pikachu" ? "electric" : active === "greninja" ? "water" : "fire"} /><b className={isAdvantage ? "advantage" : "disadvantage"}>{isAdvantage ? "Vantagem" : "Desvantagem"}</b></div>
+      <div className="tutorial-switch-demo__reserves"><strong>Escolha uma reserva</strong><button type="button" onClick={() => setActive("pikachu")}><img src="/pokemons/pikachu.png" alt="" />Pikachu <small>Vantagem</small></button><button type="button" onClick={() => setActive("greninja")}><img src="/pokemons/greninja.png" alt="" />Greninja <small>Desvantagem</small></button><p role="status">{isAdvantage ? "Boa troca! Pikachu tem vantagem contra Squirtle." : "Greninja pode lutar, mas Pikachu é a melhor resposta."}</p>{active !== "charizard" && <ResetButton onClick={() => setActive("charizard")} />}</div>
+    </div>
+  );
+}
+
+function PotionDemo() {
+  const [hp, setHp] = useState(30);
+  const [potions, setPotions] = useState(BATTLE_BAG.potion.quantity);
+  const healing = Math.min(Math.ceil(100 * POTION_HEAL_PERCENTAGE), 100 - hp);
+  const canUse = hp < 100 && potions > 0;
+  return (
+    <div className="tutorial-potion-demo">
+      <Pokemon name="pikachu" type="electric" />
+      <div><Hp value={hp} /><button type="button" disabled={!canUse} onClick={() => { setHp((value) => Math.min(100, value + healing)); setPotions((value) => value - 1); }}><FirstAid size={20} weight="fill" aria-hidden="true" /> Usar Poção ×{potions}</button><strong aria-live="polite">{canUse ? `Recupera ${percent}% do HP máximo` : hp === 100 ? "HP cheio!" : "Poções esgotadas"}</strong>{(hp !== 30 || potions !== BATTLE_BAG.potion.quantity) && <ResetButton onClick={() => { setHp(30); setPotions(BATTLE_BAG.potion.quantity); }} />}</div>
+    </div>
+  );
+}
+
+function RewardDemo() {
+  const [fast, setFast] = useState(false);
+  const [solo, setSolo] = useState(false);
+  const reward = calculateBattleRewards({ won: true, durationMs: fast ? FAST_VICTORY_THRESHOLD_MS - 1 : FAST_VICTORY_THRESHOLD_MS, usedOnlyOnePokemon: solo });
+  return <div className="tutorial-reward-demo"><strong>Simule sua recompensa</strong><label><input type="checkbox" checked={fast} onChange={(event) => setFast(event.target.checked)} /> Vitória rápida +{FAST_VICTORY_BONUS_COINS}</label><label><input type="checkbox" checked={solo} onChange={(event) => setSolo(event.target.checked)} /> Um Pokémon só +{ONE_POKEMON_VICTORY_BONUS_COINS}</label><div><span>Vitória +{reward.base}</span><b>Total: {reward.total} moedas</b></div></div>;
 }
 
 export default function Tutorial() {
@@ -291,6 +415,7 @@ export default function Tutorial() {
               Cada Pokémon repetido sobe 1 nível, até o nível{" "}
               {MAX_POKEMON_LEVEL}. Encontrar outro igual deixa o seu mais forte.
             </p>
+            <LevelDemo />
           </Step>
           <Step
             number="3"
@@ -371,6 +496,7 @@ export default function Tutorial() {
                 <p>É mais forte. Guarde para a hora certa.</p>
               </div>
             </div>
+            <SpecialDemo />
           </Step>
           <Step
             number="7"
@@ -403,6 +529,11 @@ export default function Tutorial() {
                 SEM EFEITO <small>Alguns tipos não acertam outros</small>
               </span>
             </div>
+            <TypeTrainingDemo />
+            <aside className="tutorial-trainer-tip">
+              <img src="/pokemons/treinador-pk.png" alt="Treinador Pokémon" />
+              <p><strong>DICA DO TREINADOR</strong> Não escolha um golpe só pelo poder: veja se ele é forte ou fraco contra o adversário.</p>
+            </aside>
           </Step>
           <Step
             number="8"
@@ -427,50 +558,18 @@ export default function Tutorial() {
             eyebrow="MUDE A ESTRATÉGIA"
             title="Trocar também usa seu turno"
           >
-            <div className="tutorial-switch">
-              <div>
-                <span>ATIVO</span>
-                <Pokemon name="charizard" type="fire" />
-                <b>Desvantagem</b>
-              </div>
-              <div className="tutorial-switch-action">
-                <button type="button" disabled>
-                  <ArrowRight size={26} aria-hidden="true" /> Trocar
-                </button>
-                <small>O adversário joga depois</small>
-              </div>
-              <div>
-                <span>RESERVA</span>
-                <Pokemon name="pikachu" type="electric" />
-                <b>Vantagem</b>
-              </div>
-            </div>
             <p className="tutorial-note">
-              Você só pode trocar para um Pokémon que ainda tenha HP.
+              Você só pode trocar para um Pokémon com HP. Trocar é uma ação e o adversário joga depois.
             </p>
+            <SwitchDemo />
           </Step>
           <Step
             number="10"
             eyebrow="RECUPERE SUA EQUIPE"
             title={`Você começa com ${MAX_POTIONS} poções`}
           >
-            <div className="tutorial-potion">
-              <Pokemon name="pikachu" type="electric" />
-              <div>
-                <Hp value={30} />
-                <button type="button" disabled>
-                  <FirstAid size={23} weight="fill" aria-hidden="true" /> Usar
-                  poção
-                </button>
-                <strong>+{percent} HP</strong>
-                <Hp value={Math.min(100, 30 + percent)} />
-              </div>
-              <p>
-                Uma poção recupera até {percent}% do HP máximo e também consome
-                seu turno. Ela não revive Pokémon desmaiado nem funciona em HP
-                cheio.
-              </p>
-            </div>
+            <PotionDemo />
+            <p className="tutorial-note">Uma Poção recupera até {percent}% do HP máximo e consome seu turno. Ela não revive Pokémon desmaiado nem funciona com HP cheio.</p>
           </Step>
           <Step
             number="11"
@@ -490,6 +589,12 @@ export default function Tutorial() {
                 <span>Aguarde a resposta.</span>
               </div>
             </div>
+            <div className="tutorial-action-deck" aria-label="Ações disponíveis na Arena">
+              <span><Sword size={17} weight="fill" aria-hidden="true" /> Sua ação</span>
+              <span><Backpack size={17} weight="fill" aria-hidden="true" /> Itens</span>
+              <span><ArrowsClockwise size={17} weight="bold" aria-hidden="true" /> Trocar</span>
+            </div>
+            <p className="tutorial-note">A Arena organiza suas escolhas nesse baralho de ações. Cada ação válida encerra seu turno.</p>
           </Step>
           <Step
             number="12"
@@ -524,6 +629,7 @@ export default function Tutorial() {
         <section className="tutorial-coins" aria-labelledby="tutorial-coins-title">
           <div><span className="tutorial-eyebrow">GANHE E ESCOLHA</span><h2 id="tutorial-coins-title">Vitórias rendem novas escolhas</h2><p>Cada vitória vale {COINS_PER_WIN} moedas. Guarde-as para comprar um novo parceiro ou fortalecer um Pokémon que você já adora.</p></div>
           <div className="tutorial-coins-flow"><Trophy weight="fill" aria-hidden="true" /><ArrowRight aria-hidden="true" /><strong>+{COINS_PER_WIN} <Coins weight="fill" aria-hidden="true" /></strong><ArrowRight aria-hidden="true" /><Link href="/loja">Loja Pokémon</Link></div><p className="tutorial-reward-bonuses">⚡ Vitória em menos de 1 minuto: +{FAST_VICTORY_BONUS_COINS}. 🏆 Sem trocar de Pokémon: +{ONE_POKEMON_VICTORY_BONUS_COINS}. Faça os dois desafios para ganhar até {COINS_PER_WIN + FAST_VICTORY_BONUS_COINS + ONE_POKEMON_VICTORY_BONUS_COINS} moedas.</p>
+          <RewardDemo />
         </section>
         <section className="tutorial-progression-guide" aria-labelledby="tutorial-progression-title">
           <div><span className="tutorial-eyebrow">PREPARE SUA EQUIPE</span><h2 id="tutorial-progression-title">Mais escolhas, sem complicação</h2><p>Cada Pokémon entra na Arena com movimentos próprios. O especial continua limitado a {MAX_SPECIAL_ATTACK_USES} usos; TMs permitem montar até 4 golpes e você sempre escolhe qual esquecer.</p></div>
@@ -574,11 +680,11 @@ export default function Tutorial() {
           <div>
             <span className="tutorial-eyebrow">NOVO POR AQUI?</span>
             <h2>Treine primeiro contra a CPU</h2>
-            <p>Escolha sua equipe e aprenda no seu ritmo.</p>
+            <p>O botão flutuante <strong>Batalhar</strong> fica disponível durante sua exploração. Use-o para entrar na Arena quando quiser e escolher Treino contra CPU.</p>
           </div>
           <div>
             <span className="tutorial-eyebrow">CONTRA UM AMIGO</span>
-            <h2>Crie uma sala e compartilhe o código</h2>
+            <h2>Crie ou entre em uma sala</h2>
             <ol>
               <li>Crie ou entre em uma sala.</li>
               <li>Os dois escolhem 3 Pokémon.</li>
