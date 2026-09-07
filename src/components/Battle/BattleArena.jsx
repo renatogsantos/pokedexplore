@@ -2,9 +2,8 @@
 
 import {
   ArrowsClockwise,
+  Backpack,
   Lightning,
-  Heart,
-  Shield,
   Sword,
   Trophy,
   WarningCircle,
@@ -14,22 +13,17 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSelector } from "react-redux";
 import {
-  BATTLE_BAG,
   getOpponentWeaknesses,
   getPokemonMatchup,
-  getPotionHealAmount,
   getSupportedAbility,
   multiplier,
 } from "@/lib/battle/engine";
 import { getPokemonArtwork, getReserveSprite } from "@/lib/battle/pokemon";
-import { pokemonData } from "@/helpers/PokemonTypes";
 import { playBattleSound } from "@/lib/battle/sound";
 import PokemonRarity, { getRarityClassName } from "@/components/PokemonRarity";
 import { calculateBattleRewards } from "@/lib/battle/rewards";
 import PokemonTypeIcon from "@/components/PokemonTypeIcon";
-
-const colorFor = (type) =>
-  pokemonData.find((item) => item.type === type)?.color || "#64748b";
+import { getItemLabel, getStatusLabel, getTypeLabel } from "@/lib/localization/ptBR";
 
 function HpBar({ pokemon }) {
   const percent = Math.max(0, (pokemon.hp / pokemon.maxHp) * 100);
@@ -43,7 +37,7 @@ function HpBar({ pokemon }) {
       </div>
       <div className="hp-track">
         <motion.div
-          className={`hp-fill ${percent < 35 ? "danger" : ""}`}
+          className={`hp-fill ${percent < 35 ? "danger" : percent < 60 ? "warning" : ""}`}
           animate={{ width: `${percent}%` }}
           transition={{ duration: 0.42 }}
         />
@@ -51,13 +45,6 @@ function HpBar({ pokemon }) {
     </div>
   );
 }
-
-const STATUS_LABELS = {
-  burn: "Queimado",
-  poison: "Envenenado",
-  paralysis: "Paralisado",
-  sleep: "Dormindo",
-};
 
 function useBattleElapsed(startedAt, active) {
   const [now, setNow] = useState(() => Date.now());
@@ -85,26 +72,22 @@ function Fighter({ side, player, isHit, isAttacking, isHealing, matchup }) {
         <div className="fighter-tags">
           <span className="fighter-level">Lv. {pokemon.level || 1}</span>
           <PokemonRarity pokemon={pokemon} />
-          <div
-            className="type-pill"
-            style={{ backgroundColor: colorFor(pokemon.type) }}
-          >
-            {pokemon.type}
-          </div>
+          <span className="fighter-type-icons" aria-label={`Tipos: ${pokemon.types.map(getTypeLabel).join(", ")}`}>{pokemon.types.map((type) => <PokemonTypeIcon key={type} type={type} size={25} label={`Tipo ${getTypeLabel(type)}`} interactive />)}</span>
         </div>
         <HpBar pokemon={pokemon} />
         {ability && (
-          <span className="battle-ability" title={ability.description}>
+          <span className={`battle-ability ${pokemon.hp / pokemon.maxHp <= 1 / 3 ? "is-active" : ""}`} title={ability.description}>
             {ability.id}
           </span>
         )}
+        {side === "player" && pokemon.heldItem && <span className="held-item-indicator">Item equipado: {getItemLabel(pokemon.heldItem)}</span>}
         {pokemon.status && (
           <span className={`battle-status is-${pokemon.status.id}`}>
-            {STATUS_LABELS[pokemon.status.id] || pokemon.status.id}
+            {getStatusLabel(pokemon.status.id)}
           </span>
         )}
         {side === "player" && matchup === "disadvantage" && (
-          <small className="matchup-warning">Desvantagem de tipo</small>
+          <small className="matchup-warning">⚠ Desvantagem</small>
         )}
         {weaknesses.length > 0 && (
           <div className="weakness-hint" aria-label="Fraquezas">
@@ -139,6 +122,11 @@ function Fighter({ side, player, isHit, isAttacking, isHealing, matchup }) {
   );
 }
 
+function TeamStrip({ player, label }) {
+  const remaining = player.team.filter((pokemon) => pokemon.hp > 0).length;
+  return <div className="team-strip" aria-label={`${label}: ${remaining} Pokémon disponíveis`}><span>{label} · {remaining}/3</span><div>{player.team.map((pokemon, index) => <div key={`${pokemon.id}-${index}`} className={`team-slot ${index === player.active ? "active" : ""} ${pokemon.hp <= 0 ? "fainted" : ""} ${pokemon.status ? "has-status" : ""}`} aria-label={`${pokemon.name}: ${pokemon.hp <= 0 ? "desmaiado" : index === player.active ? "ativo" : "disponível"}${pokemon.status ? `, ${getStatusLabel(pokemon.status.id)}` : ""}`}><img src={getReserveSprite(pokemon)} alt="" /><small>{pokemon.hp <= 0 ? "KO" : pokemon.status ? getStatusLabel(pokemon.status.id).slice(0, 2) : ""}</small></div>)}</div></div>;
+}
+
 function BattleNotification({ state, role, opponentName }) {
   const [notification, setNotification] = useState(null);
   useEffect(() => {
@@ -170,9 +158,13 @@ function BattleNotification({ state, role, opponentName }) {
     else if (state.effect?.kind === "potion")
       setNotification({
         title: `+${state.effect.healing} HP`,
-        detail: "POÃ‡ÃƒO! RECUPEROU VIDA!",
+        detail: "POÇÃO! RECUPEROU VIDA!",
         tone: "healing",
       });
+    else if (state.effect?.kind === "item")
+      setNotification({ title: state.effect.itemId === "full-heal" ? "CURA TOTAL!" : "ITEM USADO!", detail: state.log, tone: "healing" });
+    else if (state.effect?.berry)
+      setNotification({ title: `${state.effect.berry.berry.toUpperCase()} BERRY!`, detail: state.effect.berry.healing ? `+${state.effect.berry.healing} HP` : "Status removido", tone: "healing" });
     else if (state.effect?.kind === "switch")
       setNotification({ title: "TROCA!", detail: state.log, tone: "turn" });
     else if (state.turn === role)
@@ -225,8 +217,7 @@ function BattleNotification({ state, role, opponentName }) {
 }
 
 export default function BattleArena({ state, role, onAction, onRematch }) {
-  const [isBagOpen, setIsBagOpen] = useState(false);
-  const [isSwitchOpen, setIsSwitchOpen] = useState(false);
+  const [actionMode, setActionMode] = useState("moves");
   const [selectedItem, setSelectedItem] = useState(null);
   const coins = useSelector((store) => store.economy.coins);
   const me = state[role];
@@ -237,12 +228,9 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
   const active = me.team[me.active];
   const enemy = opponent.team[opponent.active];
   const bag = me.bag || { potion: me.potionsRemaining || 0, "full-heal": 0 };
-  const potionsRemaining = bag.potion;
-  const selectedBagItem =
-    selectedItem || (potionsRemaining ? "potion" : "full-heal");
-  const setIsPotionOpen = setIsBagOpen;
-  const hasPotionTarget = me.team.some(
-    (pokemon) => pokemon.hp > 0 && pokemon.hp < pokemon.maxHp,
+  const itemCount = Object.values(bag).reduce(
+    (total, amount) => total + amount,
+    0,
   );
   const activeMatchup = getPokemonMatchup(active, enemy);
   const elapsed = useBattleElapsed(
@@ -276,6 +264,10 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
             {String(Math.floor(elapsed / 1000) % 60).padStart(2, "0")} ⚡ +15
           </span>
           <span className={onePokemonAvailable ? "" : "is-lost"}>🏆 +30</span>
+        </div>
+        <div className="battle-status-stack" aria-label="Estado das equipes">
+          <TeamStrip player={opponent} label={opponent.name === "CPU" ? "CPU" : opponent.name} />
+          <TeamStrip player={me} label="VOCÊ" />
         </div>
         <div className="arena-stage">
           <Fighter
@@ -312,285 +304,45 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
         />
       </section>
       <section className={`battle-controls ${myTurn ? "is-active" : ""}`}>
-        <div className="controls-heading">
-          <div>
-            <span className="eyebrow">
-              {myTurn ? "O QUE VOCÊ VAI FAZER?" : "BATALHA EM CURSO"}
-            </span>
-            <h2>
-              {myTurn ? "Escolha uma ação" : `Aguardando ${opponent.name}...`}
-            </h2>
-          </div>
-          <span className="team-left">
-            <Shield size={18} />{" "}
-            {me.team.filter((pokemon) => pokemon.hp > 0).length} disponíveis
-          </span>
-        </div>
-        <div className="attack-grid">
-          {active.moves.map((move) => {
-            const attackType = move.type === "own" ? active.type : move.type;
-            const strong = multiplier(attackType, enemy) > 1;
-            const weak = multiplier(attackType, enemy) < 1;
-            const uses = active.specialAttackUsesRemaining ?? 0;
-            return (
-              <button
-                type="button"
-                key={move.id}
-                className={`attack-button ${strong ? "recommended" : ""} ${weak ? "disadvantage" : ""}`}
-                disabled={!myTurn || (move.special && uses <= 0)}
-                onClick={() => {
-                  playBattleSound(move.special ? "golpe-normal" : "investida");
-                  onAction({ type: "attack", moveId: move.id });
-                }}
-              >
-                <span className="attack-icon">
-                  <PokemonTypeIcon type={attackType} size={27} decorative />
-                </span>
-                <span>
-                  <strong>{move.name}</strong>
-                  <small>
-                    {move.special
-                      ? uses <= 0
-                        ? "Esgotado"
-                        : `${uses}/2 especial`
-                      : `${move.power} poder${strong ? " · Forte" : weak ? " · Fraco" : ""}`}
-                  </small>
-                </span>
-              </button>
-            );
-          })}
-        </div>
-        <button
-          type="button"
-          className="potion-action"
-          disabled={!myTurn || !Object.values(bag).some(Boolean)}
-          onClick={() => {
-            setSelectedItem(null);
-            setIsBagOpen(true);
-          }}
-          aria-haspopup="dialog"
-        >
-          <Heart size={22} weight="fill" />
-          <span>Itens</span>
-          <strong>
-            {Object.values(bag).reduce((total, amount) => total + amount, 0)}{" "}
-            disponíveis
-          </strong>
-        </button>
-        <div className="switch-row">
-          <button
-            type="button"
-            className="switch-trigger"
-            disabled={!myTurn}
-            onClick={() => setIsSwitchOpen(true)}
-            aria-haspopup="dialog"
-          >
-            Trocar
+        <div className="action-tabs" role="tablist" aria-label="Ações da batalha">
+          <button type="button" role="tab" aria-selected={actionMode === "moves"} className={actionMode === "moves" ? "selected" : ""} onClick={() => { setActionMode("moves"); setSelectedItem(null); }}>
+            <Sword size={16} weight="fill" aria-hidden="true" /> Sua ação
           </button>
-          <div className="reserve-list">
-            {me.team.map((pokemon, index) => (
-              <button
-                type="button"
-                disabled={!myTurn || pokemon.hp <= 0 || index === me.active}
-                onClick={() => onAction({ type: "switch", index })}
-                aria-label={`Usar ${pokemon.name}`}
-                key={`${pokemon.id}-${index}`}
-                className={`${index === me.active ? "selected active" : ""} ${pokemon.hp <= 0 ? "fainted" : ""} ${getPokemonMatchup(pokemon, enemy)} ${getRarityClassName(pokemon)} ${effect?.kind === "potion" && effect?.target === role && effect?.targetPokemonId === pokemon.id ? "is-healing" : ""}`}
-              >
-                <img
-                  className="reserve-sprite"
-                  src={getReserveSprite(pokemon)}
-                  alt={pokemon.name}
-                />
-                <PokemonRarity pokemon={pokemon} compact />
-                <span>{pokemon.name}</span>
-                <small>
-                  {index === me.active
-                    ? "ativo"
-                    : pokemon.hp <= 0
-                      ? "desmaiado"
-                      : "reserva"}
-                </small>
-              </button>
-            ))}
-          </div>
+          <button type="button" role="tab" aria-selected={actionMode === "items"} className={actionMode === "items" ? "selected" : ""} onClick={() => { setActionMode("items"); setSelectedItem(null); }}>
+            <Backpack size={16} weight="fill" aria-hidden="true" /> Itens <span>{itemCount}</span>
+          </button>
+          <button type="button" role="tab" aria-selected={actionMode === "switch"} className={actionMode === "switch" ? "selected" : ""} onClick={() => { setActionMode("switch"); setSelectedItem(null); }}>
+            <ArrowsClockwise size={16} weight="bold" aria-hidden="true" /> Trocar
+          </button>
+        </div>
+        <div className="action-deck-panel">
+          {actionMode === "moves" && (
+            <div className="attack-grid v2-move-grid" role="tabpanel" aria-label="Golpes disponíveis">
+              {Array.from({ length: 4 }, (_, index) => active.moves[index] || null).map((move, index) => {
+                if (!move) return <div key={`empty-${index}`} className="move-slot-empty" aria-hidden="true"><span>＋</span><small>Indisponível</small></div>;
+                const attackType = move.type === "own" ? active.type : move.type;
+                const strong = multiplier(attackType, enemy) > 1;
+                const weak = multiplier(attackType, enemy) < 1;
+                const uses = active.specialAttackUsesRemaining ?? 0;
+                const exhausted = move.special && uses <= 0;
+                const effectiveness = strong ? "▲ FORTE" : weak ? "▼ FRACO" : "● NORMAL";
+                return <button type="button" key={move.id} className={`attack-button ${strong ? "recommended" : ""} ${weak ? "disadvantage" : ""} ${move.special ? "is-special" : ""} ${exhausted ? "is-exhausted" : ""}`} disabled={!myTurn || exhausted} onClick={() => { playBattleSound(move.special ? "golpe-normal" : "investida"); onAction({ type: "attack", moveId: move.id }); }} aria-label={`${move.name}. ${move.special ? exhausted ? "Especial esgotado" : `Especial, ${uses} de 2 usos` : `${move.power} de poder, ${effectiveness}`} `}>
+                  <span className="attack-icon"><PokemonTypeIcon type={attackType} size={25} decorative /></span>
+                  <span className="attack-copy"><strong>{move.name}</strong><small className={move.special ? "special-meta" : "attack-meta"}>{move.special ? exhausted ? "ESGOTADO" : `ESPECIAL · ${uses}/2` : <><span>{move.power}</span><span>{effectiveness}</span></>}</small></span>
+                </button>;
+              })}
+            </div>
+          )}
+          {actionMode === "items" && (
+            <div className="deck-items" role="tabpanel" aria-label="Itens de batalha">
+              {selectedItem ? <><div className="deck-panel-heading"><button type="button" onClick={() => setSelectedItem(null)}>Voltar</button><strong>Escolha o alvo</strong></div><div className="deck-target-list">{me.team.map((pokemon, index) => { const unavailable = pokemon.hp <= 0 || (selectedItem === "potion" ? pokemon.hp >= pokemon.maxHp : !pokemon.status); return <button type="button" key={`${pokemon.id}-${index}`} disabled={!myTurn || unavailable} onClick={() => { onAction(selectedItem === "potion" ? { type: "potion", targetPokemonId: pokemon.id } : { type: "item", itemId: selectedItem, targetPokemonId: pokemon.id }); setSelectedItem(null); setActionMode("moves"); }}><img src={getReserveSprite(pokemon)} alt=""/><span><strong>{pokemon.name}</strong><small>{pokemon.hp <= 0 ? "Desmaiado" : selectedItem === "potion" ? `${pokemon.hp}/${pokemon.maxHp} HP` : pokemon.status ? `Curar ${getStatusLabel(pokemon.status.id)}` : "Sem status"}</small></span></button>; })}</div></> : <div className="deck-item-grid"><button type="button" disabled={!myTurn || !bag.potion} onClick={() => setSelectedItem("potion")}><Backpack size={20} weight="fill" aria-hidden="true"/><span><strong>Poção</strong><small>Recupera 40% do HP</small></span><b>×{bag.potion || 0}</b></button><button type="button" disabled={!myTurn || !bag["full-heal"]} onClick={() => setSelectedItem("full-heal")}><Lightning size={20} weight="fill" aria-hidden="true"/><span><strong>Cura Total</strong><small>Remove condições</small></span><b>×{bag["full-heal"] || 0}</b></button></div>}
+            </div>
+          )}
+          {actionMode === "switch" && (
+            <div className="deck-switch-list" role="tabpanel" aria-label="Trocar Pokémon">{me.team.map((pokemon, index) => { const matchup = getPokemonMatchup(pokemon, enemy); const activeSlot = index === me.active; const fainted = pokemon.hp <= 0; return <button type="button" key={`${pokemon.id}-${index}`} className={`${activeSlot ? "active" : ""} ${fainted ? "fainted" : ""} ${matchup}`} disabled={!myTurn || activeSlot || fainted} onClick={() => { onAction({ type: "switch", index }); setActionMode("moves"); }} aria-label={`${pokemon.name}: ${activeSlot ? "ativo" : fainted ? "desmaiado" : "disponível para troca"}`}><img src={getReserveSprite(pokemon)} alt=""/><span><strong>{pokemon.name}</strong><small>{activeSlot ? "Ativo" : fainted ? "Desmaiado" : `${pokemon.hp}/${pokemon.maxHp} HP`}</small></span>{!activeSlot && !fainted && <em>{matchup === "advantage" ? "▲ Vantagem" : matchup === "disadvantage" ? "▼ Desvantagem" : "● Neutro"}</em>}</button>; })}</div>
+          )}
         </div>
       </section>
-      <AnimatePresence>
-        {isBagOpen && (
-          <motion.div
-            className="potion-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            role="presentation"
-          >
-            <motion.section
-              className="potion-selector"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="potion-title"
-              initial={{ opacity: 0, y: 14, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 14, scale: 0.96 }}
-            >
-              <div className="potion-selector-heading">
-                <div>
-                  <span className="eyebrow">
-                    PO{"\u00c7"}
-                    {"\u00c3"}O Ã—{potionsRemaining}
-                  </span>
-                  <h2 id="potion-title">
-                    Usar po{"\u00e7"}
-                    {"\u00e3"}o em
-                  </h2>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsPotionOpen(false)}
-                  aria-label="Fechar seletor de poção"
-                >
-                  ×
-                </button>
-              </div>
-              <div
-                className="bag-item-picker"
-                role="group"
-                aria-label="Escolher item"
-              >
-                <button
-                  type="button"
-                  className={selectedBagItem === "potion" ? "selected" : ""}
-                  disabled={!bag.potion}
-                  onClick={() => setSelectedItem("potion")}
-                >
-                  Poção ×{bag.potion || 0}
-                </button>
-                <button
-                  type="button"
-                  className={selectedBagItem === "full-heal" ? "selected" : ""}
-                  disabled={!bag["full-heal"]}
-                  onClick={() => setSelectedItem("full-heal")}
-                >
-                  Cura Total ×{bag["full-heal"] || 0}
-                </button>
-              </div>
-              <div className="potion-target-list">
-                {me.team.map((pokemon, index) => {
-                  const healing =
-                    selectedBagItem === "potion"
-                      ? getPotionHealAmount(pokemon)
-                      : 0;
-                  const unavailable =
-                    pokemon.hp <= 0 ||
-                    (selectedBagItem === "potion"
-                      ? pokemon.hp >= pokemon.maxHp
-                      : !pokemon.status);
-                  return (
-                    <button
-                      type="button"
-                      key={`${pokemon.id}-${index}`}
-                      disabled={unavailable}
-                      onClick={() => {
-                        setIsPotionOpen(false);
-                        onAction(
-                          selectedBagItem === "potion"
-                            ? { type: "potion", targetPokemonId: pokemon.id }
-                            : {
-                                type: "item",
-                                itemId: selectedBagItem,
-                                targetPokemonId: pokemon.id,
-                              },
-                        );
-                      }}
-                    >
-                      <img src={getReserveSprite(pokemon)} alt="" />
-                      <span>
-                        <strong>{pokemon.name}</strong>
-                        <small>
-                          {pokemon.hp <= 0
-                            ? "DESMAIADO"
-                            : selectedBagItem === "potion" &&
-                                pokemon.hp >= pokemon.maxHp
-                              ? "HP CHEIO"
-                              : selectedBagItem === "full-heal"
-                                ? pokemon.status
-                                  ? `CURAR ${pokemon.status.id.toUpperCase()}`
-                                  : "SEM STATUS"
-                                : `${pokemon.hp} / ${pokemon.maxHp}  +${healing} HP`}
-                        </small>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </motion.section>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      <AnimatePresence>
-        {isSwitchOpen && (
-          <motion.div
-            className="potion-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            role="presentation"
-          >
-            <motion.section
-              className="potion-selector"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="switch-title"
-              initial={{ opacity: 0, y: 14, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 14, scale: 0.96 }}
-            >
-              <div className="potion-selector-heading">
-                <div>
-                  <span className="eyebrow">RESERVA</span>
-                  <h2 id="switch-title">Trocar Pokémon</h2>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsSwitchOpen(false)}
-                  aria-label="Fechar troca"
-                >
-                  ×
-                </button>
-              </div>
-              <div className="potion-target-list">
-                {me.team.map((pokemon, index) => (
-                  <button
-                    type="button"
-                    key={pokemon.id + "-" + index}
-                    disabled={index === me.active || pokemon.hp <= 0}
-                    onClick={() => {
-                      setIsSwitchOpen(false);
-                      onAction({ type: "switch", index });
-                    }}
-                  >
-                    <img src={getReserveSprite(pokemon)} alt="" />
-                    <span>
-                      <strong>{pokemon.name}</strong>
-                      <small>
-                        {index === me.active
-                          ? "ATIVO"
-                          : pokemon.hp +
-                            " / " +
-                            pokemon.maxHp +
-                            (getPokemonMatchup(pokemon, enemy) === "advantage"
-                              ? " · VANTAGEM"
-                              : "")}
-                      </small>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </motion.section>
-          </motion.div>
-        )}
-      </AnimatePresence>
       <AnimatePresence>
         {state.status === "finished" && (
           <motion.div

@@ -129,9 +129,6 @@ export default function BattlePage() {
           if (result.rewardCoins) dispatch(actCoins(result.coins));
           if (result.unlocked?.length) setNotice("CONQUISTA DESBLOQUEADA: " + result.unlocked.join(", ").toUpperCase() + (result.rewardCoins ? ` +${result.rewardCoins} moedas` : ""));
         });
-        const playerState = next[localRole];
-        const spent = Object.fromEntries(Object.entries(playerState?.initialBag || {}).map(([id, quantity]) => [id, Math.max(0, quantity - (playerState.bag?.[id] || 0))]));
-        void webStore.consumeInventory(spent).then((result) => { if (result.ok) setInventory(result.economy.inventory || {}); });
         if (journeyNode && won) void webStore.completeJourneyNode(journeyNode).then((result) => { if (result.completed) setNotice(journeyNode.badge ? "INSÍGNIA CONQUISTADA: " + journeyNode.badge : "ROTA CONCLUÍDA! +" + journeyNode.reward + " moedas"); });
       }
       if (
@@ -360,17 +357,23 @@ export default function BattlePage() {
     connectRoom(code, currentPlayer, "guest");
   }
   function sendAction(action) {
+    const resolveAndPersist = (current, actor) => {
+      const next = resolveAction(current, actor, action);
+      const itemId = action.type === "potion" ? "potion" : action.type === "item" ? action.itemId : null;
+      if (itemId && next !== current && next.effect?.actor === actor && (next.effect.kind === "potion" || next.effect.kind === "item")) void webStore.consumeInventory({ [itemId]: 1 }, `${current.matchId || "local"}:${current.revision}:${actor}`).then((result) => { if (result.ok) setInventory(result.economy.inventory || {}); });
+      return next;
+    };
     if (mode === "cpu")
       setBattle((current) =>
         rewardFinishedBattle(
           current,
-          resolveAction(current, "host", action),
+          resolveAndPersist(current, "host"),
           "host",
         ),
       );
     else if (role === "host")
       setBattle((current) => {
-        const next = resolveAction(current, "host", action);
+        const next = resolveAndPersist(current, "host");
         broadcast(BATTLE_EVENTS.STATE, next);
         return rewardFinishedBattle(current, next, "host");
       });

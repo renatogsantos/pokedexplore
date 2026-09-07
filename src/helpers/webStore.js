@@ -9,7 +9,7 @@ const POKEDEX_STORE = "pokedex";
 const PLAYER_STORE = "player";
 const CACHE_STORE = "pokeapi-cache";
 const ECONOMY_KEY = "economy";
-const EMPTY_ECONOMY = { key: ECONOMY_KEY, coins: 0, rewardedMatchIds: [], secretRewards: {}, inventory: {}, ownedTms: [] };
+const EMPTY_ECONOMY = { key: ECONOMY_KEY, coins: 0, rewardedMatchIds: [], secretRewards: {}, inventory: {}, ownedTms: [], consumedItemActionIds: [] };
 const EMPTY_PROGRESS = { achievements: {}, streak: 0, bestStreak: 0, wins: 0, totalBattles: 0, processedOutcomeMatchIds: [], journeyCompleted: [], badges: [] };
 const normalizeEconomy = (economy) => ({ ...EMPTY_ECONOMY, ...(economy || {}), secretRewards: { ...EMPTY_ECONOMY.secretRewards, ...(economy?.secretRewards || {}) }, inventory: Object.fromEntries(Object.entries(economy?.inventory || {}).filter(([, quantity]) => Number(quantity) > 0).map(([id, quantity]) => [id, Math.floor(Number(quantity))])), ownedTms: [...new Set(economy?.ownedTms || [])], progress: { ...EMPTY_PROGRESS, ...(economy?.progress || {}), achievements: { ...EMPTY_PROGRESS.achievements, ...(economy?.progress?.achievements || {}) } } });
 
@@ -200,13 +200,13 @@ export const webStore = {
       }));
     } catch (error) { console.error("Erro ao comprar item:", error); return { ok: false, reason: "persistence" }; }
   },
-  async consumeInventory(items) {
+  async consumeInventory(items, consumptionId) {
     const used = Object.fromEntries(Object.entries(items || {}).filter(([, quantity]) => Number(quantity) > 0).map(([id, quantity]) => [id, Math.floor(Number(quantity))]));
     if (!Object.keys(used).length) return { ok: true, economy: await this.getEconomy() };
     try {
       return await withDatabase((database) => new Promise((resolve, reject) => {
         const transaction = database.transaction(PLAYER_STORE, "readwrite"); const store = transaction.objectStore(PLAYER_STORE); const request = store.get(ECONOMY_KEY);
-        request.onsuccess = () => { const economy = normalizeEconomy(request.result); const inventory = { ...economy.inventory }; Object.entries(used).forEach(([id, quantity]) => { inventory[id] = Math.max(0, (inventory[id] || 0) - quantity); if (!inventory[id]) delete inventory[id]; }); const next = { ...economy, inventory }; store.put(next); transaction.result = { ok: true, economy: next }; };
+        request.onsuccess = () => { const economy = normalizeEconomy(request.result); if (consumptionId && economy.consumedItemActionIds?.includes(consumptionId)) { transaction.result = { ok: true, duplicate: true, economy }; return; } const inventory = { ...economy.inventory }; Object.entries(used).forEach(([id, quantity]) => { inventory[id] = Math.max(0, (inventory[id] || 0) - quantity); if (!inventory[id]) delete inventory[id]; }); const next = { ...economy, inventory, consumedItemActionIds: consumptionId ? [...(economy.consumedItemActionIds || []), consumptionId].slice(-100) : economy.consumedItemActionIds }; store.put(next); transaction.result = { ok: true, economy: next }; };
         transaction.oncomplete = () => resolve(transaction.result); transaction.onerror = () => reject(transaction.error); request.onerror = () => reject(request.error);
       }));
     } catch (error) { console.error("Erro ao consumir inventário:", error); return { ok: false }; }
