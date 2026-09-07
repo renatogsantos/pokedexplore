@@ -9,6 +9,7 @@ const POKEDEX_STORE = "pokedex";
 const PLAYER_STORE = "player";
 const CACHE_STORE = "pokeapi-cache";
 const ECONOMY_KEY = "economy";
+const TRAINER_PROFILE_KEY = "trainer-profile";
 const EMPTY_ECONOMY = { key: ECONOMY_KEY, coins: 0, rewardedMatchIds: [], secretRewards: {}, inventory: {}, ownedTms: [], consumedItemActionIds: [] };
 const EMPTY_PROGRESS = { achievements: {}, streak: 0, bestStreak: 0, wins: 0, totalBattles: 0, processedOutcomeMatchIds: [], journeyCompleted: [], badges: [] };
 const normalizeEconomy = (economy) => ({ ...EMPTY_ECONOMY, ...(economy || {}), secretRewards: { ...EMPTY_ECONOMY.secretRewards, ...(economy?.secretRewards || {}) }, inventory: Object.fromEntries(Object.entries(economy?.inventory || {}).filter(([, quantity]) => Number(quantity) > 0).map(([id, quantity]) => [id, Math.floor(Number(quantity))])), ownedTms: [...new Set(economy?.ownedTms || [])], progress: { ...EMPTY_PROGRESS, ...(economy?.progress || {}), achievements: { ...EMPTY_PROGRESS.achievements, ...(economy?.progress?.achievements || {}) } } });
@@ -58,6 +59,27 @@ async function withDatabase(callback) {
 }
 
 export const webStore = {
+  async getTrainerName() {
+    try {
+      return await withDatabase((database) => new Promise((resolve, reject) => {
+        const request = database.transaction(PLAYER_STORE, "readonly").objectStore(PLAYER_STORE).get(TRAINER_PROFILE_KEY);
+        request.onsuccess = () => resolve(String(request.result?.name || "").trim() || "Treinador");
+        request.onerror = () => reject(request.error);
+      }));
+    } catch (error) { console.error("Erro ao recuperar nome do treinador:", error); return "Treinador"; }
+  },
+  async setTrainerName(name) {
+    const trainerName = String(name || "").trim().slice(0, 18) || "Treinador";
+    try {
+      await withDatabase((database) => new Promise((resolve, reject) => {
+        const transaction = database.transaction(PLAYER_STORE, "readwrite");
+        transaction.objectStore(PLAYER_STORE).put({ key: TRAINER_PROFILE_KEY, name: trainerName, updatedAt: Date.now() });
+        transaction.oncomplete = resolve;
+        transaction.onerror = () => reject(transaction.error);
+      }));
+      return trainerName;
+    } catch (error) { console.error("Erro ao salvar nome do treinador:", error); return trainerName; }
+  },
   async exportBackup() {
     const [collection, player] = await Promise.all([this.getData("Pokedex"), this.getEconomy()]);
     return { version: 1, exportedAt: new Date().toISOString(), collection, player };

@@ -68,6 +68,7 @@ export default function BattlePage() {
   useEffect(() => {
     webStore.getData("Pokedex").then(setCollection);
     webStore.getEconomy().then((economy) => setInventory(economy.inventory || {}));
+    webStore.getTrainerName().then((savedName) => setName((currentName) => currentName === "Treinador" ? savedName : currentName));
     return () => {
       realtime.current?.leave();
       clearTimeout(cpuTimer.current);
@@ -330,6 +331,8 @@ export default function BattlePage() {
       return;
     }
     const currentPlayer = makePlayer(name);
+    setName(currentPlayer.name);
+    void webStore.setTrainerName(currentPlayer.name);
     const code = makeCode();
     setPlayer(currentPlayer);
     setRole("host");
@@ -349,6 +352,8 @@ export default function BattlePage() {
       return;
     }
     const currentPlayer = makePlayer(name);
+    setName(currentPlayer.name);
+    void webStore.setTrainerName(currentPlayer.name);
     const code = `${ROOM_PREFIX}${joinCode}`;
     setPlayer(currentPlayer);
     setRole("guest");
