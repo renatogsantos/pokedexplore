@@ -459,6 +459,7 @@ export default function BattlePage() {
           <BattleArena
             state={battle}
             role={role}
+            mode={mode}
             onAction={sendAction}
             onRematch={rematch}
           />

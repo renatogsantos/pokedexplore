@@ -9,7 +9,7 @@ import {
   WarningCircle,
 } from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSelector } from "react-redux";
 import {
@@ -24,6 +24,7 @@ import PokemonRarity, { getRarityClassName } from "@/components/PokemonRarity";
 import { calculateBattleRewards } from "@/lib/battle/rewards";
 import PokemonTypeIcon from "@/components/PokemonTypeIcon";
 import { getItemLabel, getStatusLabel, getTypeLabel } from "@/lib/localization/ptBR";
+import { formatCoins } from "@/lib/economy";
 
 function HpBar({ pokemon }) {
   const percent = Math.max(0, (pokemon.hp / pokemon.maxHp) * 100);
@@ -216,7 +217,124 @@ function BattleNotification({ state, role, opponentName }) {
   );
 }
 
-export default function BattleArena({ state, role, onAction, onRematch }) {
+function AnimatedReward({ value }) {
+  const [displayedValue, setDisplayedValue] = useState(0);
+
+  useEffect(() => {
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reducedMotion) {
+      setDisplayedValue(value);
+      return undefined;
+    }
+
+    let frame;
+    const startedAt = performance.now();
+    const duration = 420;
+    const update = (now) => {
+      const progress = Math.min((now - startedAt) / duration, 1);
+      setDisplayedValue(Math.round(value * (1 - (1 - progress) ** 3)));
+      if (progress < 1) frame = requestAnimationFrame(update);
+    };
+    frame = requestAnimationFrame(update);
+    return () => cancelAnimationFrame(frame);
+  }, [value]);
+
+  return <strong aria-label={`Mais ${value} moedas`}>+{displayedValue}</strong>;
+}
+
+function RewardRow({ icon: Icon, label, value }) {
+  return (
+    <li>
+      <span>
+        <Icon size={17} weight="fill" aria-hidden="true" />
+        {label}
+      </span>
+      <strong>+{value}</strong>
+    </li>
+  );
+}
+
+function BattleResultModal({ won, reward, coins, mode, onRematch }) {
+  const rematchRef = useRef(null);
+  const isPerfect = reward.total === 60;
+  const rematchLabel = mode === "friend" ? "Pedir revanche" : "Jogar novamente";
+
+  useEffect(() => {
+    const focusFrame = requestAnimationFrame(() => rematchRef.current?.focus());
+    return () => cancelAnimationFrame(focusFrame);
+  }, []);
+
+  return (
+    <motion.div
+      className="result-overlay"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <motion.section
+        className={`result-card result-modal ${won ? "is-victory" : "is-defeat"}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="battle-result-title"
+        aria-describedby="battle-result-description"
+        initial={{ opacity: 0, scale: 0.9, y: 18 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 10 }}
+        transition={{ type: "spring", stiffness: 320, damping: 26 }}
+      >
+        <div className="result-modal__emblem" aria-hidden="true">
+          {won ? <Trophy size={32} weight="fill" /> : <WarningCircle size={32} weight="fill" />}
+        </div>
+        <span className="result-modal__eyebrow">{won ? "VOCÊ VENCEU" : "DERROTA"}</span>
+        <h2 id="battle-result-title">{won ? "Vitória!" : "Não foi dessa vez!"}</h2>
+        <p id="battle-result-description">
+          {won ? "Seu time venceu!" : "Ajuste sua estratégia e tente novamente."}
+        </p>
+
+        {won ? (
+          <>
+            {isPerfect && <span className="result-modal__perfect">Performance perfeita</span>}
+            <section className="result-modal__reward" aria-live="polite" aria-label={`Você recebeu ${reward.total} moedas`}>
+              <img src="/coin.png" alt="" aria-hidden="true" width="42" height="42" />
+              <div>
+                <AnimatedReward value={reward.total} />
+                <span>MOEDAS</span>
+              </div>
+            </section>
+            <section className="result-modal__breakdown" aria-label="Detalhes das recompensas">
+              <span className="result-modal__section-label">RECOMPENSAS</span>
+              <ul>
+                <RewardRow icon={Sword} label="Vitória" value={reward.base} />
+                {reward.bonuses.fastVictory > 0 && <RewardRow icon={Lightning} label="Vitória rápida" value={reward.bonuses.fastVictory} />}
+                {reward.bonuses.onePokemonVictory > 0 && <RewardRow icon={Trophy} label="Um Pokémon só" value={reward.bonuses.onePokemonVictory} />}
+              </ul>
+              <div className="result-modal__balance">
+                <span>Saldo atual</span>
+                <strong><img src="/coin.png" alt="" aria-hidden="true" width="18" height="18" /> {formatCoins(coins)}</strong>
+              </div>
+            </section>
+          </>
+        ) : (
+          <div className="result-modal__defeat-note">
+            <img src="/coin.png" alt="" aria-hidden="true" width="24" height="24" />
+            <span><strong>+0 moedas</strong> Você não perdeu moedas.</span>
+          </div>
+        )}
+
+        <div className="result-modal__actions">
+          <button type="button" className="rematch-button" onClick={onRematch} ref={rematchRef}>
+            <ArrowsClockwise size={20} weight="bold" aria-hidden="true" /> {rematchLabel}
+          </button>
+          <Link href={won ? "/loja" : "/pokedex"} className="result-link">
+            {won ? "Ir para a Loja Pokémon" : "Ver Pokédex"}
+          </Link>
+        </div>
+      </motion.section>
+    </motion.div>
+  );
+}
+
+export default function BattleArena({ state, role, mode, onAction, onRematch }) {
   const [actionMode, setActionMode] = useState("moves");
   const [selectedItem, setSelectedItem] = useState(null);
   const coins = useSelector((store) => store.economy.coins);
@@ -345,75 +463,13 @@ export default function BattleArena({ state, role, onAction, onRematch }) {
       </section>
       <AnimatePresence>
         {state.status === "finished" && (
-          <motion.div
-            className="result-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-          >
-            <motion.div
-              className={`result-card ${state.winner === role ? "is-victory" : "is-defeat"}`}
-              initial={{ scale: 0.8, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-            >
-              {state.winner === role ? (
-                <Trophy size={42} weight="fill" />
-              ) : (
-                <WarningCircle size={42} weight="fill" />
-              )}
-              <span className="eyebrow">
-                {state.winner === role ? "VOCÊ VENCEU" : "BOA BATALHA"}
-              </span>
-              <h2>{state.winner === role ? "Vitória!" : "Tente novamente"}</h2>
-              <p>
-                {state.winner === role
-                  ? `${me.name} venceu esta batalha.`
-                  : `${opponent.name} venceu desta vez.`}
-              </p>
-              {state.winner === role && (
-                <div
-                  className={`result-reward ${victoryReward.total === 60 ? "is-perfect" : ""}`}
-                  aria-live="polite"
-                >
-                  <div className="reward-breakdown">
-                    <span>
-                      Vitória <b>+{victoryReward.base}</b>
-                    </span>
-                    {victoryReward.bonuses.fastVictory > 0 && (
-                      <span>
-                        ⚡ Vitória rápida{" "}
-                        <b>+{victoryReward.bonuses.fastVictory}</b>
-                      </span>
-                    )}
-                    {victoryReward.bonuses.onePokemonVictory > 0 && (
-                      <span>
-                        🏆 Um Pokémon só{" "}
-                        <b>+{victoryReward.bonuses.onePokemonVictory}</b>
-                      </span>
-                    )}
-                  </div>
-                  <div className="reward-total">
-                    <img src="/coin.png" alt="" aria-hidden="true" height="24" width="24" />
-                    <div>
-                      <strong>+{victoryReward.total} moedas</strong>
-                      <span>Saldo: {coins}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-              <button
-                type="button"
-                className="rematch-button"
-                onClick={onRematch}
-              >
-                <ArrowsClockwise size={20} /> Pedir revanche
-              </button>
-              {state.winner === role && (
-                <Link href="/loja" className="result-link">
-                  Ir para a Loja Pokémon
-                </Link>
-              )}
-            </motion.div>
-          </motion.div>
+          <BattleResultModal
+            won={state.winner === role}
+            reward={victoryReward}
+            coins={coins}
+            mode={mode}
+            onRematch={onRematch}
+          />
         )}
       </AnimatePresence>
     </>
