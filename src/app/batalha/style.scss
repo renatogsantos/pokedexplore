@@ -1097,6 +1097,7 @@
 }
 .fighter-art {
   position: relative;
+  isolation: isolate;
   display: grid;
   place-items: center;
   width: clamp(155px, 27vw, 275px);
@@ -1111,12 +1112,12 @@
 .fighter-shadow {
   position: absolute;
   z-index: 0;
-  bottom: 19%;
-  width: 74%;
-  height: 13%;
+  bottom: 6%;
+  width: 66%;
+  height: 10%;
   border-radius: 50%;
-  background: #01040bbb;
-  filter: blur(7px);
+  background: #01040b99;
+  filter: blur(8px);
 }
 .opponent {
   align-self: end;
@@ -1911,6 +1912,7 @@
   object-fit: contain;
   filter: drop-shadow(0 10px 8px #0009);
 }
+.battle-card-aura { position: relative; z-index: 1; width: 126px !important; height: 126px !important; margin-top: 14px; }.battle-card-aura .battle-collection-art { margin-top: 0; }.fighter-aura { position: absolute !important; z-index: 1; inset: 0; }
 
 .battle-collection-card > strong {
   position: relative;
@@ -2441,6 +2443,12 @@
 .battle-notification.healing strong {
   color: #8ff2ba;
   font-size: 1.5rem;
+}
+.battle-notification-item {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 4px #0008);
 }
 @keyframes potion-heal {
   45% {

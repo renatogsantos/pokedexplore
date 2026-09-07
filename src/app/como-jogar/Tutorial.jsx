@@ -40,6 +40,7 @@ import {
   ONE_POKEMON_VICTORY_BONUS_COINS,
 } from "@/lib/battle/rewards";
 import PokemonTypeIcon from "@/components/PokemonTypeIcon";
+import PokemonAura from "@/components/PokemonAura/PokemonAura";
 
 const percent = Math.round(POTION_HEAL_PERCENTAGE * 100);
 const levelBonus = Math.round(STAT_BONUS_PER_LEVEL * 100);
@@ -83,14 +84,14 @@ function Type({ name }) {
   );
 }
 function Pokemon({ name, type, level = 1 }) {
-  return (
+  return <PokemonAura pokemon={{ id: name, type, level }} variant="compact">
     <div className="tutorial-pokemon">
       <img src={`/pokemons/${name}.png`} alt={name} />
       <strong>{name}</strong>
       <span>Lv. {level}</span>
       <Type name={type} />
     </div>
-  );
+  </PokemonAura>;
 }
 function Hp({ value, max = 100, label = "HP" }) {
   const safeValue = Math.max(0, value);
@@ -225,6 +226,7 @@ function LevelDemo() {
         <strong>{maxed ? "NÍVEL MÁXIMO" : "Você encontrou outro Pikachu!"}</strong>
         <span>Lv. {level} <ArrowRight aria-hidden="true" /> Lv. {nextLevel}</span>
         <small>+{levelBonus}% nos atributos neste nível</small>
+        {level >= 6 && <small className="tutorial-aura-note">✨ AURA DESPERTADA · Shiny + Aura especial</small>}
         <button type="button" disabled={maxed} onClick={() => setLevel(nextLevel)}>
           <Sparkle size={18} weight="fill" aria-hidden="true" /> Simular captura
         </button>

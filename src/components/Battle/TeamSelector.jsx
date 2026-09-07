@@ -14,6 +14,7 @@ import { pokemonData } from "@/helpers/PokemonTypes";
 import PokemonPagination from "@/components/PokemonPagination";
 import useThreeRowPagination from "@/hooks/useThreeRowPagination";
 import ItemSprite from "@/components/ItemSprite/ItemSprite";
+import PokemonAura from "@/components/PokemonAura/PokemonAura";
 import HeldItemDrawer from "@/components/HeldItemDrawer/HeldItemDrawer";
 import { webStore } from "@/helpers/webStore";
 
@@ -177,12 +178,12 @@ export default function TeamSelector({
                     Lv. {getPokemonLevel(pokemon)}
                   </span>
                   <PokemonRarity pokemon={pokemon} compact />
-                  <img
+                  <PokemonAura pokemon={pokemon} variant="compact" className="battle-card-aura"><img
                     className="battle-collection-art"
                     src={getPokemonArtwork(pokemon)}
                     alt=""
                     loading="lazy"
-                  />
+                  /></PokemonAura>
                   <strong>{pokemon.name}</strong>
                   <span className="battle-collection-types">
                     {types.map((type) => (

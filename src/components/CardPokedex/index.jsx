@@ -6,6 +6,7 @@ import { useDispatch } from "react-redux";
 import { getPokemonLevel } from "@/lib/pokemon/progression";
 import PokemonRarity, { getRarityClassName } from "@/components/PokemonRarity";
 import { getPokemonSprite, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
+import PokemonAura from "@/components/PokemonAura/PokemonAura";
 
 export default function CardPokedex({ pokemon }) {
   const [color, setColor] = useState("#fff");
@@ -49,14 +50,14 @@ export default function CardPokedex({ pokemon }) {
         >
           <span className="pokedex-level">Lv. {getPokemonLevel(pokemon)}</span>
           <PokemonRarity pokemon={pokemon} compact />
-          <img
+          <PokemonAura pokemon={pokemon} variant="compact" className="pokedex-card-aura"><img
           loading="lazy"
           draggable={false}
           src={
             getPokemonSprite({ pokemon, context: SPRITE_CONTEXT.GENERAL })
           }
           alt="Pokemon"
-        />
+        /></PokemonAura>
       </div>
     </motion.button>
   );

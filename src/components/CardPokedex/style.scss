@@ -97,6 +97,7 @@
 }
 
 .pokedex-level { position: absolute; z-index: 2; top: 6px; right: 6px; padding: 2px 5px; border-radius: 999px; background: rgba(255, 203, 5, .92); color: #17243b; font-size: .55rem; font-weight: 900; }
+.pokedex-card-aura { position: relative; z-index: 1; width: 100% !important; height: 100% !important; }.pokedex-card-aura img { position: relative; z-index: 4; }
 
 @media (max-width: 576px) {
   .pokedex-header {

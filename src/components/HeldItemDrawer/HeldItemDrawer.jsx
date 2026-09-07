@@ -30,7 +30,7 @@ export default function HeldItemDrawer({ pokemon, economy, heldItem, open, onClo
     const result = await webStore.setHeldItem(pokemon.id, item);
     if (!result?.ok) return;
     const equipped = itemInfo(result.pokemon.heldItem);
-    const message = equipped ? `${equipped.name.toUpperCase()} ${equipped.id === "type-boost" ? "EQUIPADO" : "EQUIPADA"}! ${pokemon.name} agora está segurando ${equipped.name}. ${equipped.id === "type-boost" ? "O amplificador fica ativo passivamente durante a batalha." : "Ela será ativada automaticamente durante a batalha."}` : "Item removido.";
+    const message = equipped ? `${equipped.name.toUpperCase()} ${equipped.id === "type-boost" ? "EQUIPADO" : "EQUIPADA"}! ${pokemon.name} agora está segurando ${equipped.name}. ${equipped.id === "type-boost" ? "O amplificador fica ativo passivamente durante a batalha." : "Ela só será ativada após receber dano e ficar com 50% do HP ou menos."}` : "Item removido.";
     setReplacement(null);
     setFeedback(message);
     onEquipped(result.pokemon, message);
@@ -44,7 +44,7 @@ export default function HeldItemDrawer({ pokemon, economy, heldItem, open, onClo
 
   return <div className={styles.backdrop} role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
     <aside className={styles.drawer} role="dialog" aria-modal="true" aria-labelledby="held-item-drawer-title">
-      <header><div><span>ITEM SEGURADO</span><h2 id="held-item-drawer-title">Escolha um item</h2><p>{pokemon.name} · você equipa, o item ativa sozinho.</p></div><button type="button" onClick={onClose} aria-label="Fechar seletor de item"><X size={21} /></button></header>
+      <header><div><span>ITEM SEGURADO</span><h2 id="held-item-drawer-title">Escolha um item</h2><p>{pokemon.name} · itens têm condições próprias de ativação.</p></div><button type="button" onClick={onClose} aria-label="Fechar seletor de item"><X size={21} /></button></header>
       {feedback ? <div className={styles.feedback} role="status"><CheckCircle size={21} weight="fill" /><span>{feedback}</span></div> : <div className={styles.list}>{ITEMS.map((item) => {
         const available = economy.inventory?.[item.id] || 0;
         const storedItem = item.id === "type-boost" ? `${primaryType}-boost` : item.id;

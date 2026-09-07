@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const engineSource = await readFile(new URL("./engine.js", import.meta.url), "utf8");
-const { MAX_POTIONS, MAX_SPECIAL_ATTACK_USES, calculateDamage, createBattleState, getHpRatio, getPokemonMatchup, multiplier, resolveAction, resolvePostDamageHeldItem } = await import(`data:text/javascript;base64,${Buffer.from(engineSource).toString("base64")}`);
+const { HELD_ITEM_TRIGGER, MAX_POTIONS, MAX_SPECIAL_ATTACK_USES, calculateDamage, createBattleState, getHpRatio, getPokemonMatchup, multiplier, resolveAction, resolveHeldItemEvent, resolvePostDamageHeldItem } = await import(`data:text/javascript;base64,${Buffer.from(engineSource).toString("base64")}`);
 
 const pokemon = (id, hp = 100, maxHp = 100) => ({ id, name: `pokemon-${id}`, type: "normal", hp, maxHp });
 const makeState = () => createBattleState(
@@ -109,9 +109,11 @@ test("berries activate automatically once at their configured HP threshold", () 
   state.guest.team[0].hp = 55;
   const next = resolveAction(state, "host", { type: "attack", moveId: "strike" });
   assert.equal(next.guest.team[0].heldItem, null);
-  assert.ok(next.effect.berry?.healing > 0);
-  assert.equal(next.effect.berry?.owner, "guest");
-  assert.equal(next.effect.berry?.targetPokemonId, 4);
+  assert.equal(next.effect.heldItem?.itemId, "oran");
+  assert.equal(next.effect.heldItem?.effect.type, "heal_hp");
+  assert.ok(next.effect.heldItem?.effect.amount > 0);
+  assert.equal(next.effect.heldItem?.owner, "guest");
+  assert.equal(next.effect.heldItem?.targetPokemonId, 4);
 });
 
 test("post-damage berries use the normalized current HP threshold and never revive", () => {
@@ -120,7 +122,7 @@ test("post-damage berries use the normalized current HP threshold and never revi
   assert.equal(resolvePostDamageHeldItem(fighter(80)), null);
   assert.equal(resolvePostDamageHeldItem(fighter(51)), null);
   const atBoundary = fighter(50);
-  assert.deepEqual(resolvePostDamageHeldItem(atBoundary), { berry: "oran", trigger: "post-attack-damage", healing: 20, beforeHp: 50, afterHp: 70, consumed: true });
+  assert.deepEqual(resolvePostDamageHeldItem(atBoundary), { type: "held-item-activated", itemId: "oran", pokemonId: 1, sourcePokemonId: null, targetPokemonId: 1, trigger: "after_damage_received", eventId: null, effect: { type: "heal_hp", amount: 20 }, beforeHp: 50, afterHp: 70, consumed: true });
   assert.equal(atBoundary.heldItem, null);
   const fainted = fighter(0);
   assert.equal(resolvePostDamageHeldItem(fainted), null);
@@ -131,9 +133,52 @@ test("Sitrus heals 30% of max HP only at the same post-damage threshold", () => 
   const highHp = { id: 1, hp: 51, maxHp: 100, heldItem: "sitrus" };
   assert.equal(resolvePostDamageHeldItem(highHp), null);
   const triggered = { id: 1, hp: 40, maxHp: 100, heldItem: "sitrus" };
-  assert.equal(resolvePostDamageHeldItem(triggered).healing, 30);
+  assert.equal(resolvePostDamageHeldItem(triggered).effect.amount, 30);
   assert.equal(triggered.hp, 70);
   assert.equal(triggered.heldItem, null);
+});
+
+test("a low-HP owner attacking never triggers its own Berry", () => {
+  const state = makeState();
+  state.host.team[0].hp = 40;
+  state.host.team[0].heldItem = "oran";
+  const next = resolveAction(state, "host", { type: "attack", moveId: "strike", actionId: "owner-attacks" });
+  assert.equal(next.host.team[0].hp, 40);
+  assert.equal(next.host.team[0].heldItem, "oran");
+  assert.equal(next.effect.heldItem, undefined);
+});
+
+test("held berries only resolve for their owner after received damage", () => {
+  const owner = { id: "pikachu", hp: 42, maxHp: 100, heldItem: "oran" };
+  assert.equal(resolveHeldItemEvent({ trigger: HELD_ITEM_TRIGGER.AFTER_DAMAGE_RECEIVED, owner, targetPokemonId: "squirtle", eventId: "wrong-target" }), null);
+  assert.equal(owner.heldItem, "oran");
+  const result = resolveHeldItemEvent({ trigger: HELD_ITEM_TRIGGER.AFTER_DAMAGE_RECEIVED, owner, targetPokemonId: "pikachu", sourcePokemonId: "enemy", eventId: "received-damage" });
+  assert.equal(result.effect.amount, 20);
+  assert.equal(owner.hp, 62);
+  assert.equal(owner.heldItem, null);
+});
+
+test("berries do not activate from switches, full heals, fainting, or duplicate damage events", () => {
+  const switched = makeState();
+  switched.host.team[0].hp = 40;
+  switched.host.team[0].heldItem = "oran";
+  const afterSwitch = resolveAction(switched, "host", { type: "switch", index: 1 });
+  assert.equal(afterSwitch.host.team[0].heldItem, "oran");
+  const fainted = { id: "fainted", hp: 0, maxHp: 100, heldItem: "oran" };
+  assert.equal(resolveHeldItemEvent({ trigger: HELD_ITEM_TRIGGER.AFTER_DAMAGE_RECEIVED, owner: fainted, targetPokemonId: "fainted", eventId: "faint" }), null);
+  const duplicate = { id: "duplicate", hp: 42, maxHp: 100, heldItem: "oran" };
+  assert.equal(resolveHeldItemEvent({ trigger: HELD_ITEM_TRIGGER.AFTER_DAMAGE_RECEIVED, owner: duplicate, targetPokemonId: "duplicate", eventId: "same", processedEventIds: ["same"] }), null);
+  assert.equal(duplicate.heldItem, "oran");
+});
+
+test("legacy status berries cannot emit a held-item event or clear status", () => {
+  const state = makeState();
+  state.guest.team[0].heldItem = "cheri";
+  state.guest.team[0].status = { id: "paralysis", turns: 0 };
+  const next = resolveAction(state, "host", { type: "attack", moveId: "strike", actionId: "legacy-status-berry" });
+  assert.equal(next.guest.team[0].heldItem, "cheri");
+  assert.equal(next.guest.team[0].status?.id, "paralysis");
+  assert.equal(next.effect.heldItem, undefined);
 });
 
 test("type amplifier applies exactly once to a matching primary-type move", () => {

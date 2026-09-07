@@ -28,6 +28,7 @@ import { getItemLabel, getStatusLabel, getTypeLabel } from "@/lib/localization/p
 import { formatCoins } from "@/lib/economy";
 import useBattleParallax from "@/hooks/useBattleParallax";
 import ItemSprite from "@/components/ItemSprite/ItemSprite";
+import PokemonAura from "@/components/PokemonAura/PokemonAura";
 
 function HpBar({ pokemon }) {
   const percent = Math.max(0, (pokemon.hp / pokemon.maxHp) * 100);
@@ -111,7 +112,8 @@ function Fighter({ side, player, isHit, isAttacking, isHealing, matchup }) {
         )}
       </div>
       <div className="fighter-art">
-        <motion.img
+        <span className="fighter-shadow" aria-hidden="true" />
+        <PokemonAura pokemon={pokemon} variant="battle" className="fighter-aura"><motion.img
           animate={{ y: [0, -5, 0] }}
           transition={{
             repeat: Infinity,
@@ -123,8 +125,7 @@ function Fighter({ side, player, isHit, isAttacking, isHealing, matchup }) {
             side: "opponent",
           })}
           alt={pokemon.name}
-        />
-        <span className="fighter-shadow" />
+        /></PokemonAura>
       </div>
     </div>
   );
@@ -151,10 +152,11 @@ function BattleNotification({ state, role, opponentName }) {
         detail: state.log,
         tone: "result",
       });
-    else if (state.effect?.berry)
-      setNotification({ title: `${state.effect.berry.berry.toUpperCase()} BERRY!`, detail: state.effect.berry.healing ? `+${state.effect.berry.healing} HP · item consumido` : "Status removido · item consumido", tone: "healing" });
-    else if (state.effect?.amplifier)
-      setNotification({ title: "AMPLIFICADOR ATIVO", detail: "+10% DANO DO TIPO PRINCIPAL", tone: "strong" });
+    else if (state.effect?.heldItem) {
+      const item = state.effect.heldItem;
+      const itemName = getItemLabel(item.itemId).toUpperCase();
+      setNotification({ title: `${itemName} ATIVADA!`, detail: item.effect?.type === "heal_hp" ? `+${item.effect.amount} HP · item consumido` : "Item consumido", tone: "healing", itemId: item.itemId });
+    }
     else if (state.effect?.ability)
       setNotification({
         title: state.effect.ability.toUpperCase() + "!",
@@ -191,7 +193,7 @@ function BattleNotification({ state, role, opponentName }) {
       });
     const timer = setTimeout(
       () => setNotification(null),
-      state.status === "countdown" ? 1450 : 1050,
+      state.status === "countdown" ? 1450 : state.effect?.heldItem ? 850 : 1050,
     );
     return () => clearTimeout(timer);
   }, [
@@ -217,6 +219,7 @@ function BattleNotification({ state, role, opponentName }) {
             role="status"
             aria-live="polite"
           >
+            {notification.itemId && <ItemSprite item={notification.itemId} alt="" className="battle-notification-item" />}
             <strong>{notification.title}</strong>
             <span>{notification.detail}</span>
           </motion.div>

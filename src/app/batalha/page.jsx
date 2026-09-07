@@ -91,9 +91,9 @@ export default function BattlePage() {
       void webStore.consumeInventory({ [actionItem]: 1 }, `${state.matchId}:${state.revision}:bag:${localRole}:${actionItem}`).then((result) => {
         if (result.ok) setInventory(result.economy.inventory || {});
       });
-    const berry = effect.berry;
-    if (berry && berry.owner === localRole)
-      void webStore.consumeHeldItem(berry.targetPokemonId, berry.berry, `${state.matchId}:${state.revision}:held:${localRole}:${berry.targetPokemonId}:${berry.berry}`).then((result) => {
+    const heldItem = effect.heldItem;
+    if (heldItem?.consumed && heldItem.owner === localRole)
+      void webStore.consumeHeldItem(heldItem.targetPokemonId, heldItem.itemId, `${state.matchId}:${state.revision}:held:${localRole}:${heldItem.targetPokemonId}:${heldItem.itemId}:${heldItem.eventId}`).then((result) => {
         if (result.ok) setInventory(result.economy.inventory || {});
       });
   }, []);
