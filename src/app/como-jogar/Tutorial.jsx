@@ -415,6 +415,7 @@ export default function Tutorial() {
               Cada Pokémon repetido sobe 1 nível, até o nível{" "}
               {MAX_POKEMON_LEVEL}. Encontrar outro igual deixa o seu mais forte.
             </p>
+            <p className="tutorial-note">Do nível 1 ao 5, a arte é padrão. A partir do nível 6, o Pokémon ganha apresentação visual shiny.</p>
             <LevelDemo />
           </Step>
           <Step

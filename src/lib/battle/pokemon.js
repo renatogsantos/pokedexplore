@@ -1,6 +1,6 @@
-export function getPokemonArtwork(pokemon) {
-  return pokemon?.artwork || pokemon?.sprites?.other?.["official-artwork"]?.front_default || pokemon?.sprites?.other?.home?.front_default || pokemon?.sprites?.front_default || "/pokenull.png";
-}
+import { getPokemonSprite, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
+
+export function getPokemonArtwork(pokemon) { return getPokemonSprite({ pokemon, context: SPRITE_CONTEXT.GENERAL }); }
 
 export function getHomeShinySprite(pokemon) {
   return pokemon?.homeShinySprite || pokemon?.sprites?.other?.home?.front_shiny || null;
@@ -10,9 +10,7 @@ export function getHomeDefaultSprite(pokemon) {
   return pokemon?.homeDefaultSprite || pokemon?.sprites?.other?.home?.front_default || null;
 }
 
-export function getReserveSprite(pokemon) {
-  return getHomeShinySprite(pokemon) || getHomeDefaultSprite(pokemon) || pokemon?.animatedShiny || pokemon?.sprites?.versions?.["generation-v"]?.["black-white"]?.animated?.front_shiny || getPokemonArtwork(pokemon);
-}
+export function getReserveSprite(pokemon) { return getPokemonSprite({ pokemon, context: SPRITE_CONTEXT.BATTLE_THUMBNAIL }); }
 
 export function getPokemonType(pokemon) {
   return pokemon?.type || pokemon?.types?.[0]?.type?.name || "normal";
@@ -42,6 +40,8 @@ export function toBattlePokemon(pokemon) {
     attackMultiplier: getStatMultiplier(level),
     stats: { attack: levelStat("attack"), defense: levelStat("defense"), specialAttack: levelStat("specialAttack"), specialDefense: levelStat("specialDefense"), speed: levelStat("speed") },
     artwork: getPokemonArtwork(pokemon),
+    sprites: pokemon.sprites,
+    visuals: pokemon.visuals,
     homeShinySprite: getHomeShinySprite(pokemon),
     homeDefaultSprite: getHomeDefaultSprite(pokemon),
     animatedShiny: getReserveSprite(pokemon),

@@ -21,6 +21,7 @@ import { motion } from "framer-motion";
 import ReactParallaxTilt from "react-parallax-tilt";
 import PokemonRarity, { getRarityClassName } from "@/components/PokemonRarity";
 import PokemonTypeIcon from "@/components/PokemonTypeIcon";
+import { getPokemonSprite, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
 
 export default function CardPokemon({ pokemon }) {
   const dispatch = useDispatch();
@@ -88,11 +89,7 @@ export default function CardPokemon({ pokemon }) {
         draggable={false}
         className="card-pokemon-img"
         src={
-          pokemon.sprites.other["official-artwork"].front_default
-            ? pokemon.sprites.other["official-artwork"].front_default
-            : pokemon.sprites.other.home.front_default
-            ? pokemon.sprites.other.home.front_default
-            : "pokenull.png"
+          getPokemonSprite({ pokemon, context: SPRITE_CONTEXT.GENERAL })
         }
         alt="Pokémon selecionado"
       />

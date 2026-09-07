@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import { getPokemonLevel } from "@/lib/pokemon/progression";
 import PokemonRarity, { getRarityClassName } from "@/components/PokemonRarity";
+import { getPokemonSprite, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
 
 export default function CardPokedex({ pokemon }) {
   const [color, setColor] = useState("#fff");
@@ -52,9 +53,7 @@ export default function CardPokedex({ pokemon }) {
           loading="lazy"
           draggable={false}
           src={
-            pokemon.sprites.other["official-artwork"].front_default
-              ? pokemon.sprites.other["official-artwork"].front_default
-              : "/pokenull.png"
+            getPokemonSprite({ pokemon, context: SPRITE_CONTEXT.GENERAL })
           }
           alt="Pokemon"
         />

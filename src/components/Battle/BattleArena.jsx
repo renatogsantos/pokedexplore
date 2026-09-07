@@ -19,6 +19,7 @@ import {
   multiplier,
 } from "@/lib/battle/engine";
 import { getPokemonArtwork, getReserveSprite } from "@/lib/battle/pokemon";
+import { getPokemonSprite, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
 import { playBattleSound } from "@/lib/battle/sound";
 import PokemonRarity, { getRarityClassName } from "@/components/PokemonRarity";
 import { calculateBattleRewards } from "@/lib/battle/rewards";
@@ -115,7 +116,11 @@ function Fighter({ side, player, isHit, isAttacking, isHealing, matchup }) {
             repeat: Infinity,
             duration: side === "player" ? 2.4 : 2.8,
           }}
-          src={getPokemonArtwork(pokemon)}
+          src={getPokemonSprite({
+            pokemon,
+            context: side === "player" ? SPRITE_CONTEXT.GENERAL : SPRITE_CONTEXT.BATTLE_ACTIVE,
+            side: "opponent",
+          })}
           alt={pokemon.name}
         />
         <span className="fighter-shadow" />
