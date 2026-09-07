@@ -1,4 +1,4 @@
-import { getPokemonSprite, isPokemonShiny, normalizePokemonVisuals, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
+import { getPokemonSprite, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
 
 export function getPokemonArtwork(pokemon) { return getPokemonSprite({ pokemon, context: SPRITE_CONTEXT.GENERAL }); }
 
@@ -11,9 +11,7 @@ export function getHomeDefaultSprite(pokemon) {
 }
 
 export function getShowdownThumbnail(pokemon) {
-  const visuals = normalizePokemonVisuals(pokemon);
-  const showdown = isPokemonShiny(pokemon) ? visuals.showdown.front.shiny || visuals.showdown.front.default : visuals.showdown.front.default;
-  return showdown || (pokemon?.id ? `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/${pokemon.id}.gif` : getPokemonSprite({ pokemon, context: SPRITE_CONTEXT.BATTLE_THUMBNAIL, side: "opponent" }));
+  return getPokemonSprite({ pokemon, context: SPRITE_CONTEXT.BATTLE_THUMBNAIL });
 }
 export function getReserveSprite(pokemon) { return getShowdownThumbnail(pokemon); }
 
@@ -37,7 +35,10 @@ export function toBattlePokemon(pokemon) {
   const maxHp = calculateLeveledStat(baseStats.hp || getPokemonHp(pokemon), level);
   return {
     id: pokemon.id,
+    source: pokemon.source || "pokeapi",
+    customId: pokemon.customId || null,
     name: pokemon.name,
+    displayName: pokemon.displayName || pokemon.name,
     type: getPokemonType(pokemon),
     types: getPokemonTypes(pokemon),
     level,
@@ -45,6 +46,9 @@ export function toBattlePokemon(pokemon) {
     attackMultiplier: getStatMultiplier(level),
     stats: { attack: levelStat("attack"), defense: levelStat("defense"), specialAttack: levelStat("specialAttack"), specialDefense: levelStat("specialDefense"), speed: levelStat("speed") },
     artwork: getPokemonArtwork(pokemon),
+    image: pokemon.image || null,
+    imageUrl: pokemon.imageUrl || null,
+    sprite: pokemon.sprite || null,
     sprites: pokemon.sprites,
     visuals: pokemon.visuals,
     homeShinySprite: getHomeShinySprite(pokemon),

@@ -121,8 +121,7 @@ function Fighter({ side, player, isHit, isAttacking, isHealing, matchup }) {
           }}
           src={getPokemonSprite({
             pokemon,
-            context: side === "player" ? SPRITE_CONTEXT.GENERAL : SPRITE_CONTEXT.BATTLE_ACTIVE,
-            side: "opponent",
+            context: SPRITE_CONTEXT.BATTLE_ACTIVE,
           })}
           alt={pokemon.name}
         /></PokemonAura>

@@ -103,6 +103,20 @@ test("battle bag Full Heal consumes the turn and clears a supported status", () 
   assert.equal(next.turn, "guest");
 });
 
+test("a serialized guest state keeps its inventory and resolves through the shared engine", () => {
+  const state = createBattleState(
+    { id: "host", name: "Host", team: [pokemon(1), pokemon(2), pokemon(3)] },
+    { id: "guest", name: "Guest", inventory: { potion: 4, "full-heal": 2 }, team: [pokemon(4, 40), pokemon(5), pokemon(6)] },
+    "guest",
+  );
+  const receivedByHost = JSON.parse(JSON.stringify(state));
+  const resolved = resolveAction(receivedByHost, "guest", { type: "potion", targetPokemonId: 4, actionId: "guest-potion" });
+  assert.equal(resolved.guest.bag.potion, 3);
+  assert.equal(resolved.guest.team[0].hp, 80);
+  assert.equal(resolved.turn, "host");
+  assert.strictEqual(resolveAction(resolved, "guest", { type: "potion", targetPokemonId: 4, actionId: "guest-potion" }), resolved);
+});
+
 test("berries activate automatically once at their configured HP threshold", () => {
   const state = makeState();
   state.guest.team[0].heldItem = "oran";

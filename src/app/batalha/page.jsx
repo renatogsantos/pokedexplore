@@ -220,6 +220,7 @@ export default function BattlePage() {
               setBattle((previous) => {
                 if (!previous) return previous;
                 const next = resolveAction(previous, "guest", payload);
+                if (next === previous) return previous;
                 persistBattleConsumables(next, currentRole);
                 broadcast(BATTLE_EVENTS.STATE, next);
                 return rewardFinishedBattle(previous, next, currentRole);
@@ -329,7 +330,7 @@ export default function BattlePage() {
       setNotice("Ainda conectando à sala. Aguarde antes de confirmar.");
       return;
     }
-    const payload = { player, team: selected.map(toBattlePokemon) };
+    const payload = { player: { ...player, inventory: { potion: inventory.potion || 0, "full-heal": inventory["full-heal"] || 0 } }, team: selected.map(toBattlePokemon) };
     realtime.current
       .updatePresence({ ready: true, team: payload.team })
       .then(() => {
