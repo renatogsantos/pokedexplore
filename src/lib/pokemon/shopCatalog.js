@@ -1,4 +1,5 @@
 import { POKEMON_RARITY } from "./rarity";
+import { CUSTOM_POKEMON_CATALOG } from "./customCatalog";
 
 const DATA_URL = "https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/csv";
 let catalogRequest;
@@ -39,7 +40,8 @@ function createCatalog([pokemonCsv, speciesCsv, statsCsv]) {
         stats: stats.get(Number(item.id)) || [],
       };
     })
-    .filter((pokemon) => pokemon.id && pokemon.name && pokemon.stats.length);
+    .filter((pokemon) => pokemon.id && pokemon.name && pokemon.stats.length)
+    .concat(CUSTOM_POKEMON_CATALOG);
 }
 
 export function getShopCatalog() {

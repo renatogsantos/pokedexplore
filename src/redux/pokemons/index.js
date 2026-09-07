@@ -5,6 +5,7 @@ import axios from "axios";
 import { Block, Loading, Notify } from "notiflix";
 import { enrichPokemonRarity } from "@/lib/pokemon/rarity";
 import { celebratePokemonCapture } from "@/lib/celebration";
+import { getCustomPokemon } from "@/lib/pokemon/customCatalog";
 
 //Estado inicial
 const initialState = {
@@ -31,6 +32,13 @@ export const getPokemon = (pokemon) => {
       svgSize: "120px",
       svgColor: "#fff",
     });
+    const custom = getCustomPokemon(pokemon);
+    if (custom) {
+      dispatch(actPokemon(custom));
+      dispatch(actOpenCardPokemon(true));
+      Loading.remove();
+      return;
+    }
     axios
       .get(`https://pokeapi.co/api/v2/pokemon/${pokemon}`)
       .then(async (resp) => {
@@ -136,6 +144,11 @@ export const getTypesPokemons = (type) => {
 
 export const getPokemonWeaknesses = (pokemonName) => {
   return async (dispatch) => {
+    const custom = getCustomPokemon(pokemonName);
+    if (custom) {
+      dispatch(actWeaknesses(custom.weaknesses || []));
+      return custom.weaknesses || [];
+    }
     axios
       .get(`https://pokeapi.co/api/v2/pokemon/${pokemonName}`)
       .then((pokemonResponse) => {

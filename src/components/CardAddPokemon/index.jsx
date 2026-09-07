@@ -23,6 +23,7 @@ import ReactParallaxTilt from "react-parallax-tilt";
 import PokemonRarity, { getRarityClassName } from "@/components/PokemonRarity";
 import PokemonTypeIcon from "@/components/PokemonTypeIcon";
 import { getPokemonRarityPresentation } from "@/lib/pokemon/rarity";
+import { getPokemonSprite, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
 
 export default function CardAddPokemon({ pokemon }) {
   const dispatch = useDispatch();
@@ -93,11 +94,7 @@ export default function CardAddPokemon({ pokemon }) {
         draggable={false}
         width="220"
         className="card-pokemon-img"
-        src={
-          pokemon.sprites.other["official-artwork"].front_default
-            ? pokemon.sprites.other["official-artwork"].front_default
-            : "/pokenull.png"
-        }
+        src={getPokemonSprite({ pokemon, context: SPRITE_CONTEXT.GENERAL })}
         alt="Pokémon selecionado"
       />
       {rarity.rarity !== "normal" && <div className={`rarity-capture-reveal ${rarity.className}`} role="status"><PokemonRarity pokemon={pokemon} /><strong>Pokémon {rarity.label}!</strong></div>}

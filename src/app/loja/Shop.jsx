@@ -20,9 +20,10 @@ import CoinBalance from "@/components/CoinBalance";
 import { celebratePokemonPurchase } from "@/lib/celebration";
 import ItemSprite from "@/components/ItemSprite/ItemSprite";
 import { preloadItemVisuals } from "@/lib/items/visuals";
+import { getCustomPokemon } from "@/lib/pokemon/customCatalog";
 
 const PAGE_SIZE = 12;
-const artwork = (pokemon) => pokemon?.sprites?.other?.["official-artwork"]?.front_default || pokemon?.sprites?.front_default || "/pokenull.png";
+const artwork = (pokemon) => pokemon?.artwork || pokemon?.image || pokemon?.sprites?.other?.["official-artwork"]?.front_default || pokemon?.sprites?.front_default || "/pokenull.png";
 const typesOf = (pokemon) => pokemon?.types?.map((item) => item.type?.name || item.name).filter(Boolean) || [];
 const Coin = () => <img className="coin-image" src="/coin.png" alt="" aria-hidden="true" />;
 
@@ -64,7 +65,7 @@ export default function Shop() {
   const dispatch = useDispatch(); const collection = useSelector((state) => state.pokemons.Pokedex) || []; const balance = useSelector((state) => state.economy.coins);
   const [query, setQuery] = useState(""); const [items, setItems] = useState([]); const [catalog, setCatalog] = useState([]); const [loading, setLoading] = useState(true); const [catalogError, setCatalogError] = useState(false); const [rarity, setRarity] = useState("all"); const [sort, setSort] = useState("number"); const [page, setPage] = useState(1); const [purchase, setPurchase] = useState(null); const [feedback, setFeedback] = useState(null); const [shopTab, setShopTab] = useState("pokemon"); const [upgradeCategory, setUpgradeCategory] = useState("all"); const [economy, setEconomy] = useState({ inventory: {}, ownedTms: [] }); const cache = useRef(new Map()); const results = useRef(null);
   const searching = Boolean(query.trim());
-  const loadPokemon = async (name) => { const key = name.trim().toLowerCase(); if (cache.current.has(key)) return cache.current.get(key); const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${encodeURIComponent(key)}`); if (!response.ok) throw new Error("not-found"); const pokemon = await enrichPokemonRarity(await response.json()); cache.current.set(key, pokemon); return pokemon; };
+  const loadPokemon = async (name) => { const key = name.trim().toLowerCase(); if (cache.current.has(key)) return cache.current.get(key); const custom = getCustomPokemon(key); if (custom) { cache.current.set(key, custom); return custom; } const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${encodeURIComponent(key)}`); if (!response.ok) throw new Error("not-found"); const pokemon = await enrichPokemonRarity(await response.json()); cache.current.set(key, pokemon); return pokemon; };
   useEffect(() => { webStore.getData("Pokedex").then((data) => dispatch(actAddPokedex(data))); webStore.getEconomy().then((data) => { setEconomy(data); dispatch(actCoins(data.coins)); }); }, [dispatch]);
   useEffect(() => { void preloadItemVisuals(SHOP_UPGRADES.map((upgrade) => upgrade.id)); }, []);
   useEffect(() => { let active = true; getShopCatalog().then((data) => active && setCatalog(data)).catch(() => active && setCatalogError(true)); return () => { active = false; }; }, []);

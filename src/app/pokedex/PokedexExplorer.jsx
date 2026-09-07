@@ -26,13 +26,10 @@ import PokemonRarity, { getRarityClassName } from "@/components/PokemonRarity";
 import CoinBalance from "@/components/CoinBalance";
 import PokemonPagination from "@/components/PokemonPagination";
 import useThreeRowPagination from "@/hooks/useThreeRowPagination";
+import { getPokemonSprite, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
 
 function getArtwork(pokemon) {
-  return (
-    pokemon?.sprites?.other?.["official-artwork"]?.front_default ||
-    pokemon?.sprites?.other?.home?.front_default ||
-    "/pokenull.png"
-  );
+  return getPokemonSprite({ pokemon, context: SPRITE_CONTEXT.GENERAL });
 }
 
 function Ball({ size = 24 }) {
