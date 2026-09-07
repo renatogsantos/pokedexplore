@@ -16,7 +16,6 @@ import ButtonPrimary from "../components/ButtonPrimary";
 import {
   CaretUp,
   Clipboard,
-  GameController,
   GithubLogo,
   House,
   LinkedinLogo,
@@ -230,11 +229,6 @@ export default function Home() {
               <div><strong>Fortalecer equipe</strong><small>Compre cópias na Loja</small></div>
               <span aria-hidden="true">02</span>
             </Link>
-            <Link href="/batalha" className="home-destination home-destination--battle">
-              <GameController size={26} weight="duotone" aria-hidden="true" />
-              <div><strong>Entrar na arena</strong><small>Treine contra a CPU</small></div>
-              <span aria-hidden="true">03</span>
-            </Link>
           </div>
         </section>
       </Container>
@@ -259,7 +253,6 @@ export default function Home() {
             <Link href="/como-jogar" className="pokedex-guide-link">Como jogar</Link>
             <CoinBalance />
             <Link href="/pokedex" className="pokedex-collection-link">Minha Pokédex</Link>
-            <Link href="/batalha" className="pokedex-battle-link">Batalhar</Link>
           </div>
         </div>
         <div className="pokedex-list" title="Ctrl + scroll para navegar.">

@@ -8,7 +8,6 @@ import {
   CaretRight,
   Coins,
   FirstAid,
-  GameController,
   Heart,
   Lightning,
   Shield,
@@ -192,9 +191,6 @@ export default function Tutorial() {
         <Link href="/" className="tutorial-back">
           <ArrowLeft size={20} aria-hidden="true" /> Pokédex
         </Link>
-        <Link href="/batalha" className="tutorial-header-cta d-flex align-items-center justify-content-center">
-          <GameController size={19} aria-hidden="true" />
-        </Link>
       </header>
       <div className="tutorial-shell" id="tutorial-content">
         <section className="tutorial-hero mb-4" aria-labelledby="tutorial-title">
@@ -210,9 +206,6 @@ export default function Tutorial() {
                 Começar a aprender{" "}
                 <CaretRight weight="bold" aria-hidden="true" />
               </a>
-              <Link href="/batalha" className="tutorial-secondary">
-                Treinar contra CPU
-              </Link>
             </div>
           </div>
           <div
@@ -582,9 +575,6 @@ export default function Tutorial() {
             <span className="tutorial-eyebrow">NOVO POR AQUI?</span>
             <h2>Treine primeiro contra a CPU</h2>
             <p>Escolha sua equipe e aprenda no seu ritmo.</p>
-            <Link href="/batalha" className="tutorial-primary">
-              Treinar agora <GameController aria-hidden="true" />
-            </Link>
           </div>
           <div>
             <span className="tutorial-eyebrow">CONTRA UM AMIGO</span>
@@ -641,9 +631,6 @@ export default function Tutorial() {
           <div>
             <Link href="/" className="tutorial-secondary">
               Capturar Pokémon
-            </Link>
-            <Link href="/batalha" className="tutorial-primary">
-              Ir para batalha <Sword aria-hidden="true" />
             </Link>
           </div>
         </section>

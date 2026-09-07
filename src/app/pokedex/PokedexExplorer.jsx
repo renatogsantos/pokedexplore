@@ -9,7 +9,6 @@ import {
   GameController,
   MagnifyingGlass,
   Sparkle,
-  Sword,
 } from "@phosphor-icons/react";
 import CardAddPokemon from "@/components/CardAddPokemon";
 import CardPokemon from "@/components/CardPokemon";
@@ -164,7 +163,6 @@ export default function PokedexExplorer() {
         <div className="collection-header-links">
           <Link href="/como-jogar">Como jogar</Link>
           <CoinBalance />
-          <Link href="/batalha">Batalhar</Link>
         </div>
       </header>
       <div className="collection-shell" id="collection-content">
@@ -184,10 +182,6 @@ export default function PokedexExplorer() {
               >
                 <Ball size={23} /> Abrir Pokébola
               </button>
-              <Link href="/batalha" className="collection-battle">
-                <Sword size={20} weight="fill" aria-hidden="true" /> Montar
-                equipe
-              </Link>
             </div>
           </div>
           <div className="collection-hero-art" aria-hidden="true">

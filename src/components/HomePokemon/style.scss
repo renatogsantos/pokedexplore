@@ -199,8 +199,7 @@
   width: 100%;
 }
 
-.home-hero__explore,
-.home-hero__battle {
+.home-hero__explore {
   display: inline-flex;
   min-height: 52px;
   align-items: center;
@@ -221,15 +220,7 @@
   color: #17243b;
 }
 
-.home-hero__battle {
-  flex: 1 1 175px;
-  border: 1px solid rgba(255, 255, 255, .5);
-  background: rgba(5, 12, 24, .3);
-  color: inherit;
-}
-
-.home-hero__explore:hover,
-.home-hero__battle:hover {
+.home-hero__explore:hover {
   color: inherit;
   filter: brightness(1.06);
   transform: translateY(-2px);
@@ -461,7 +452,7 @@
 
 .home-destinations__grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: .75rem;
   margin-top: 1.3rem;
 }
@@ -496,7 +487,6 @@
 .home-destination small { color: #bdd0e8; font-size: .68rem; font-weight: 700; }
 .home-destination > span { position: absolute; top: 8px; right: 10px; color: rgba(255, 255, 255, .27); font-size: .65rem; font-weight: 900; }
 .home-destination--shop > svg { color: #a9e9c2; }
-.home-destination--battle > svg { color: #8dbdff; }
 .home-destination:hover { border-color: rgba(255, 203, 5, .78); background: rgba(29, 53, 87, .78); color: #fff; transform: translateY(-3px); }
 .home-destination:focus-visible { outline: 3px solid #ffdf5d; outline-offset: 3px; }
 
@@ -524,8 +514,7 @@
     display: grid;
   }
 
-  .home-hero__explore,
-  .home-hero__battle {
+  .home-hero__explore {
     width: 100%;
   }
 
@@ -570,7 +559,6 @@
   .home-hero__socials a,
   .project-intro__primary,
   .home-hero__explore,
-  .home-hero__battle,
   .home-destination {
     transition: none;
   }

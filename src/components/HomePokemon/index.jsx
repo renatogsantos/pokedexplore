@@ -4,7 +4,6 @@ import { pokemonHome } from "@/helpers/PokemonHome";
 import { getPokemon } from "@/redux/pokemons";
 import {
   GithubLogo,
-  GameController,
   Lightning,
   LinkedinLogo,
   WhatsappLogo,
@@ -49,9 +48,6 @@ export default function HomePokemon({ name }) {
             <div className="home-hero__actions">
               <Link href="#Pokemons" className="home-hero__explore">
                 Explorar Pokémon <Lightning size={21} weight="fill" aria-hidden="true" />
-              </Link>
-              <Link href="/batalha" className="home-hero__battle">
-                <GameController size={20} weight="fill" aria-hidden="true" /> Ir para a arena
               </Link>
             </div>
             <ButtonPrimary

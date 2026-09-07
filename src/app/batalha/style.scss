@@ -2837,6 +2837,8 @@
   }
 
   .battle-page:has(.battle-arena) .attack-button {
+    display: flex;
+    align-items: center;
     min-height: 56px;
     padding: 8px 10px;
   }
@@ -3046,6 +3048,8 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .battle-page:has(.battle-arena) .attack-button {
+  display: flex;
+  align-items: center;
   min-width: 0;
   min-height: 66px;
   align-items: flex-start;
@@ -3054,10 +3058,14 @@
   min-width: 0;
 }
 .battle-page:has(.battle-arena) .attack-button strong {
+  display: flex;
+  align-items: center;
   overflow-wrap: anywhere;
   white-space: normal;
 }
 .battle-page:has(.battle-arena) .attack-button small {
+  display: flex;
+  align-items: center;
   overflow: visible;
   text-overflow: clip;
   white-space: normal;
@@ -3164,6 +3172,8 @@
   display: none;
 }
 .battle-page:has(.battle-arena) .attack-button {
+  display: flex;
+  align-items: center;
   min-height: 54px;
   padding: 7px 8px;
   gap: 6px;
@@ -3175,10 +3185,14 @@
   border-radius: 9px;
 }
 .battle-page:has(.battle-arena) .attack-button strong {
+  display: flex;
+  align-items: center;
   font-size: 0.72rem;
   line-height: 1.05;
 }
 .battle-page:has(.battle-arena) .attack-button small {
+  display: flex;
+  align-items: center;
   margin-top: 2px;
   font-size: 0.54rem;
 }
@@ -3240,6 +3254,8 @@
 
 .battle-page:has(.battle-arena) .attack-button,
 .battle-page:has(.battle-arena) .attack-button:nth-child(3):last-child {
+  display: flex;
+  align-items: center;
   grid-column: auto;
   min-height: 54px;
   padding: 6px 8px;
@@ -3260,6 +3276,8 @@
 
 .battle-page:has(.battle-arena) .attack-button:hover:not(:disabled),
 .battle-page:has(.battle-arena) .attack-button:focus-visible {
+  display: flex;
+  align-items: center;
   transform: translateY(-1px);
   border-color: #82b8f0aa;
   background: #193053;
@@ -3268,11 +3286,15 @@
 }
 
 .battle-page:has(.battle-arena) .attack-button:active:not(:disabled) {
+  display: flex;
+  align-items: center;
   transform: scale(0.98);
   box-shadow: inset 0 2px 5px #02061188;
 }
 
 .battle-page:has(.battle-arena) .attack-button.recommended {
+  display: flex;
+  align-items: center;
   border-color: #82d88a66;
   background: linear-gradient(135deg, #193149, #183329);
 }
@@ -3285,15 +3307,22 @@
 }
 
 .battle-page:has(.battle-arena) .attack-button.is-exhausted {
+  display: flex;
+  align-items: center;
   border-color: #ffffff10;
   background: #101a2a;
 }
 
 .battle-page:has(.battle-arena) .attack-button:disabled {
+  display: flex;
+  align-items: center;
   opacity: 0.48;
 }
 
 .battle-page:has(.battle-arena) .attack-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 29px;
   height: 29px;
   flex-basis: 29px;
@@ -3311,6 +3340,8 @@
   gap: 2px;
 }
 .battle-page:has(.battle-arena) .attack-button strong {
+  display: flex;
+  align-items: center;
   overflow: hidden;
   color: #f7fbff;
   font-size: 0.72rem;

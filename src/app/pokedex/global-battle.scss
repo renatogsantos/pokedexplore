@@ -1,0 +1,10 @@
+/* The header now has informational links only; reserve the gold treatment for actions. */
+.collection-header-links > a {
+  border-color: #ffffff24;
+  color: #dce9fb;
+}
+
+.collection-header-links > a:last-child {
+  border-color: #ffffff24;
+  color: #dce9fb;
+}

@@ -27,6 +27,74 @@ body {
   background: #000;
 }
 
+/* A única entrada genérica da Arena: segura em mobile e sem cobrir CTAs da página. */
+.global-battle-content {
+  min-width: 0;
+}
+
+body:has(.global-battle-button) .global-battle-content {
+  padding-bottom: calc(82px + env(safe-area-inset-bottom));
+}
+
+.global-battle-button {
+  position: fixed;
+  right: max(14px, calc(env(safe-area-inset-right) + 10px));
+  bottom: max(14px, calc(env(safe-area-inset-bottom) + 10px));
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 1px solid #ffe16a;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffdc1d, #ffb900);
+  box-shadow: 0 8px 24px #000a, inset 0 1px 0 #fff8;
+  color: #09192f;
+  font: inherit;
+  font-size: .78rem;
+  font-weight: 950;
+  letter-spacing: .02em;
+  cursor: pointer;
+  transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+}
+
+.global-battle-button:hover:not(:disabled) {
+  filter: brightness(1.05);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px #000b, 0 0 0 4px #ffcb0526, inset 0 1px 0 #fff8;
+}
+
+.global-battle-button:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+
+.global-battle-button:disabled {
+  cursor: wait;
+  opacity: .78;
+}
+
+/* Overlays own the foreground and must never compete with the global action. */
+body:has([role="dialog"]) .global-battle-button,
+body:has(.secret-reward-overlay) .global-battle-button {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .global-battle-button {
+    right: max(24px, calc((100vw - 1240px) / 2));
+    bottom: 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .global-battle-button {
+    transition: none;
+  }
+}
+
 ::-webkit-scrollbar {
   width: 0;
   height: 0;
