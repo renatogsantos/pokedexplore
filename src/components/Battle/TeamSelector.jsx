@@ -4,6 +4,7 @@ import {
   CheckCircle,
   GameController,
   MagnifyingGlass,
+  Plus,
 } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import { getPokemonArtwork, getPokemonType } from "@/lib/battle/pokemon";
@@ -12,6 +13,9 @@ import PokemonRarity, { getRarityClassName } from "@/components/PokemonRarity";
 import { pokemonData } from "@/helpers/PokemonTypes";
 import PokemonPagination from "@/components/PokemonPagination";
 import useThreeRowPagination from "@/hooks/useThreeRowPagination";
+import ItemSprite from "@/components/ItemSprite/ItemSprite";
+import HeldItemDrawer from "@/components/HeldItemDrawer/HeldItemDrawer";
+import { webStore } from "@/helpers/webStore";
 
 function TypeBadge({ type }) {
   return (
@@ -22,6 +26,12 @@ function TypeBadge({ type }) {
   );
 }
 
+function HeldItemBadge({ item, compact = false }) {
+  if (!item) return compact ? null : <span className="battle-held-item empty">SEM ITEM</span>;
+  const label = item === "oran" ? "Berry Oran" : item === "sitrus" ? "Berry Sitrus" : "Amplificador";
+  return <span className={`battle-held-item ${compact ? "compact" : ""}`}><ItemSprite item={item} alt="" className="battle-held-item-sprite" />{!compact && `${label} · EQUIPADO`}</span>;
+}
+
 export default function TeamSelector({
   collection,
   selected,
@@ -29,10 +39,13 @@ export default function TeamSelector({
   onReady,
   waiting,
   canReady = true,
+  onEquipmentChanged,
 }) {
   const [query, setQuery] = useState("");
   const [selectedType, setSelectedType] = useState("all");
   const [page, setPage] = useState(1);
+  const [economy, setEconomy] = useState({ inventory: {} });
+  const [equipmentPokemon, setEquipmentPokemon] = useState(null);
   const { pageSize } = useThreeRowPagination({
     selector: ".battle-collection-grid",
   });
@@ -64,6 +77,7 @@ export default function TeamSelector({
   useEffect(() => {
     setPage((current) => Math.min(current, pages));
   }, [pages]);
+  useEffect(() => { webStore.getEconomy().then(setEconomy); }, []);
 
   if (collection.length < 3)
     return (
@@ -146,10 +160,9 @@ export default function TeamSelector({
               const color =
                 pokemonData.find((item) => item.type === primary)?.color ||
                 "#64748b";
-              return (
+              return <div key={pokemon.id} className="battle-collection-card-wrap">
                 <button
                   type="button"
-                  key={pokemon.id}
                   className={`battle-collection-card ${getRarityClassName(pokemon)} ${isSelected ? "selected" : ""}`}
                   style={{ "--type-color": color }}
                   onClick={() => onToggle(pokemon)}
@@ -182,7 +195,8 @@ export default function TeamSelector({
                     </span>
                   )}
                 </button>
-              );
+                {pokemon.heldItem ? <button type="button" className="battle-held-item-trigger" onClick={() => setEquipmentPokemon(pokemon)} disabled={waiting} aria-label={`Editar item segurado de ${pokemon.name}`} title="Editar item segurado"><HeldItemBadge item={pokemon.heldItem} compact /></button> : <button type="button" className="battle-equipment-trigger" onClick={() => setEquipmentPokemon(pokemon)} disabled={waiting} aria-label={`Equipar item em ${pokemon.name}`}><Plus size={16} weight="bold" /></button>}
+              </div>;
             })}
           </div>
           <PokemonPagination
@@ -211,6 +225,7 @@ export default function TeamSelector({
             ? "Pronto para batalhar"
             : "Conectando a sala..."}
       </button>
+      <HeldItemDrawer pokemon={equipmentPokemon || collection[0]} economy={economy} heldItem={equipmentPokemon?.heldItem || null} open={Boolean(equipmentPokemon)} onClose={() => setEquipmentPokemon(null)} onEquipped={(updated) => { setEconomy((current) => current); onEquipmentChanged?.(updated); setEquipmentPokemon((current) => current ? { ...current, heldItem: updated.heldItem } : null); }} />
     </section>
   );
 }

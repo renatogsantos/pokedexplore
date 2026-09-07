@@ -233,6 +233,18 @@ export const webStore = {
       }));
     } catch (error) { console.error("Erro ao consumir inventário:", error); return { ok: false }; }
   },
+  async consumeHeldItem(pokemonId, heldItem, consumptionId) {
+    if (!pokemonId || !heldItem) return { ok: false, reason: "invalid-item" };
+    const inventoryId = heldItem.endsWith("-boost") ? "type-boost" : heldItem;
+    try {
+      return await withDatabase((database) => new Promise((resolve, reject) => {
+        const transaction = database.transaction([POKEDEX_STORE, PLAYER_STORE], "readwrite"); const pokedexStore = transaction.objectStore(POKEDEX_STORE); const playerStore = transaction.objectStore(PLAYER_STORE); const pokemonRequest = pokedexStore.get(pokemonId); const economyRequest = playerStore.get(ECONOMY_KEY); let pokemon; let economy;
+        const finish = () => { if (!pokemon || !economy) return; if (consumptionId && economy.consumedItemActionIds?.includes(consumptionId)) { transaction.result = { ok: true, duplicate: true, economy }; return; } if (pokemon.heldItem !== heldItem) { transaction.result = { ok: false, reason: "not-equipped", economy }; return; } const inventory = { ...economy.inventory }; inventory[inventoryId] = Math.max(0, (inventory[inventoryId] || 0) - 1); if (!inventory[inventoryId]) delete inventory[inventoryId]; const nextEconomy = { ...economy, inventory, consumedItemActionIds: consumptionId ? [...(economy.consumedItemActionIds || []), consumptionId].slice(-100) : economy.consumedItemActionIds }; pokedexStore.put({ ...pokemon, heldItem: null }); playerStore.put(nextEconomy); transaction.result = { ok: true, economy: nextEconomy }; };
+        pokemonRequest.onsuccess = () => { pokemon = pokemonRequest.result ? normalizeCapturedPokemon(pokemonRequest.result) : null; finish(); }; economyRequest.onsuccess = () => { economy = normalizeEconomy(economyRequest.result); finish(); };
+        transaction.oncomplete = () => resolve(transaction.result); transaction.onerror = () => reject(transaction.error); pokemonRequest.onerror = () => reject(pokemonRequest.error); economyRequest.onerror = () => reject(economyRequest.error);
+      }));
+    } catch (error) { console.error("Erro ao consumir item equipado:", error); return { ok: false, reason: "persistence" }; }
+  },
   async recordBattleOutcome(matchId, { won, durationMs, usedOnlyOnePokemon }) {
     if (!matchId) return { recorded: false, progress: EMPTY_PROGRESS, unlocked: [] };
     try { return await withDatabase((database) => new Promise((resolve, reject) => {

@@ -18,7 +18,7 @@ import {
   getSupportedAbility,
   multiplier,
 } from "@/lib/battle/engine";
-import { getPokemonArtwork, getReserveSprite } from "@/lib/battle/pokemon";
+import { getPokemonArtwork, getReserveSprite, getShowdownThumbnail } from "@/lib/battle/pokemon";
 import { getPokemonSprite, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
 import { playBattleSound } from "@/lib/battle/sound";
 import PokemonRarity, { getRarityClassName } from "@/components/PokemonRarity";
@@ -27,6 +27,7 @@ import PokemonTypeIcon from "@/components/PokemonTypeIcon";
 import { getItemLabel, getStatusLabel, getTypeLabel } from "@/lib/localization/ptBR";
 import { formatCoins } from "@/lib/economy";
 import useBattleParallax from "@/hooks/useBattleParallax";
+import ItemSprite from "@/components/ItemSprite/ItemSprite";
 
 function HpBar({ pokemon }) {
   const percent = Math.max(0, (pokemon.hp / pokemon.maxHp) * 100);
@@ -83,7 +84,7 @@ function Fighter({ side, player, isHit, isAttacking, isHealing, matchup }) {
             {ability.id}
           </span>
         )}
-        {pokemon.heldItem && <span className="held-item-indicator" title="Item equipado: ativa conforme sua condição.">{getItemLabel(pokemon.heldItem)} <b>PRONTO</b></span>}
+        {pokemon.heldItem && <span className="held-item-indicator" title="Item equipado: ativa conforme sua condição."><ItemSprite item={pokemon.heldItem} alt="" className="battle-held-indicator-sprite" />{getItemLabel(pokemon.heldItem)} <b>PRONTO</b></span>}
         {pokemon.status && (
           <span className={`battle-status is-${pokemon.status.id}`}>
             {getStatusLabel(pokemon.status.id)}
@@ -131,7 +132,7 @@ function Fighter({ side, player, isHit, isAttacking, isHealing, matchup }) {
 
 function TeamStrip({ player, label }) {
   const remaining = player.team.filter((pokemon) => pokemon.hp > 0).length;
-  return <div className="team-strip" aria-label={`${label}: ${remaining} Pokémon disponíveis`}><span>{label} · {remaining}/3</span><div>{player.team.map((pokemon, index) => <div key={`${pokemon.id}-${index}`} className={`team-slot ${index === player.active ? "active" : ""} ${pokemon.hp <= 0 ? "fainted" : ""} ${pokemon.status ? "has-status" : ""}`} aria-label={`${pokemon.name}: ${pokemon.hp <= 0 ? "desmaiado" : index === player.active ? "ativo" : "disponível"}${pokemon.status ? `, ${getStatusLabel(pokemon.status.id)}` : ""}`}><img src={getReserveSprite(pokemon)} alt="" /><small>{pokemon.hp <= 0 ? "KO" : pokemon.status ? getStatusLabel(pokemon.status.id).slice(0, 2) : ""}</small></div>)}</div></div>;
+  return <div className="team-strip" aria-label={`${label}: ${remaining} Pokémon disponíveis`}><span>{label} · {remaining}/3</span><div>{player.team.map((pokemon, index) => <div key={`${pokemon.id}-${index}`} className={`team-slot ${index === player.active ? "active" : ""} ${pokemon.hp <= 0 ? "fainted" : ""} ${pokemon.status ? "has-status" : ""}`} aria-label={`${pokemon.name}: ${pokemon.hp <= 0 ? "desmaiado" : index === player.active ? "ativo" : "disponível"}${pokemon.status ? `, ${getStatusLabel(pokemon.status.id)}` : ""}`}><img src={getShowdownThumbnail(pokemon)} alt="" /><small>{pokemon.hp <= 0 ? "KO" : pokemon.status ? getStatusLabel(pokemon.status.id).slice(0, 2) : ""}</small></div>)}</div></div>;
 }
 
 function BattleNotification({ state, role, opponentName }) {
@@ -150,6 +151,10 @@ function BattleNotification({ state, role, opponentName }) {
         detail: state.log,
         tone: "result",
       });
+    else if (state.effect?.berry)
+      setNotification({ title: `${state.effect.berry.berry.toUpperCase()} BERRY!`, detail: state.effect.berry.healing ? `+${state.effect.berry.healing} HP · item consumido` : "Status removido · item consumido", tone: "healing" });
+    else if (state.effect?.amplifier)
+      setNotification({ title: "AMPLIFICADOR ATIVO", detail: "+10% DANO DO TIPO PRINCIPAL", tone: "strong" });
     else if (state.effect?.ability)
       setNotification({
         title: state.effect.ability.toUpperCase() + "!",
@@ -170,8 +175,6 @@ function BattleNotification({ state, role, opponentName }) {
       });
     else if (state.effect?.kind === "item")
       setNotification({ title: state.effect.itemId === "full-heal" ? "CURA TOTAL!" : "ITEM USADO!", detail: `${state.effect.curedStatus ? `${getStatusLabel(state.effect.curedStatus)} removido · ` : ""}×${state.effect.remaining} restante${state.effect.remaining === 1 ? "" : "s"}`, tone: "healing" });
-    else if (state.effect?.berry)
-      setNotification({ title: `${state.effect.berry.berry.toUpperCase()} BERRY!`, detail: state.effect.berry.healing ? `+${state.effect.berry.healing} HP` : "Status removido", tone: "healing" });
     else if (state.effect?.kind === "switch")
       setNotification({ title: "TROCA!", detail: state.log, tone: "turn" });
     else if (state.turn === role)
@@ -476,7 +479,7 @@ export default function BattleArena({ state, role, mode, onAction, onRematch }) 
           )}
           {actionMode === "items" && (
             <div className="deck-items" role="tabpanel" aria-label="Itens de batalha">
-              {selectedItem ? <><div className="deck-panel-heading"><button type="button" onClick={() => setSelectedItem(null)}>Voltar</button><strong>Escolha o alvo · ×{bag[selectedItem] || 0}</strong></div><div className="deck-target-list">{me.team.map((pokemon, index) => { const unavailable = pokemon.hp <= 0 || (selectedItem === "potion" ? pokemon.hp >= pokemon.maxHp : !pokemon.status); return <button type="button" key={`${pokemon.id}-${index}`} disabled={!myTurn || unavailable} onClick={() => { onAction(selectedItem === "potion" ? { type: "potion", targetPokemonId: pokemon.id } : { type: "item", itemId: selectedItem, targetPokemonId: pokemon.id }); setSelectedItem(null); setActionMode("moves"); }}><img src={getReserveSprite(pokemon)} alt=""/><span><strong>{pokemon.name}</strong><small>{pokemon.hp <= 0 ? "Desmaiado" : selectedItem === "potion" ? pokemon.hp >= pokemon.maxHp ? "HP cheio" : `${pokemon.hp}/${pokemon.maxHp} HP` : pokemon.status ? `Curar ${getStatusLabel(pokemon.status.id)}` : "Sem efeito de status"}</small></span></button>; })}</div></> : <div className="deck-item-grid"><button type="button" disabled={!myTurn || !bag.potion} onClick={() => setSelectedItem("potion")}><Backpack size={20} weight="fill" aria-hidden="true"/><span><strong>Poção</strong><small>{bag.potion ? "Recupera 40% do HP" : "Esgotado"}</small></span><b>×{bag.potion || 0}</b></button><button type="button" disabled={!myTurn || !bag["full-heal"]} onClick={() => setSelectedItem("full-heal")}><Lightning size={20} weight="fill" aria-hidden="true"/><span><strong>Cura Total</strong><small>{bag["full-heal"] ? "Remove condições" : "Esgotado"}</small></span><b>×{bag["full-heal"] || 0}</b></button></div>}
+              {selectedItem ? <><div className="deck-panel-heading"><button type="button" onClick={() => setSelectedItem(null)}>Voltar</button><strong>Escolha o alvo · ×{bag[selectedItem] || 0}</strong></div><div className="deck-target-list">{me.team.map((pokemon, index) => { const unavailable = pokemon.hp <= 0 || (selectedItem === "potion" ? pokemon.hp >= pokemon.maxHp : !pokemon.status); return <button type="button" key={`${pokemon.id}-${index}`} disabled={!myTurn || unavailable} onClick={() => { onAction(selectedItem === "potion" ? { type: "potion", targetPokemonId: pokemon.id } : { type: "item", itemId: selectedItem, targetPokemonId: pokemon.id }); setSelectedItem(null); setActionMode("moves"); }}><img src={getReserveSprite(pokemon)} alt=""/><span><strong>{pokemon.name}</strong><small>{pokemon.hp <= 0 ? "Desmaiado" : selectedItem === "potion" ? pokemon.hp >= pokemon.maxHp ? "HP cheio" : `${pokemon.hp}/${pokemon.maxHp} HP` : pokemon.status ? `Curar ${getStatusLabel(pokemon.status.id)}` : "Sem efeito de status"}</small></span></button>; })}</div></> : <div className="deck-item-grid"><button type="button" disabled={!myTurn || !bag.potion} onClick={() => setSelectedItem("potion")}><ItemSprite item="potion" alt=""/><span><strong>Poção</strong><small>{bag.potion ? "Recupera 40% do HP" : "Esgotado"}</small></span><b>×{bag.potion || 0}</b></button><button type="button" disabled={!myTurn || !bag["full-heal"]} onClick={() => setSelectedItem("full-heal")}><ItemSprite item="full-heal" alt=""/><span><strong>Cura Total</strong><small>{bag["full-heal"] ? "Remove condições" : "Esgotado"}</small></span><b>×{bag["full-heal"] || 0}</b></button></div>}
             </div>
           )}
           {actionMode === "switch" && (

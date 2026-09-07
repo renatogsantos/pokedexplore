@@ -83,6 +83,20 @@ export default function BattlePage() {
         .catch((error) => setNotice(error.message)),
     [],
   );
+  const persistBattleConsumables = useCallback((state, localRole) => {
+    const effect = state?.effect;
+    if (!effect || !state?.matchId) return;
+    const actionItem = effect.kind === "potion" ? "potion" : effect.kind === "item" ? effect.itemId : null;
+    if (actionItem && effect.actor === localRole)
+      void webStore.consumeInventory({ [actionItem]: 1 }, `${state.matchId}:${state.revision}:bag:${localRole}:${actionItem}`).then((result) => {
+        if (result.ok) setInventory(result.economy.inventory || {});
+      });
+    const berry = effect.berry;
+    if (berry && berry.owner === localRole)
+      void webStore.consumeHeldItem(berry.targetPokemonId, berry.berry, `${state.matchId}:${state.revision}:held:${localRole}:${berry.targetPokemonId}:${berry.berry}`).then((result) => {
+        if (result.ok) setInventory(result.economy.inventory || {});
+      });
+  }, []);
   const startState = useCallback(
     (hostTeam, guestTeam, host, guest) => {
       const next = createBattleState(
@@ -195,6 +209,7 @@ export default function BattlePage() {
               setNotice("ADVERSÁRIO PRONTO! Preparando batalha...");
             }
             if (type === BATTLE_EVENTS.START || type === BATTLE_EVENTS.STATE) {
+              persistBattleConsumables(payload, currentRole);
               setBattle((previous) =>
                 rewardFinishedBattle(previous, payload, currentRole),
               );
@@ -205,6 +220,7 @@ export default function BattlePage() {
               setBattle((previous) => {
                 if (!previous) return previous;
                 const next = resolveAction(previous, "guest", payload);
+                persistBattleConsumables(next, currentRole);
                 broadcast(BATTLE_EVENTS.STATE, next);
                 return rewardFinishedBattle(previous, next, currentRole);
               });
@@ -218,7 +234,7 @@ export default function BattlePage() {
         setNotice("Não foi possível conectar à sala.");
       }
     },
-    [broadcast, rewardFinishedBattle],
+    [broadcast, persistBattleConsumables, rewardFinishedBattle],
   );
 
   useEffect(() => {
@@ -364,8 +380,7 @@ export default function BattlePage() {
   function sendAction(action) {
     const resolveAndPersist = (current, actor) => {
       const next = resolveAction(current, actor, action);
-      const itemId = action.type === "potion" ? "potion" : action.type === "item" ? action.itemId : null;
-      if (itemId && next !== current && next.effect?.actor === actor && (next.effect.kind === "potion" || next.effect.kind === "item")) void webStore.consumeInventory({ [itemId]: 1 }, `${current.matchId || "local"}:${current.revision}:${actor}`).then((result) => { if (result.ok) setInventory(result.economy.inventory || {}); });
+      persistBattleConsumables(next, role);
       return next;
     };
     if (mode === "cpu")
@@ -457,6 +472,7 @@ export default function BattlePage() {
               onReady={readyTeam}
               waiting={readySent}
               canReady={mode === "cpu" || connection === "CONNECTED"}
+              onEquipmentChanged={(updated) => { setCollection((current) => current.map((pokemon) => String(pokemon.id) === String(updated.id) ? updated : pokemon)); setSelected((current) => current.map((pokemon) => String(pokemon.id) === String(updated.id) ? updated : pokemon)); }}
             />
           </>
         )}

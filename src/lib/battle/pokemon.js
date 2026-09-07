@@ -1,4 +1,4 @@
-import { getPokemonSprite, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
+import { getPokemonSprite, isPokemonShiny, normalizePokemonVisuals, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
 
 export function getPokemonArtwork(pokemon) { return getPokemonSprite({ pokemon, context: SPRITE_CONTEXT.GENERAL }); }
 
@@ -10,7 +10,12 @@ export function getHomeDefaultSprite(pokemon) {
   return pokemon?.homeDefaultSprite || pokemon?.sprites?.other?.home?.front_default || null;
 }
 
-export function getReserveSprite(pokemon) { return getPokemonSprite({ pokemon, context: SPRITE_CONTEXT.BATTLE_THUMBNAIL }); }
+export function getShowdownThumbnail(pokemon) {
+  const visuals = normalizePokemonVisuals(pokemon);
+  const showdown = isPokemonShiny(pokemon) ? visuals.showdown.front.shiny || visuals.showdown.front.default : visuals.showdown.front.default;
+  return showdown || (pokemon?.id ? `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/${pokemon.id}.gif` : getPokemonSprite({ pokemon, context: SPRITE_CONTEXT.BATTLE_THUMBNAIL, side: "opponent" }));
+}
+export function getReserveSprite(pokemon) { return getShowdownThumbnail(pokemon); }
 
 export function getPokemonType(pokemon) {
   return pokemon?.type || pokemon?.types?.[0]?.type?.name || "normal";

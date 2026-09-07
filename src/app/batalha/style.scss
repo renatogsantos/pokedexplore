@@ -1839,6 +1839,9 @@
     box-shadow 0.16s ease;
 }
 
+.battle-collection-card-wrap { position: relative; min-width: 0; }.battle-collection-card-wrap .battle-collection-card { width: 100%; }.battle-equipment-trigger { position: absolute; z-index: 7; bottom: 9px; left: 9px; display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 1px solid #ffcb05; border-radius: 50%; background: #3a3217; color: #ffdf5d; cursor: pointer; }.battle-equipment-trigger:hover:not(:disabled), .battle-equipment-trigger:focus-visible { background: #5a4a1d; outline: 2px solid #fff; outline-offset: 2px; }.battle-equipment-trigger:disabled { opacity: .5; cursor: not-allowed; }
+.battle-held-item-trigger { position: absolute; z-index: 7; top: 50%; left: 9px; display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid #ffcb05; border-radius: 50%; background: #3a3217e8; cursor: pointer; transform: translateY(-50%); }.battle-held-item-trigger .battle-held-item { display: grid; place-items: center; margin: 0; padding: 0; border: 0; background: transparent; }.battle-held-item-trigger .battle-held-item-sprite { width: 24px; height: 24px; }.battle-held-item-trigger:hover, .battle-held-item-trigger:focus-visible { border-color: #fff; background: #5a4a1d; outline: 2px solid #fff; outline-offset: 2px; }.battle-held-item-trigger:disabled { opacity: .58; cursor: not-allowed; }
+
 .battle-collection-card::before {
   position: absolute;
   top: -30%;
@@ -1924,6 +1927,26 @@
   justify-content: center;
   gap: 4px;
   margin-top: 7px;
+}
+
+.battle-held-item {
+  position: relative;
+  z-index: 2;
+  margin-top: 6px;
+  padding: 3px 7px;
+  border: 1px solid #ffcb0566;
+  border-radius: 999px;
+  background: #2d260fba;
+  color: #ffdf5d;
+  font-size: 0.53rem;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.battle-held-item.empty {
+  border-color: #ffffff22;
+  background: #06101f8c;
+  color: #b7c8dd;
 }
 
 .battle-collection-type {
@@ -3211,12 +3234,15 @@
 }
 .held-item-indicator {
   display: inline-flex;
+  align-items: center;
+  gap: 4px;
   margin-top: 5px;
   color: #bdeed3;
   font-size: 0.58rem;
   font-weight: 800;
   text-transform: capitalize;
 }
+.combatant .held-item-indicator .battle-held-indicator-sprite { width: 18px; height: 18px; object-fit: contain; }
 .battle-ability.is-active {
   border-color: #ffcb05;
   color: #ffdf5d;

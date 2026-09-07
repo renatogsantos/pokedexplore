@@ -1466,6 +1466,7 @@
 .tutorial-type-training,
 .tutorial-switch-demo,
 .tutorial-potion-demo,
+.tutorial-held-item-demo,
 .tutorial-reward-demo {
   display: grid;
   align-items: center;
@@ -1479,17 +1480,21 @@
 }
 .tutorial-level-demo,
 .tutorial-special-demo,
-.tutorial-potion-demo { grid-template-columns: auto minmax(0, 1fr); }
+.tutorial-potion-demo,
+.tutorial-held-item-demo { grid-template-columns: auto minmax(0, 1fr); }
 .tutorial-level-demo > div,
 .tutorial-special-demo > div,
-.tutorial-potion-demo > div { display: grid; gap: 8px; min-width: 0; }
+.tutorial-potion-demo > div,
+.tutorial-held-item-demo > div { display: grid; gap: 8px; min-width: 0; }
 .tutorial-level-demo span,
 .tutorial-special-demo span { color: #dce9fb; font-size: .78rem; font-weight: 800; }
 .tutorial-level-demo small,
 .tutorial-potion-demo strong { color: #8ff2ba; font-size: .72rem; }
+.tutorial-held-item-demo strong { color: #ffdf5d; font-size: .78rem; }
 .tutorial-level-demo button,
 .tutorial-special-demo button,
 .tutorial-potion-demo button,
+.tutorial-held-item-demo button,
 .tutorial-type-training button,
 .tutorial-switch-demo button {
   display: inline-flex;
@@ -1510,8 +1515,15 @@
 .tutorial-level-demo button:hover:not(:disabled),
 .tutorial-special-demo button:hover:not(:disabled),
 .tutorial-potion-demo button:hover:not(:disabled),
+.tutorial-held-item-demo button:hover:not(:disabled),
 .tutorial-type-training button:hover, .tutorial-switch-demo button:hover { border-color: #ffdf5d; background: #243f61; }
-.tutorial-level-demo button:disabled, .tutorial-special-demo button:disabled, .tutorial-potion-demo button:disabled { opacity: .52; cursor: not-allowed; }
+.tutorial-level-demo button:disabled, .tutorial-special-demo button:disabled, .tutorial-potion-demo button:disabled, .tutorial-held-item-demo button:disabled { opacity: .52; cursor: not-allowed; }
+.tutorial-held-item-demo { border-color: #ffcb0560; background: linear-gradient(135deg, #261d0a, #06101f); }
+.tutorial-held-item-demo__eyebrow { color: #b8cce5; font-size: .6rem; font-weight: 900; letter-spacing: .1em; }
+.tutorial-held-item-demo small { color: #d8e4f5; font-size: .72rem; line-height: 1.35; }
+.tutorial-item-rules { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; max-width: 760px; margin-top: 12px; }
+.tutorial-item-rules span { display: flex; align-items: center; gap: 7px; padding: 9px; border: 1px solid #ffffff20; border-radius: 10px; background: #06101f9e; color: #c8d8ee; font-size: .72rem; line-height: 1.3; }
+.tutorial-item-explainer { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }.tutorial-item-explainer > div { display: grid; gap: 5px; padding: 13px; border: 1px solid #ffffff20; border-radius: 14px; background: #071526a8; }.tutorial-item-explainer svg { color: #ffdf5d; }.tutorial-item-explainer strong { color: #f8fbff; font-size: .8rem; }.tutorial-item-explainer span { color: #c8d8ee; font-size: .72rem; line-height: 1.35; }
 .tutorial-reset { width: fit-content; border-color: #ffffff30 !important; background: transparent !important; color: #c6d9ef !important; }
 .tutorial-action-deck { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; max-width: 560px; margin: 16px auto 0; padding: 8px; border: 1px solid #ffffff20; border-radius: 14px; background: #06101f9e; }
 .tutorial-action-deck span { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 42px; border-radius: 9px; background: #152c48; color: #dce9fb; font-size: .7rem; font-weight: 850; text-align: center; }
@@ -1549,8 +1561,9 @@
 .tutorial-trainer-tip p { margin: 0; color: #cce9dc; font-size: .74rem; line-height: 1.4; }
 .tutorial-trainer-tip strong { display: block; margin-bottom: 2px; color: #baffd5; font-size: .62rem; letter-spacing: .1em; }
 @media (max-width: 520px) {
-  .tutorial-level-demo, .tutorial-special-demo, .tutorial-potion-demo, .tutorial-type-training, .tutorial-switch-demo { grid-template-columns: 1fr; justify-items: center; }
-  .tutorial-level-demo > div, .tutorial-special-demo > div, .tutorial-potion-demo > div, .tutorial-type-training__choices, .tutorial-switch-demo__reserves { width: 100%; }
+  .tutorial-level-demo, .tutorial-special-demo, .tutorial-potion-demo, .tutorial-held-item-demo, .tutorial-type-training, .tutorial-switch-demo { grid-template-columns: 1fr; justify-items: center; }
+  .tutorial-level-demo > div, .tutorial-special-demo > div, .tutorial-potion-demo > div, .tutorial-held-item-demo > div, .tutorial-type-training__choices, .tutorial-switch-demo__reserves { width: 100%; }
+  .tutorial-item-rules, .tutorial-item-explainer { grid-template-columns: 1fr; }
   .tutorial-reward-demo { grid-template-columns: 1fr; }
   .tutorial-reward-demo > div { grid-row: auto; justify-items: start; padding: 10px 0 0; border-top: 1px solid #ffffff20; border-left: 0; }
   .tutorial-action-deck { grid-template-columns: 1fr; }

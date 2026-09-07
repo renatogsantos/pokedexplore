@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, CaretLeft, CaretRight, CheckCircle, FirstAid, Lightning, MagnifyingGlass, Minus, Package, Plus, ShoppingCart, Sparkle, X } from "@phosphor-icons/react";
+import { ArrowLeft, CaretLeft, CaretRight, CheckCircle, MagnifyingGlass, Minus, Plus, ShoppingCart, Sparkle, X } from "@phosphor-icons/react";
 import { webStore } from "@/helpers/webStore";
 import { pokemonData } from "@/helpers/PokemonTypes";
 import { actAddPokedex } from "@/redux/pokemons";
@@ -18,6 +18,8 @@ import { SHOP_UPGRADES } from "@/lib/economy/gameItems";
 import PokemonRarity, { getRarityClassName } from "@/components/PokemonRarity";
 import CoinBalance from "@/components/CoinBalance";
 import { celebratePokemonPurchase } from "@/lib/celebration";
+import ItemSprite from "@/components/ItemSprite/ItemSprite";
+import { preloadItemVisuals } from "@/lib/items/visuals";
 
 const PAGE_SIZE = 12;
 const artwork = (pokemon) => pokemon?.sprites?.other?.["official-artwork"]?.front_default || pokemon?.sprites?.front_default || "/pokenull.png";
@@ -55,8 +57,7 @@ function Pagination({ page, pages, disabled, onChange }) {
 
 function UpgradeCard({ upgrade, economy, balance, onBuy }) {
   const isTm = upgrade.category === "tm"; const quantity = isTm ? Number((economy.ownedTms || []).includes(upgrade.id)) : economy.inventory?.[upgrade.id] || 0;
-  const Icon = isTm ? Lightning : upgrade.category === "battle" ? FirstAid : Package;
-  return <article className={`shop-upgrade shop-upgrade--${upgrade.category}`}><div className="shop-upgrade-icon"><Icon size={24} weight="fill" /></div><div className="shop-upgrade-content"><span>{isTm ? "TM" : upgrade.category === "battle" ? "MOCHILA" : "ITEM SEGURADO"}</span><h2>{upgrade.name}</h2><p>{upgrade.description}</p></div><div className="shop-upgrade-footer"><strong><Coin /> {formatCoins(upgrade.price)}</strong><small>{isTm ? quantity ? "Adquirida" : "Ainda não adquirida" : `${quantity} ${upgrade.quantityLabel}`}</small><button type="button" disabled={balance < upgrade.price || (isTm && Boolean(quantity))} onClick={() => onBuy(upgrade)}>{isTm && quantity ? "Adquirida" : balance < upgrade.price ? "Sem moedas" : "Comprar"}</button></div></article>;
+  return <article className={`shop-upgrade shop-upgrade--${upgrade.category}`}><div className="shop-upgrade-icon"><ItemSprite item={upgrade.id} alt="" /></div><div className="shop-upgrade-content"><span>{isTm ? "TM" : upgrade.category === "battle" ? "MOCHILA" : "ITEM SEGURADO"}</span><h2>{upgrade.name}</h2><p>{upgrade.description}</p></div><div className="shop-upgrade-footer"><strong><Coin /> {formatCoins(upgrade.price)}</strong><small>{isTm ? quantity ? "Adquirida" : "Ainda não adquirida" : `${quantity} ${upgrade.quantityLabel}`}</small><button type="button" disabled={balance < upgrade.price || (isTm && Boolean(quantity))} onClick={() => onBuy(upgrade)}>{isTm && quantity ? "Adquirida" : balance < upgrade.price ? "Sem moedas" : "Comprar"}</button></div></article>;
 }
 
 export default function Shop() {
@@ -65,6 +66,7 @@ export default function Shop() {
   const searching = Boolean(query.trim());
   const loadPokemon = async (name) => { const key = name.trim().toLowerCase(); if (cache.current.has(key)) return cache.current.get(key); const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${encodeURIComponent(key)}`); if (!response.ok) throw new Error("not-found"); const pokemon = await enrichPokemonRarity(await response.json()); cache.current.set(key, pokemon); return pokemon; };
   useEffect(() => { webStore.getData("Pokedex").then((data) => dispatch(actAddPokedex(data))); webStore.getEconomy().then((data) => { setEconomy(data); dispatch(actCoins(data.coins)); }); }, [dispatch]);
+  useEffect(() => { void preloadItemVisuals(SHOP_UPGRADES.map((upgrade) => upgrade.id)); }, []);
   useEffect(() => { let active = true; getShopCatalog().then((data) => active && setCatalog(data)).catch(() => active && setCatalogError(true)); return () => { active = false; }; }, []);
   const filteredCatalog = useMemo(() => catalog.filter((pokemon) => rarity === "all" || getPokemonRarity(pokemon) === rarity).sort((a, b) => sort === "number" ? a.id - b.id : sort === "name" ? a.name.localeCompare(b.name) : sort === "price-desc" ? getPokemonPrice(b) - getPokemonPrice(a) : getPokemonPrice(a) - getPokemonPrice(b)), [catalog, rarity, sort]);
   const total = searching ? items.length : filteredCatalog.length; const pages = Math.max(1, Math.ceil(total / PAGE_SIZE)); const pageCatalog = useMemo(() => filteredCatalog.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [filteredCatalog, page]);

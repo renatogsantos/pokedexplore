@@ -296,6 +296,30 @@ function PotionDemo() {
   );
 }
 
+function HeldItemDemo() {
+  const [hp, setHp] = useState(45);
+  const [heldItem, setHeldItem] = useState("oran");
+  const activateBerry = () => {
+    setHp((value) => Math.min(100, value + 20));
+    setHeldItem(null);
+  };
+  return (
+    <div className="tutorial-held-item-demo">
+      <Pokemon name="pikachu" type="electric" />
+      <div>
+        <span className="tutorial-held-item-demo__eyebrow">ITEM EQUIPADO</span>
+        <strong>{heldItem ? "Berry Oran · PRONTA" : "Sem item equipado"}</strong>
+        <Hp value={hp} />
+        <button type="button" disabled={!heldItem} onClick={activateBerry}>
+          <Heart size={19} weight="fill" aria-hidden="true" /> {heldItem ? "Simular ativação" : "Berry consumida"}
+        </button>
+        <small aria-live="polite">{heldItem ? "Com 50% de HP ou menos, recupera 20% automaticamente." : "+20 HP · equipamento removido e 1 Berry consumida."}</small>
+        {!heldItem && <ResetButton onClick={() => { setHp(45); setHeldItem("oran"); }} />}
+      </div>
+    </div>
+  );
+}
+
 function RewardDemo() {
   const [fast, setFast] = useState(false);
   const [solo, setSolo] = useState(false);
@@ -570,6 +594,11 @@ export default function Tutorial() {
             title={`Você começa com ${MAX_POTIONS} poções`}
           >
             <PotionDemo />
+            <div className="tutorial-item-rules" aria-label="Regras da Mochila">
+              <span><Backpack size={18} weight="fill" aria-hidden="true" /> Mochila: escolha o alvo e confirme o uso.</span>
+              <span><FirstAid size={18} weight="fill" aria-hidden="true" /> Poção e Cura Total gastam turno e uma unidade.</span>
+              <span><Shield size={18} weight="fill" aria-hidden="true" /> ×0 deixa o item indisponível até comprar mais.</span>
+            </div>
             <p className="tutorial-note">Uma Poção recupera até {percent}% do HP máximo e consome seu turno. Ela não revive Pokémon desmaiado nem funciona com HP cheio.</p>
           </Step>
           <Step
@@ -640,6 +669,12 @@ export default function Tutorial() {
             <article><strong>Habilidades</strong><small>Algumas habilidades ativam em condições específicas, como Blaze com HP baixo.</small></article>
             <article><strong>Jornada</strong><small>Vença rotas, enfrente ginásios e adicione insígnias à sua coleção.</small></article>
           </div>
+          <div className="tutorial-item-explainer">
+            <div><Backpack size={24} weight="fill" aria-hidden="true" /><strong>Mochila na Arena</strong><span>Use Poção para HP e Cura Total para queimadura, veneno, paralisia ou sono. O contador diminui assim que a ação é válida.</span></div>
+            <div><Heart size={24} weight="fill" aria-hidden="true" /><strong>Equipamento no Pokémon</strong><span>Berry Oran ativa com 50% de HP ou menos e recupera 20%; Sitrus recupera 30%. A berry some do equipamento e do inventário após ativar.</span></div>
+            <div><Lightning size={24} weight="fill" aria-hidden="true" /><strong>Amplificador de tipo</strong><span>Fica equipado e aumenta em 10% os golpes do tipo principal. Ele não é consumido durante a batalha.</span></div>
+          </div>
+          <HeldItemDemo />
           <div className="tutorial-progression-guide__actions"><Link href="/pokedex">Preparar Pokémon</Link><Link href="/jornada">Abrir Jornada</Link></div>
         </section>
         <section className="tutorial-shop-guide" id="moedas-e-loja" aria-labelledby="tutorial-shop-title">

@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const engineSource = await readFile(new URL("./engine.js", import.meta.url), "utf8");
-const { MAX_POTIONS, MAX_SPECIAL_ATTACK_USES, calculateDamage, createBattleState, getPokemonMatchup, multiplier, resolveAction } = await import(`data:text/javascript;base64,${Buffer.from(engineSource).toString("base64")}`);
+const { MAX_POTIONS, MAX_SPECIAL_ATTACK_USES, calculateDamage, createBattleState, getHpRatio, getPokemonMatchup, multiplier, resolveAction, resolvePostDamageHeldItem } = await import(`data:text/javascript;base64,${Buffer.from(engineSource).toString("base64")}`);
 
 const pokemon = (id, hp = 100, maxHp = 100) => ({ id, name: `pokemon-${id}`, type: "normal", hp, maxHp });
 const makeState = () => createBattleState(
@@ -110,6 +110,39 @@ test("berries activate automatically once at their configured HP threshold", () 
   const next = resolveAction(state, "host", { type: "attack", moveId: "strike" });
   assert.equal(next.guest.team[0].heldItem, null);
   assert.ok(next.effect.berry?.healing > 0);
+  assert.equal(next.effect.berry?.owner, "guest");
+  assert.equal(next.effect.berry?.targetPokemonId, 4);
+});
+
+test("post-damage berries use the normalized current HP threshold and never revive", () => {
+  const fighter = (hp, heldItem = "oran") => ({ id: 1, hp, maxHp: 100, heldItem });
+  assert.equal(getHpRatio(80, 100), .8);
+  assert.equal(resolvePostDamageHeldItem(fighter(80)), null);
+  assert.equal(resolvePostDamageHeldItem(fighter(51)), null);
+  const atBoundary = fighter(50);
+  assert.deepEqual(resolvePostDamageHeldItem(atBoundary), { berry: "oran", trigger: "post-attack-damage", healing: 20, beforeHp: 50, afterHp: 70, consumed: true });
+  assert.equal(atBoundary.heldItem, null);
+  const fainted = fighter(0);
+  assert.equal(resolvePostDamageHeldItem(fainted), null);
+  assert.equal(fainted.heldItem, "oran");
+});
+
+test("Sitrus heals 30% of max HP only at the same post-damage threshold", () => {
+  const highHp = { id: 1, hp: 51, maxHp: 100, heldItem: "sitrus" };
+  assert.equal(resolvePostDamageHeldItem(highHp), null);
+  const triggered = { id: 1, hp: 40, maxHp: 100, heldItem: "sitrus" };
+  assert.equal(resolvePostDamageHeldItem(triggered).healing, 30);
+  assert.equal(triggered.hp, 70);
+  assert.equal(triggered.heldItem, null);
+});
+
+test("type amplifier applies exactly once to a matching primary-type move", () => {
+  const attacker = { ...pokemon(1), type: "electric", types: ["electric"], stats: { attack: 50, defense: 50, specialAttack: 50, specialDefense: 50 }, heldItem: "electric-boost" };
+  const defender = { ...pokemon(2), type: "water", types: ["water"], stats: { attack: 50, defense: 50, specialAttack: 50, specialDefense: 50 } };
+  const boosted = calculateDamage({ attacker, defender, move: { type: "electric", power: 40, damageClass: "physical" }, variance: 1 });
+  const otherType = calculateDamage({ attacker, defender, move: { type: "normal", power: 40, damageClass: "physical" }, variance: 1 });
+  assert.equal(boosted.heldItemBonus?.multiplier, 1.1);
+  assert.equal(otherType.heldItemBonus, null);
 });
 
 test("supported low-HP abilities are resolved by the engine", () => {
