@@ -4457,3 +4457,79 @@
 .battle-page:has(.battle-arena) .battle-arena {
   background: linear-gradient(180deg, #0b1c3370 0%, #071526a6 100%);
 }
+
+/* Parallax moves the environment alone; every gameplay layer remains anchored above it. */
+.battle-arena:has(.battle-environment) {
+  isolation: isolate;
+}
+.battle-arena:has(.battle-environment)::before,
+.battle-arena:has(.battle-environment)::after {
+  z-index: 1;
+  pointer-events: none;
+}
+.battle-arena > :not(.battle-environment) {
+  z-index: 2;
+}
+.battle-environment {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.battle-environment__layer {
+  position: absolute;
+  inset: -16px;
+  pointer-events: none;
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+}
+.battle-environment__forest {
+  inset: -20px;
+  background:
+    linear-gradient(180deg, #04132666 0%, #07142688 55%, #020812bb 100%),
+    url("/arena-bg.png") center / cover no-repeat;
+  opacity: .82;
+}
+.battle-environment__light {
+  background:
+    radial-gradient(ellipse at 72% 18%, #7ee2bf20, transparent 42%),
+    radial-gradient(ellipse at 24% 80%, #3f96d326, transparent 48%);
+  mix-blend-mode: screen;
+}
+.battle-environment__fog {
+  inset: -13px -22px;
+  background:
+    radial-gradient(ellipse at 14% 70%, #d8ffed12, transparent 38%),
+    radial-gradient(ellipse at 82% 32%, #8bbad91a, transparent 42%);
+  opacity: .72;
+}
+.battle-environment__particles { inset: -18px; }
+.battle-environment__particles i {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #d5ffe8;
+  box-shadow: 0 0 9px #a2ffd566;
+  opacity: .36;
+}
+.battle-environment__particles i:nth-child(1) { top: 18%; left: 18%; }
+.battle-environment__particles i:nth-child(2) { top: 29%; right: 22%; width: 4px; height: 4px; }
+.battle-environment__particles i:nth-child(3) { top: 63%; left: 38%; }
+.battle-environment__particles i:nth-child(4) { top: 74%; right: 14%; width: 2px; height: 2px; }
+.battle-environment__particles i:nth-child(5) { top: 48%; left: 8%; width: 2px; height: 2px; }
+.battle-environment__foreground {
+  inset: -25px;
+  background:
+    radial-gradient(ellipse at -2% 100%, #020a0dd9 0 12%, transparent 32%),
+    radial-gradient(ellipse at 101% 1%, #020a0dd6 0 11%, transparent 31%),
+    linear-gradient(118deg, #06131655, transparent 22% 80%, #06131655);
+  opacity: .72;
+}
+@media (prefers-reduced-motion: reduce) {
+  .battle-environment__layer {
+    transform: translate3d(0, 0, 0) !important;
+    will-change: auto;
+  }
+}

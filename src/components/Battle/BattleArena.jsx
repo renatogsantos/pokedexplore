@@ -25,6 +25,7 @@ import { calculateBattleRewards } from "@/lib/battle/rewards";
 import PokemonTypeIcon from "@/components/PokemonTypeIcon";
 import { getItemLabel, getStatusLabel, getTypeLabel } from "@/lib/localization/ptBR";
 import { formatCoins } from "@/lib/economy";
+import useBattleParallax from "@/hooks/useBattleParallax";
 
 function HpBar({ pokemon }) {
   const percent = Math.max(0, (pokemon.hp / pokemon.maxHp) * 100);
@@ -334,6 +335,20 @@ function BattleResultModal({ won, reward, coins, mode, onRematch }) {
   );
 }
 
+function BattleEnvironment() {
+  return (
+    <div className="battle-environment" aria-hidden="true">
+      <div className="battle-environment__layer battle-environment__forest" data-parallax-layer="forest" />
+      <div className="battle-environment__layer battle-environment__light" data-parallax-layer="light" />
+      <div className="battle-environment__layer battle-environment__fog" data-parallax-layer="fog" />
+      <div className="battle-environment__layer battle-environment__particles" data-parallax-layer="particles">
+        <i /><i /><i /><i /><i />
+      </div>
+      <div className="battle-environment__layer battle-environment__foreground" data-parallax-layer="foreground" />
+    </div>
+  );
+}
+
 export default function BattleArena({ state, role, mode, onAction, onRematch }) {
   const [actionMode, setActionMode] = useState("moves");
   const [selectedItem, setSelectedItem] = useState(null);
@@ -363,12 +378,15 @@ export default function BattleArena({ state, role, mode, onAction, onRematch }) 
       (state.performance?.endedAt || 0) - (state.performance?.startedAt || 0),
     usedOnlyOnePokemon: !state.performance?.players?.[role]?.hasSwitched,
   });
+  const arenaRef = useBattleParallax(state.status === "playing" || state.status === "countdown");
   return (
     <>
       <section
+        ref={arenaRef}
         className={`battle-arena arena-${myTurn ? "ready" : "waiting"}`}
         aria-label="Arena de batalha"
       >
+        <BattleEnvironment />
         <div className="persistent-turn" aria-hidden="true">
           {myTurn
             ? "SUA VEZ"

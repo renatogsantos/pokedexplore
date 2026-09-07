@@ -52,8 +52,9 @@ export function celebratePokemonPurchase({ rarity = "normal" } = {}) {
 }
 
 export function celebrateBattleVictory() {
-  void fire({ particleCount: 96, spread: 96, startVelocity: 44, origin: { x: 0.5, y: 0.58 }, colors: COLORS.victory, shapes: ["square", "circle", "star"] });
-  later(() => void fire({ particleCount: 46, angle: 58, spread: 58, startVelocity: 38, origin: { x: 0.03, y: 0.68 }, colors: COLORS.victory, scalar: 0.92 }), 180);
-  later(() => void fire({ particleCount: 46, angle: 122, spread: 58, startVelocity: 38, origin: { x: 0.97, y: 0.68 }, colors: COLORS.victory, scalar: 0.92 }), 220);
-  later(() => void fire({ particleCount: 40, spread: 110, startVelocity: 18, gravity: 0.72, ticks: 120, origin: { x: 0.5, y: 0.24 }, colors: COLORS.victory, scalar: 0.78 }), 520);
+  const resultModalZIndex = 130;
+  void fire({ particleCount: 96, spread: 96, startVelocity: 44, origin: { x: 0.5, y: 0.58 }, colors: COLORS.victory, shapes: ["square", "circle", "star"], zIndex: resultModalZIndex });
+  later(() => void fire({ particleCount: 46, angle: 58, spread: 58, startVelocity: 38, origin: { x: 0.03, y: 0.68 }, colors: COLORS.victory, scalar: 0.92, zIndex: resultModalZIndex }), 180);
+  later(() => void fire({ particleCount: 46, angle: 122, spread: 58, startVelocity: 38, origin: { x: 0.97, y: 0.68 }, colors: COLORS.victory, scalar: 0.92, zIndex: resultModalZIndex }), 220);
+  later(() => void fire({ particleCount: 40, spread: 110, startVelocity: 18, gravity: 0.72, ticks: 120, origin: { x: 0.5, y: 0.24 }, colors: COLORS.victory, scalar: 0.78, zIndex: resultModalZIndex }), 520);
 }
