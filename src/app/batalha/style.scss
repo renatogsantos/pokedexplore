@@ -4533,3 +4533,9 @@
     will-change: auto;
   }
 }
+
+/* Team selection mirrors the Pokédex: two cards per row at every available width. */
+.team-selector .battle-collection-grid {
+  --cards-per-row: 2;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
