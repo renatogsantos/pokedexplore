@@ -7,6 +7,7 @@ import {
   GameController,
   LinkSimple,
   Question,
+  Trophy,
   Users,
 } from "@phosphor-icons/react";
 import Link from "next/link";
@@ -28,6 +29,9 @@ import { actCoins } from "@/redux/economy";
 import CoinBalance from "@/components/CoinBalance";
 import { celebrateBattleVictory } from "@/lib/celebration";
 import { getJourneyNode } from "@/lib/journey";
+import TournamentPanel from "@/components/Tournament/TournamentPanel";
+import { ROUND, getTournamentReward } from "@/lib/tournament/config";
+import { cancelTournament, completeTournamentMatch, createTournament, getPlayerActiveTournament, getTournament, joinTournament, leaveTournament, markTournamentMatchPlaying, startTournament, subscribeTournament } from "@/lib/tournament/service";
 import "./style.scss";
 
 const makeCode = () => `PKDX-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -64,11 +68,22 @@ export default function BattlePage() {
   const [notice, setNotice] = useState("");
   const [readySent, setReadySent] = useState(false);
   const [connection, setConnection] = useState("CONNECTING");
+  const [profile, setProfile] = useState(null);
+  const [tournament, setTournament] = useState(null);
+  const [tournamentMatch, setTournamentMatch] = useState(null);
+  const [tournamentCode, setTournamentCode] = useState("");
+  const [tournamentBusy, setTournamentBusy] = useState(false);
+
+  useEffect(() => {
+    if (mode !== "tournament" || battle?.status !== "finished" || role !== "host" || !tournamentMatch) return;
+    const winnerId = battle.winner === "host" ? tournamentMatch.player1_id : tournamentMatch.player2_id;
+    void completeTournamentMatch(tournamentMatch.id, winnerId).then(setTournament).catch((error) => setNotice(error.message));
+  }, [battle?.status, battle?.winner, mode, role, tournamentMatch]);
 
   useEffect(() => {
     webStore.getData("Pokedex").then(setCollection);
     webStore.getEconomy().then((economy) => setInventory(economy.inventory || {}));
-    webStore.getTrainerName().then((savedName) => setName((currentName) => currentName === "Treinador" ? savedName : currentName));
+    webStore.getLocalPlayerProfile().then((savedProfile) => { setProfile(savedProfile); setName((currentName) => currentName === "Treinador" ? savedProfile.displayName : currentName); void getPlayerActiveTournament(savedProfile.playerId).then(setTournament).catch(() => {}); });
     return () => {
       realtime.current?.leave();
       clearTimeout(cpuTimer.current);
@@ -139,7 +154,7 @@ export default function BattlePage() {
   );
   const rewardFinishedBattle = useCallback(
     (previous, next, localRole) => {
-      if (previous?.status !== "finished" && next?.status === "finished") {
+      if (mode !== "tournament" && previous?.status !== "finished" && next?.status === "finished") {
         const performance = next.performance || {};
         const won = next.winner === localRole;
         void webStore.recordBattleOutcome(next.matchId, {
@@ -155,7 +170,7 @@ export default function BattlePage() {
       if (
         previous?.status !== "finished" &&
         next?.status === "finished" &&
-        next.winner === localRole
+        next.winner === localRole && mode !== "tournament"
       ) {
         const performance = next.performance || {};
         const reward = calculateBattleRewards({
@@ -168,8 +183,33 @@ export default function BattlePage() {
       }
       return next;
     },
-    [awardVictory, journeyNode],
+    [awardVictory, journeyNode, mode],
   );
+
+  useEffect(() => {
+    if (mode !== "tournament" || battle?.status !== "finished" || battle.winner !== role || !tournamentMatch || !profile) return;
+    const rewardId = `tournament:${tournamentMatch.tournament_id}:match:${tournamentMatch.id}:winner:${profile.playerId}`;
+    void completeTournamentMatch(tournamentMatch.id, profile.playerId).then(async (updated) => {
+      setTournament(updated);
+      const reward = await awardVictory(rewardId, getTournamentReward(tournamentMatch.round));
+      if (reward.rewarded) setNotice(`${tournamentMatch.round === ROUND.FINAL ? "CAMPEÃO!" : "SEMIFINAL VENCIDA!"} +${getTournamentReward(tournamentMatch.round)} moedas`);
+      celebrateBattleVictory();
+    }).catch((error) => setNotice(error.message));
+  }, [battle?.status, battle?.winner, mode, profile, role, tournamentMatch, awardVictory]);
+
+  useEffect(() => {
+    if (!tournament?.id || !["LOBBY", "SEMIFINALS", "FINAL"].includes(tournament.status)) return undefined;
+    const refreshTournament = async () => {
+      try {
+        const current = await getTournament(tournament.id);
+        if (process.env.NODE_ENV !== "production") console.info("[Tournament] UI STATE AFTER EVENT", { tournamentId: tournament.id, participantCount: current?.tournament_players.length || 0, participantIds: current?.tournament_players.map((item) => item.player_id) || [] });
+        setTournament(current);
+      } catch (error) { if (process.env.NODE_ENV !== "production") console.error("[Tournament] POST-EVENT FETCH FAILED", error); }
+    };
+    const unsubscribe = subscribeTournament(tournament.id, () => { void refreshTournament(); });
+    const timer = window.setInterval(() => { void refreshTournament(); }, 10_000);
+    return () => { unsubscribe(); window.clearInterval(timer); };
+  }, [tournament?.id, tournament?.status]);
 
   const connectRoom = useCallback(
     (code, currentPlayer, currentRole) => {
@@ -246,7 +286,7 @@ export default function BattlePage() {
 
   useEffect(() => {
     if (
-      mode !== "friend" ||
+      !["friend", "tournament"].includes(mode) ||
       role !== "host" ||
       !readySent ||
       selected.length !== 3 ||
@@ -312,7 +352,7 @@ export default function BattlePage() {
     setSelected([]);
     setBattle(null);
     setReadySent(false);
-    setScreen(nextMode === "cpu" ? "team" : "friend");
+    setScreen(nextMode === "cpu" ? "team" : nextMode === "tournament" ? "tournament" : "friend");
   }
   function togglePokemon(pokemon) {
     playBattleSound("select-pokemon", 0.4);
@@ -384,6 +424,63 @@ export default function BattlePage() {
     setScreen("team");
     connectRoom(code, currentPlayer, "guest");
   }
+  async function createTournamentFlow() {
+    if (!profile) return setNotice("Carregando seu perfil local...");
+    setTournamentBusy(true); try { const nextProfile = await webStore.setLocalPlayerProfile({ ...profile, displayName: name.trim() || profile.displayName }); setProfile(nextProfile); setName(nextProfile.displayName); const active = await getPlayerActiveTournament(nextProfile.playerId); if (active) { setTournament(active); return setNotice("Você já está em um campeonato. Volte ao campeonato em andamento."); } setTournament(await createTournament(nextProfile)); }
+    catch (error) { setNotice(error.message); } finally { setTournamentBusy(false); }
+  }
+  async function joinTournamentFlow() {
+    if (!profile) return setNotice("Carregando seu perfil local...");
+    setTournamentBusy(true); try { const nextProfile = await webStore.setLocalPlayerProfile({ ...profile, displayName: name.trim() || profile.displayName }); setProfile(nextProfile); setName(nextProfile.displayName); const active = await getPlayerActiveTournament(nextProfile.playerId); if (active) { setTournament(active); return setNotice("Você já está em um campeonato. Volte ao campeonato em andamento."); } const joined = await joinTournament(tournamentCode, nextProfile); setTournament(joined); setNotice(joined.joinOutcome?.alreadyJoined ? "Você já participa deste campeonato." : "Você entrou no campeonato."); }
+    catch (error) { setNotice(error.message); } finally { setTournamentBusy(false); }
+  }
+  async function resetTournamentIdentity() {
+    if (tournament) return setNotice("Volte ao hub antes de gerar uma nova identidade de teste.");
+    const nextProfile = await webStore.resetLocalPlayerIdentity();
+    setProfile(nextProfile);
+    setName(nextProfile.displayName);
+    setNotice("Nova identidade local de teste gerada.");
+    if (process.env.NODE_ENV !== "production") console.info("[Tournament] LOCAL IDENTITY RESET", nextProfile);
+  }
+  async function startTournamentFlow() {
+    if (!tournament || !profile) return; setTournamentBusy(true);
+    try { setTournament(await startTournament(tournament.id, profile.playerId)); }
+    catch (error) { setNotice(error.message); } finally { setTournamentBusy(false); }
+  }
+  async function cancelTournamentFlow() {
+    if (!tournament || !profile) return;
+    setTournamentBusy(true);
+    try {
+      await cancelTournament(tournament.id, profile.playerId);
+      setTournament(null);
+      setTournamentMatch(null);
+      setTournamentCode("");
+      setNotice("Campeonato cancelado. Você já pode criar um novo.");
+    }
+    catch (error) { setNotice(error.message); } finally { setTournamentBusy(false); }
+  }
+  async function leaveTournamentFlow() {
+    if (!tournament || !profile) return;
+    setTournamentBusy(true);
+    try {
+      await leaveTournament(tournament.id, profile.playerId);
+      setTournament(null);
+      setTournamentMatch(null);
+      setNotice("Você saiu do campeonato. Sua vaga foi liberada.");
+    }
+    catch (error) {
+      setNotice(error.message || "Não foi possível sair do campeonato. Tente novamente.");
+      void getTournament(tournament.id).then(setTournament).catch(() => {});
+    } finally { setTournamentBusy(false); }
+  }
+  async function enterTournamentMatch(match) {
+    if (!profile) return;
+    const currentPlayer = { id: profile.playerId, name: name.trim() || profile.displayName };
+    const currentRole = match.player1_id === profile.playerId ? "host" : "guest";
+    setMode("tournament"); setTournamentMatch(match); setPlayer(currentPlayer); setRole(currentRole); setRoomCode(match.battle_room_code); setSelected([]); setBattle(null); setReadySent(false); setScreen("team");
+    try { await markTournamentMatchPlaying(match.id); connectRoom(match.battle_room_code, currentPlayer, currentRole); }
+    catch (error) { setNotice(error.message); setScreen("tournament"); }
+  }
   function sendAction(action) {
     const resolveAndPersist = (current, actor) => {
       const next = resolveAction(current, actor, action);
@@ -407,6 +504,7 @@ export default function BattlePage() {
     else broadcast(BATTLE_EVENTS.ACTION, action);
   }
   function rematch() {
+    if (mode === "tournament") { realtime.current?.leave(); setBattle(null); setSelected([]); setRemoteTeam(null); setReadySent(false); setTournamentMatch(null); setScreen("tournament"); void getTournament(tournament?.id).then(setTournament).catch(() => {}); return; }
     if (mode === "friend") broadcast(BATTLE_EVENTS.REMATCH, {});
     setBattle(null);
     setSelected([]);
@@ -448,7 +546,8 @@ export default function BattlePage() {
             <span className="battle-round">3 × 3</span>
           </span>
         </header>
-        {screen === "mode" && <ModeScreen onChoose={chooseMode} />}
+        {screen === "mode" && <ModeScreen onChoose={chooseMode} activeTournament={tournament} onResumeTournament={() => { setMode("tournament"); setScreen("tournament"); }} />}
+        {screen === "tournament" && <TournamentPanel tournament={tournament} profile={profile || {}} name={name} setName={setName} code={tournamentCode} setCode={setTournamentCode} notice={notice} busy={tournamentBusy} onCreate={createTournamentFlow} onJoin={joinTournamentFlow} onResetIdentity={resetTournamentIdentity} onStart={startTournamentFlow} onCancel={cancelTournamentFlow} onLeave={leaveTournamentFlow} onEnterMatch={enterTournamentMatch} onBack={() => setScreen("mode")} />}
         {screen === "friend" && (
           <FriendScreen
             name={name}
@@ -490,6 +589,7 @@ export default function BattlePage() {
             mode={mode}
             onAction={sendAction}
             onRematch={rematch}
+            tournamentContext={mode === "tournament" && tournamentMatch ? { round: tournamentMatch.round, reward: getTournamentReward(tournamentMatch.round) } : null}
           />
         )}
       </div>
@@ -497,18 +597,24 @@ export default function BattlePage() {
   );
 }
 
-function ModeScreen({ onChoose }) {
+function ModeScreen({ onChoose, activeTournament, onResumeTournament }) {
   const [difficulty, setDifficulty] = useState("normal");
   return (
     <section className="battle-panel mode-panel">
       <span className="eyebrow">ESCOLHA COMO JOGAR</span>
       <h2>Pronto para a arena?</h2>
       <p>Monte sua equipe capturada e desafie a CPU ou um amigo.</p>
+      {activeTournament && <div className="tournament-resume" role="status"><div><strong>Campeonato em andamento</strong><small>{activeTournament.code} · {activeTournament.status === "LOBBY" ? "aguardando jogadores" : activeTournament.status === "FINAL" ? "sua final pode estar pronta" : "chave em andamento"}</small></div><button type="button" onClick={onResumeTournament}>Voltar ao campeonato</button></div>}
       <div className="mode-options">
         <button type="button" onClick={() => onChoose("friend")}>
           <Users size={28} weight="fill" />
           <strong>Contra um amigo</strong>
           <small>Crie ou entre em uma sala</small>
+        </button>
+        <button type="button" onClick={() => onChoose("tournament")}>
+          <Trophy size={28} weight="fill" />
+          <strong>Campeonato</strong>
+          <small>4 jogadores · chave eliminatória</small>
         </button>
         <button type="button" onClick={() => onChoose("cpu", difficulty)}>
           <GameController size={28} weight="fill" />

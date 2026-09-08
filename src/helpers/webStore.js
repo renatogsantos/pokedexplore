@@ -68,12 +68,59 @@ export const webStore = {
       }));
     } catch (error) { console.error("Erro ao recuperar nome do treinador:", error); return "Treinador"; }
   },
+  async getLocalPlayerProfile() {
+    try {
+      return await withDatabase((database) => new Promise((resolve, reject) => {
+        const store = database.transaction(PLAYER_STORE, "readonly").objectStore(PLAYER_STORE);
+        const request = store.get(TRAINER_PROFILE_KEY);
+        request.onsuccess = () => {
+          const saved = request.result || {};
+          resolve({
+            playerId: saved.playerId || `player_${crypto.randomUUID()}`,
+            displayName: String(saved.name || "").trim() || "Treinador",
+            createdAt: saved.createdAt || Date.now(),
+          });
+        };
+        request.onerror = () => reject(request.error);
+      })).then(async (profile) => {
+        await this.setLocalPlayerProfile(profile);
+        return profile;
+      });
+    } catch (error) {
+      console.error("Erro ao recuperar perfil local:", error);
+      return { playerId: `player_${crypto.randomUUID()}`, displayName: "Treinador", createdAt: Date.now() };
+    }
+  },
+  async setLocalPlayerProfile(profile) {
+    const displayName = String(profile?.displayName || profile?.name || "").trim().slice(0, 18) || "Treinador";
+    const playerId = String(profile?.playerId || `player_${crypto.randomUUID()}`);
+    const record = { key: TRAINER_PROFILE_KEY, name: displayName, playerId, createdAt: profile?.createdAt || Date.now(), updatedAt: Date.now() };
+    try {
+      await withDatabase((database) => new Promise((resolve, reject) => {
+        const transaction = database.transaction(PLAYER_STORE, "readwrite");
+        transaction.objectStore(PLAYER_STORE).put(record);
+        transaction.oncomplete = resolve;
+        transaction.onerror = () => reject(transaction.error);
+      }));
+    } catch (error) { console.error("Erro ao salvar perfil local:", error); }
+    return { playerId, displayName, createdAt: record.createdAt };
+  },
+  async resetLocalPlayerIdentity() {
+    const current = await this.getLocalPlayerProfile();
+    return this.setLocalPlayerProfile({
+      playerId: `player_${crypto.randomUUID()}`,
+      displayName: current.displayName,
+      createdAt: Date.now(),
+    });
+  },
   async setTrainerName(name) {
     const trainerName = String(name || "").trim().slice(0, 18) || "Treinador";
     try {
       await withDatabase((database) => new Promise((resolve, reject) => {
         const transaction = database.transaction(PLAYER_STORE, "readwrite");
-        transaction.objectStore(PLAYER_STORE).put({ key: TRAINER_PROFILE_KEY, name: trainerName, updatedAt: Date.now() });
+        const store = transaction.objectStore(PLAYER_STORE);
+        const request = store.get(TRAINER_PROFILE_KEY);
+        request.onsuccess = () => store.put({ ...(request.result || {}), key: TRAINER_PROFILE_KEY, name: trainerName, playerId: request.result?.playerId || `player_${crypto.randomUUID()}`, createdAt: request.result?.createdAt || Date.now(), updatedAt: Date.now() });
         transaction.oncomplete = resolve;
         transaction.onerror = () => reject(transaction.error);
       }));

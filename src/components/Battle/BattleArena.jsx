@@ -358,10 +358,10 @@ function RewardRow({ icon: Icon, label, value }) {
   );
 }
 
-function BattleResultModal({ won, reward, coins, mode, onRematch }) {
+function BattleResultModal({ won, reward, coins, mode, onRematch, tournamentContext }) {
   const rematchRef = useRef(null);
   const isPerfect = reward.total === 60;
-  const rematchLabel = mode === "friend" ? "Pedir revanche" : "Jogar novamente";
+  const rematchLabel = mode === "tournament" ? "Voltar ao campeonato" : mode === "friend" ? "Pedir revanche" : "Jogar novamente";
 
   useEffect(() => {
     const focusFrame = requestAnimationFrame(() => rematchRef.current?.focus());
@@ -539,6 +539,7 @@ export default function BattleArena({
   mode,
   onAction,
   onRematch,
+  tournamentContext = null,
 }) {
   const [actionMode, setActionMode] = useState("moves");
   const [selectedItem, setSelectedItem] = useState(null);
@@ -562,12 +563,13 @@ export default function BattleArena({
   );
   const fastAvailable = elapsed < 60_000;
   const onePokemonAvailable = !state.performance?.players?.[role]?.hasSwitched;
-  const victoryReward = calculateBattleRewards({
+  const normalReward = calculateBattleRewards({
     won: state.status === "finished" && state.winner === role,
     durationMs:
       (state.performance?.endedAt || 0) - (state.performance?.startedAt || 0),
     usedOnlyOnePokemon: !state.performance?.players?.[role]?.hasSwitched,
   });
+  const victoryReward = tournamentContext ? { base: tournamentContext.reward, bonuses: { fastVictory: 0, onePokemonVictory: 0 }, total: tournamentContext.reward } : normalReward;
   const arenaRef = useBattleParallax(
     state.status === "playing" || state.status === "countdown",
   );
@@ -909,6 +911,7 @@ export default function BattleArena({
             coins={coins}
             mode={mode}
             onRematch={onRematch}
+            tournamentContext={tournamentContext}
           />
         )}
       </AnimatePresence>
