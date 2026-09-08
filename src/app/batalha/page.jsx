@@ -94,7 +94,13 @@ export default function BattlePage() {
     const heldItem = effect.heldItem;
     if (heldItem?.consumed && heldItem.owner === localRole)
       void webStore.consumeHeldItem(heldItem.targetPokemonId, heldItem.itemId, `${state.matchId}:${state.revision}:held:${localRole}:${heldItem.targetPokemonId}:${heldItem.itemId}:${heldItem.eventId}`).then((result) => {
-        if (result.ok) setInventory(result.economy.inventory || {});
+        if (result.ok) {
+          setInventory(result.economy.inventory || {});
+          if (result.pokemon) {
+            setCollection((current) => current.map((pokemon) => String(pokemon.id) === String(result.pokemon.id) ? result.pokemon : pokemon));
+            setSelected((current) => current.map((pokemon) => String(pokemon.id) === String(result.pokemon.id) ? result.pokemon : pokemon));
+          }
+        }
       });
   }, []);
   const startState = useCallback(
