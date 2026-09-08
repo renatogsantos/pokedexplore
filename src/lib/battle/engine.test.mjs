@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const engineSource = await readFile(new URL("./engine.js", import.meta.url), "utf8");
-const { HELD_ITEM_TRIGGER, MAX_POTIONS, MAX_SPECIAL_ATTACK_USES, calculateDamage, createBattleState, getHpRatio, getPokemonMatchup, multiplier, resolveAction, resolveHeldItemEvent, resolvePostDamageHeldItem } = await import(`data:text/javascript;base64,${Buffer.from(engineSource).toString("base64")}`);
+const { HELD_ITEM_TRIGGER, MAX_HEALS_PER_POKEMON, MAX_POTIONS, MAX_SPECIAL_ATTACK_USES, calculateDamage, createBattleState, getHpRatio, getPokemonMatchup, multiplier, resolveAction, resolveHeldItemEvent, resolvePostDamageHeldItem } = await import(`data:text/javascript;base64,${Buffer.from(engineSource).toString("base64")}`);
 
 const pokemon = (id, hp = 100, maxHp = 100) => ({ id, name: `pokemon-${id}`, type: "normal", hp, maxHp });
 const makeState = () => createBattleState(
@@ -22,7 +22,22 @@ test("potion heals 40% of max HP, consumes one potion and the turn", () => {
   assert.equal(next.host.team[0].hp, 70);
   assert.equal(next.host.potionsRemaining, 1);
   assert.equal(next.turn, "guest");
-  assert.deepEqual(next.effect, { kind: "potion", actor: "host", target: "host", targetPokemonId: 1, targetIndex: 0, healing: 40 });
+  assert.deepEqual(next.effect, { kind: "potion", actor: "host", target: "host", targetPokemonId: 1, targetIndex: 0, healing: 40, healsUsed: 1, maxHeals: MAX_HEALS_PER_POKEMON });
+});
+
+test("manual healing is limited independently per Pokemon", () => {
+  let state = makeState();
+  for (let i = 0; i < MAX_HEALS_PER_POKEMON; i += 1) {
+    state = { ...state, turn: "host", host: { ...state.host, potionsRemaining: 9, bag: { ...state.host.bag, potion: 9 }, team: state.host.team.map((pokemon, index) => index === 0 ? { ...pokemon, hp: 30 } : pokemon) } };
+    state = resolveAction(state, "host", { type: "potion", targetPokemonId: 1 });
+  }
+  assert.equal(state.host.team[0].healsUsed, 3);
+  const blocked = { ...state, turn: "host" };
+  const rejected = resolveAction(blocked, "host", { type: "potion", targetPokemonId: 1 });
+  assert.strictEqual(rejected, blocked);
+  assert.equal(state.host.team[1].healsUsed, 0);
+  const other = resolveAction({ ...state, turn: "host" }, "host", { type: "potion", targetPokemonId: 2 });
+  assert.equal(other.host.team[1].healsUsed, 1);
 });
 
 test("potion caps healing at max HP and can target a reserve Pokemon", () => {

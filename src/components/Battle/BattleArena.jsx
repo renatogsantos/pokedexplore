@@ -14,6 +14,7 @@ import Link from "next/link";
 import { useSelector } from "react-redux";
 import {
   getOpponentWeaknesses,
+  MAX_HEALS_PER_POKEMON,
   getPokemonMatchup,
   getSupportedAbility,
   multiplier,
@@ -80,6 +81,7 @@ function Fighter({ side, player, isHit, isAttacking, isHealing, matchup }) {
           <span className="fighter-type-icons" aria-label={`Tipos: ${pokemon.types.map(getTypeLabel).join(", ")}`}>{pokemon.types.map((type) => <PokemonTypeIcon key={type} type={type} size={25} label={`Tipo ${getTypeLabel(type)}`} interactive />)}</span>
         </div>
         <HpBar pokemon={pokemon} />
+        <small className="healing-limit-indicator">Curas {pokemon.healsUsed || 0}/{MAX_HEALS_PER_POKEMON}</small>
         {ability && (
           <span className={`battle-ability ${pokemon.hp / pokemon.maxHp <= 1 / 3 ? "is-active" : ""}`} title={ability.description}>
             {ability.id}
