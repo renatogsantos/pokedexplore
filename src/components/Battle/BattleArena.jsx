@@ -464,6 +464,7 @@ export default function BattleArena({ state, role, mode, onAction, onRematch }) 
           </button>
         </div>
         <div className="action-deck-panel">
+          {actionMode === "items" && <small className="healing-limit-heading">Curas: {active.healsUsed || 0}/{MAX_HEALS_PER_POKEMON} no Pokémon ativo · o limite é individual por alvo</small>}
           {actionMode === "moves" && (
             <div className="attack-grid v2-move-grid" role="tabpanel" aria-label="Golpes disponíveis">
               {Array.from({ length: 4 }, (_, index) => active.moves[index] || null).map((move, index) => {

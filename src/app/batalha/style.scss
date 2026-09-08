@@ -4600,3 +4600,12 @@
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 }
+.healing-limit-heading {
+  display: block;
+  margin: 0 0 6px;
+  color: #ffdf7e;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .02em;
+  text-align: center;
+}
