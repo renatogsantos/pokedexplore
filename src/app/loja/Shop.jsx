@@ -4,7 +4,18 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, CaretLeft, CaretRight, CheckCircle, MagnifyingGlass, Minus, Plus, ShoppingCart, Sparkle, X } from "@phosphor-icons/react";
+import {
+  ArrowLeft,
+  CaretLeft,
+  CaretRight,
+  CheckCircle,
+  MagnifyingGlass,
+  Minus,
+  Plus,
+  ShoppingCart,
+  Sparkle,
+  X,
+} from "@phosphor-icons/react";
 import { webStore } from "@/helpers/webStore";
 import { pokemonData } from "@/helpers/PokemonTypes";
 import { actAddPokedex } from "@/redux/pokemons";
@@ -23,62 +34,667 @@ import { preloadItemVisuals } from "@/lib/items/visuals";
 import { getCustomPokemon } from "@/lib/pokemon/customCatalog";
 
 const PAGE_SIZE = 12;
-const artwork = (pokemon) => pokemon?.artwork || pokemon?.image || pokemon?.sprites?.other?.["official-artwork"]?.front_default || pokemon?.sprites?.front_default || "/pokenull.png";
-const typesOf = (pokemon) => pokemon?.types?.map((item) => item.type?.name || item.name).filter(Boolean) || [];
-const Coin = () => <img className="coin-image" src="/coin.png" alt="" aria-hidden="true" />;
+const artwork = (pokemon) =>
+  pokemon?.artwork ||
+  pokemon?.image ||
+  pokemon?.sprites?.other?.["official-artwork"]?.front_default ||
+  pokemon?.sprites?.front_default ||
+  "/pokenull.png";
+const typesOf = (pokemon) =>
+  pokemon?.types?.map((item) => item.type?.name || item.name).filter(Boolean) ||
+  [];
+const Coin = () => (
+  <img className="coin-image" src="/coin.png" alt="" aria-hidden="true" />
+);
 
 function ShopCard({ pokemon, owned, balance, onBuy }) {
-  const price = getPokemonPrice(pokemon); const level = owned ? getPokemonLevel(owned) : 0; const maxLevel = level >= MAX_POKEMON_LEVEL;
-  const type = typesOf(pokemon)[0] || "normal"; const color = pokemonData.find((item) => item.type === type)?.color || "#64748b";
-  return <article className={`shop-card ${getRarityClassName(pokemon)}`} style={{ "--shop-type": color }}>
-    <div className="shop-card-head"><span>#{String(pokemon.id).padStart(3, "0")}</span><PokemonRarity pokemon={pokemon} compact /></div>
-    <img src={artwork(pokemon)} alt={pokemon.name} loading="lazy" />
-    <h2>{pokemon.name}</h2><div className="shop-types">{typesOf(pokemon).map((item) => <span key={item}>{item}</span>)}</div>
-    {owned && <p className="shop-owned"><Sparkle weight="fill" /> Lv. {level} {maxLevel ? "· nível máximo" : "· compre para subir de nível"}</p>}
-    <div className="shop-price"><Coin /><strong>{formatCoins(price)}</strong></div>
-    <button type="button" disabled={maxLevel} onClick={() => onBuy({ pokemon, owned, price, quantity: 1 })}><ShoppingCart size={18} weight="fill" /> {getPurchaseLabel({ balance, price, level, maxLevel })}</button>
-  </article>;
+  const price = getPokemonPrice(pokemon);
+  const level = owned ? getPokemonLevel(owned) : 0;
+  const maxLevel = level >= MAX_POKEMON_LEVEL;
+  const type = typesOf(pokemon)[0] || "normal";
+  const color =
+    pokemonData.find((item) => item.type === type)?.color || "#64748b";
+  return (
+    <article
+      className={`shop-card ${getRarityClassName(pokemon)}`}
+      style={{ "--shop-type": color }}
+    >
+      <div className="shop-card-head">
+        <span>#{String(pokemon.id).padStart(3, "0")}</span>
+        <PokemonRarity pokemon={pokemon} compact />
+      </div>
+      <img src={artwork(pokemon)} alt={pokemon.name} loading="lazy" />
+      <h2>{pokemon.name}</h2>
+      <div className="shop-types">
+        {typesOf(pokemon).map((item) => (
+          <span key={item}>{item}</span>
+        ))}
+      </div>
+      {owned && (
+        <p className="shop-owned">
+          <Sparkle weight="fill" /> Lv. {level}{" "}
+          {maxLevel ? "· nível máximo" : "· compre para subir de nível"}
+        </p>
+      )}
+      <div className="shop-price">
+        <Coin />
+        <strong>{formatCoins(price)}</strong>
+      </div>
+      <button
+        type="button"
+        disabled={maxLevel}
+        onClick={() => onBuy({ pokemon, owned, price, quantity: 1 })}
+      >
+        <ShoppingCart size={18} weight="fill" />{" "}
+        {getPurchaseLabel({ balance, price, level, maxLevel })}
+      </button>
+    </article>
+  );
 }
 
 function QuantityModal({ purchase, balance, onChange, onCancel, onConfirm }) {
-  const level = purchase.owned ? getPokemonLevel(purchase.owned) : 0; const limit = purchase.owned ? MAX_POKEMON_LEVEL - level : MAX_POKEMON_LEVEL;
-  const maximum = Math.max(1, Math.min(limit, Math.floor(balance / purchase.price))); const quantity = Math.min(purchase.quantity, maximum); const total = quantity * purchase.price;
-  const update = (value) => onChange({ ...purchase, quantity: Math.max(1, Math.min(maximum, value)) });
-  return <motion.div className="shop-modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><motion.section className="shop-modal" role="dialog" aria-modal="true" aria-labelledby="shop-confirm-title" initial={{ y: 16, scale: .97 }} animate={{ y: 0, scale: 1 }} exit={{ y: 16, scale: .97 }}>
-    <button type="button" className="shop-modal-close" onClick={onCancel} aria-label="Cancelar compra"><X size={20} /></button><img src={artwork(purchase.pokemon)} alt="" /><span>CONFIRMAR COMPRA</span><h2 id="shop-confirm-title">{purchase.pokemon.name}</h2><p>{purchase.owned ? `Cada cópia aumenta 1 nível. Lv. ${level} → Lv. ${Math.min(MAX_POKEMON_LEVEL, level + quantity)}` : `Você receberá este Pokémon no nível ${quantity}.`}</p>
-    <div className="shop-quantity" aria-label="Quantidade de cópias"><button type="button" disabled={quantity <= 1} onClick={() => update(quantity - 1)} aria-label="Diminuir quantidade"><Minus size={18} /></button><strong>{quantity}</strong><button type="button" disabled={quantity >= maximum} onClick={() => update(quantity + 1)} aria-label="Aumentar quantidade"><Plus size={18} /></button></div><small className="shop-quantity-help">Até {maximum} cópias nesta compra</small><strong className="shop-total"><Coin /> {formatCoins(total)} moedas</strong><div><button type="button" onClick={onCancel}>Cancelar</button><button type="button" onClick={onConfirm}>Comprar {quantity}</button></div>
-  </motion.section></motion.div>;
+  const level = purchase.owned ? getPokemonLevel(purchase.owned) : 0;
+  const limit = purchase.owned ? MAX_POKEMON_LEVEL - level : MAX_POKEMON_LEVEL;
+  const maximum = Math.max(
+    1,
+    Math.min(limit, Math.floor(balance / purchase.price)),
+  );
+  const quantity = Math.min(purchase.quantity, maximum);
+  const total = quantity * purchase.price;
+  const update = (value) =>
+    onChange({ ...purchase, quantity: Math.max(1, Math.min(maximum, value)) });
+  return (
+    <motion.div
+      className="shop-modal-backdrop"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <motion.section
+        className="shop-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="shop-confirm-title"
+        initial={{ y: 16, scale: 0.97 }}
+        animate={{ y: 0, scale: 1 }}
+        exit={{ y: 16, scale: 0.97 }}
+      >
+        <button
+          type="button"
+          className="shop-modal-close"
+          onClick={onCancel}
+          aria-label="Cancelar compra"
+        >
+          <X size={20} />
+        </button>
+        <img src={artwork(purchase.pokemon)} alt="" />
+        <span>CONFIRMAR COMPRA</span>
+        <h2 id="shop-confirm-title">{purchase.pokemon.name}</h2>
+        <p>
+          {purchase.owned
+            ? `Cada cópia aumenta 1 nível. Lv. ${level} → Lv. ${Math.min(MAX_POKEMON_LEVEL, level + quantity)}`
+            : `Você receberá este Pokémon no nível ${quantity}.`}
+        </p>
+        <div className="shop-quantity" aria-label="Quantidade de cópias">
+          <button
+            type="button"
+            disabled={quantity <= 1}
+            onClick={() => update(quantity - 1)}
+            aria-label="Diminuir quantidade"
+          >
+            <Minus size={18} />
+          </button>
+          <strong>{quantity}</strong>
+          <button
+            type="button"
+            disabled={quantity >= maximum}
+            onClick={() => update(quantity + 1)}
+            aria-label="Aumentar quantidade"
+          >
+            <Plus size={18} />
+          </button>
+        </div>
+        <small className="shop-quantity-help">
+          Até {maximum} cópias nesta compra
+        </small>
+        <strong className="shop-total">
+          <Coin /> {formatCoins(total)} moedas
+        </strong>
+        <div>
+          <button type="button" onClick={onCancel}>
+            Cancelar
+          </button>
+          <button type="button" onClick={onConfirm}>
+            Comprar {quantity}
+          </button>
+        </div>
+      </motion.section>
+    </motion.div>
+  );
 }
 
 function Pagination({ page, pages, disabled, onChange }) {
-  const [input, setInput] = useState(String(page)); useEffect(() => setInput(String(page)), [page]);
-  const commit = () => { const next = Number(input); onChange(Number.isInteger(next) ? Math.min(pages, Math.max(1, next)) : page); };
-  return <nav className="shop-pagination" aria-label="Paginação da loja"><button type="button" disabled={disabled || page <= 1} onClick={() => onChange(page - 1)} aria-label="Página anterior"><CaretLeft size={20} /> Anterior</button><label>Página <input aria-label="Ir para a página" inputMode="numeric" value={input} onChange={(event) => setInput(event.target.value.replace(/\D/g, ""))} onBlur={commit} onKeyDown={(event) => event.key === "Enter" && commit()} /> <span>de {pages}</span></label><button type="button" disabled={disabled || page >= pages} onClick={() => onChange(page + 1)} aria-label="Próxima página">Próxima <CaretRight size={20} /></button></nav>;
+  const [input, setInput] = useState(String(page));
+  useEffect(() => setInput(String(page)), [page]);
+  const commit = () => {
+    const next = Number(input);
+    onChange(
+      Number.isInteger(next) ? Math.min(pages, Math.max(1, next)) : page,
+    );
+  };
+  return (
+    <nav className="shop-pagination" aria-label="Paginação da loja">
+      <button
+        type="button"
+        disabled={disabled || page <= 1}
+        onClick={() => onChange(page - 1)}
+        aria-label="Página anterior"
+      >
+        <CaretLeft size={20} /> Anterior
+      </button>
+      <label>
+        Página{" "}
+        <input
+          aria-label="Ir para a página"
+          inputMode="numeric"
+          value={input}
+          onChange={(event) => setInput(event.target.value.replace(/\D/g, ""))}
+          onBlur={commit}
+          onKeyDown={(event) => event.key === "Enter" && commit()}
+        />{" "}
+        <span>de {pages}</span>
+      </label>
+      <button
+        type="button"
+        disabled={disabled || page >= pages}
+        onClick={() => onChange(page + 1)}
+        aria-label="Próxima página"
+      >
+        Próxima <CaretRight size={20} />
+      </button>
+    </nav>
+  );
 }
 
 function UpgradeCard({ upgrade, economy, balance, onBuy }) {
-  const isTm = upgrade.category === "tm"; const quantity = isTm ? Number((economy.ownedTms || []).includes(upgrade.id)) : economy.inventory?.[upgrade.id] || 0;
-  return <article className={`shop-upgrade shop-upgrade--${upgrade.category}`}><div className="shop-upgrade-icon"><ItemSprite item={upgrade.id} alt="" /></div><div className="shop-upgrade-content"><span>{isTm ? "TM" : upgrade.category === "battle" ? "MOCHILA" : "ITEM SEGURADO"}</span><h2>{upgrade.name}</h2><p>{upgrade.description}</p></div><div className="shop-upgrade-footer"><strong><Coin /> {formatCoins(upgrade.price)}</strong><small>{isTm ? quantity ? "Adquirida" : "Ainda não adquirida" : `${quantity} ${upgrade.quantityLabel}`}</small><button type="button" disabled={balance < upgrade.price || (isTm && Boolean(quantity))} onClick={() => onBuy(upgrade)}>{isTm && quantity ? "Adquirida" : balance < upgrade.price ? "Sem moedas" : "Comprar"}</button></div></article>;
+  const isTm = upgrade.category === "tm";
+  const quantity = isTm
+    ? Number((economy.ownedTms || []).includes(upgrade.id))
+    : economy.inventory?.[upgrade.id] || 0;
+  return (
+    <article className={`shop-upgrade shop-upgrade--${upgrade.category}`}>
+      <div className="shop-upgrade-icon">
+        <ItemSprite item={upgrade.id} alt="" />
+      </div>
+      <div className="shop-upgrade-content">
+        <span>
+          {isTm
+            ? "TM"
+            : upgrade.category === "battle"
+              ? "MOCHILA"
+              : "ITEM SEGURADO"}
+        </span>
+        <h2>{upgrade.name}</h2>
+        <p>{upgrade.description}</p>
+      </div>
+      <div className="shop-upgrade-footer">
+        <strong>
+          <Coin /> {formatCoins(upgrade.price)}
+        </strong>
+        <small>
+          {isTm
+            ? quantity
+              ? "Adquirida"
+              : "Ainda não adquirida"
+            : `${quantity} ${upgrade.quantityLabel}`}
+        </small>
+        <button
+          type="button"
+          disabled={balance < upgrade.price || (isTm && Boolean(quantity))}
+          onClick={() => onBuy(upgrade)}
+        >
+          {isTm && quantity
+            ? "Adquirida"
+            : balance < upgrade.price
+              ? "Sem moedas"
+              : "Comprar"}
+        </button>
+      </div>
+    </article>
+  );
 }
 
 export default function Shop() {
-  const dispatch = useDispatch(); const collection = useSelector((state) => state.pokemons.Pokedex) || []; const balance = useSelector((state) => state.economy.coins);
-  const [query, setQuery] = useState(""); const [items, setItems] = useState([]); const [catalog, setCatalog] = useState([]); const [loading, setLoading] = useState(true); const [catalogError, setCatalogError] = useState(false); const [rarity, setRarity] = useState("all"); const [sort, setSort] = useState("number"); const [page, setPage] = useState(1); const [purchase, setPurchase] = useState(null); const [feedback, setFeedback] = useState(null); const [shopTab, setShopTab] = useState("pokemon"); const [upgradeCategory, setUpgradeCategory] = useState("all"); const [economy, setEconomy] = useState({ inventory: {}, ownedTms: [] }); const cache = useRef(new Map()); const results = useRef(null);
+  const dispatch = useDispatch();
+  const collection = useSelector((state) => state.pokemons.Pokedex) || [];
+  const balance = useSelector((state) => state.economy.coins);
+  const [query, setQuery] = useState("");
+  const [items, setItems] = useState([]);
+  const [catalog, setCatalog] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState(false);
+  const [rarity, setRarity] = useState("all");
+  const [sort, setSort] = useState("number");
+  const [page, setPage] = useState(1);
+  const [purchase, setPurchase] = useState(null);
+  const [feedback, setFeedback] = useState(null);
+  const [shopTab, setShopTab] = useState("pokemon");
+  const [upgradeCategory, setUpgradeCategory] = useState("all");
+  const [economy, setEconomy] = useState({ inventory: {}, ownedTms: [] });
+  const cache = useRef(new Map());
+  const results = useRef(null);
   const searching = Boolean(query.trim());
-  const loadPokemon = async (name) => { const key = name.trim().toLowerCase(); if (cache.current.has(key)) return cache.current.get(key); const custom = getCustomPokemon(key); if (custom) { cache.current.set(key, custom); return custom; } const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${encodeURIComponent(key)}`); if (!response.ok) throw new Error("not-found"); const pokemon = await enrichPokemonRarity(await response.json()); cache.current.set(key, pokemon); return pokemon; };
-  useEffect(() => { webStore.getData("Pokedex").then((data) => dispatch(actAddPokedex(data))); webStore.getEconomy().then((data) => { setEconomy(data); dispatch(actCoins(data.coins)); }); }, [dispatch]);
-  useEffect(() => { void preloadItemVisuals(SHOP_UPGRADES.map((upgrade) => upgrade.id)); }, []);
-  useEffect(() => { let active = true; getShopCatalog().then((data) => active && setCatalog(data)).catch(() => active && setCatalogError(true)); return () => { active = false; }; }, []);
-  const filteredCatalog = useMemo(() => catalog.filter((pokemon) => rarity === "all" || getPokemonRarity(pokemon) === rarity).sort((a, b) => sort === "number" ? a.id - b.id : sort === "name" ? a.name.localeCompare(b.name) : sort === "price-desc" ? getPokemonPrice(b) - getPokemonPrice(a) : getPokemonPrice(a) - getPokemonPrice(b)), [catalog, rarity, sort]);
-  const total = searching ? items.length : filteredCatalog.length; const pages = Math.max(1, Math.ceil(total / PAGE_SIZE)); const pageCatalog = useMemo(() => filteredCatalog.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [filteredCatalog, page]);
-  useEffect(() => { if (page > pages) setPage(pages); }, [page, pages]);
-  useEffect(() => { let active = true; const request = async () => { setLoading(true); try { if (query.trim()) { const pokemon = await loadPokemon(query).catch(() => null); if (active) setItems(pokemon ? [pokemon] : []); return; } const pokemon = await Promise.all(pageCatalog.map(async (item) => { const detail = await loadPokemon(item.name).catch(() => null); return detail ? { ...detail, rarity: item.rarity } : null; })); if (active) setItems(pokemon.filter(Boolean)); } finally { if (active) setLoading(false); } }; const timer = setTimeout(request, query.trim() ? 350 : 0); return () => { active = false; clearTimeout(timer); }; }, [pageCatalog, query]);
-  const visible = useMemo(() => searching ? items : [...items].sort((a, b) => pageCatalog.findIndex((item) => item.id === a.id) - pageCatalog.findIndex((item) => item.id === b.id)), [items, pageCatalog, searching]);
-  const changePage = (next) => { setPage(Math.min(pages, Math.max(1, next))); results.current?.scrollIntoView({ behavior: "smooth", block: "start" }); };
-  async function confirmPurchase() { if (!purchase) return; const result = await webStore.purchasePokemon(purchase.pokemon, purchase.price, purchase.quantity); if (!result.ok) { setFeedback(result.reason === "insufficient" ? "Você não tem moedas suficientes para esta quantidade." : "Essa quantidade ultrapassa o nível máximo."); setPurchase(null); return; } playBattleSound("coin", .6); dispatch(actCoins(result.coins)); dispatch(actAddPokedex(await webStore.getData("Pokedex"))); if (!result.duplicate) celebratePokemonPurchase({ rarity: result.pokemon?.rarity }); setFeedback(result.duplicate ? `${result.pokemon.name.toUpperCase()} subiu do nível ${result.previousLevel} para o ${result.pokemon.level}!` : `${result.pokemon.name.toUpperCase()} entrou na Pokédex no nível ${result.pokemon.level}!`); setPurchase(null); }
-  async function buyUpgrade(upgrade) { const result = await webStore.purchaseUpgrade(upgrade.id); if (!result.ok) { setFeedback(result.reason === "owned" ? "Essa TM já está na sua coleção." : "Você não tem moedas suficientes."); return; } playBattleSound("coin", .6); setEconomy(result.economy); dispatch(actCoins(result.coins)); setFeedback(`${upgrade.name.toUpperCase()} foi adicionado${upgrade.category === "tm" ? " à coleção de TMs" : " ao inventário"}!`); }
-  const upgrades = SHOP_UPGRADES.filter((upgrade) => upgradeCategory === "all" || upgrade.category === upgradeCategory);
-  const pokemonContent = <><label className="shop-search"><MagnifyingGlass size={22} /><span className="sr-only">Pesquisar Pokémon</span><input type="search" value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="Pesquisar Pokémon: Pikachu, Charizard..." /></label><div className="shop-controls"><div><button type="button" className={rarity === "all" ? "selected" : ""} onClick={() => { setRarity("all"); setPage(1); }}>Todos</button><button type="button" className={rarity === "legendary" ? "selected" : ""} onClick={() => { setRarity("legendary"); setPage(1); }}>Lendários</button><button type="button" className={rarity === "mythical" ? "selected" : ""} onClick={() => { setRarity("mythical"); setPage(1); }}>Míticos</button></div><label>Ordenar<select value={sort} onChange={(event) => { setSort(event.target.value); setPage(1); }}><option value="number">Número Pokédex</option><option value="price-asc">Menor preço</option><option value="price-desc">Maior preço</option><option value="name">A–Z</option></select></label></div><div className="shop-catalog-heading"><div><span>{searching ? "RESULTADO DA BUSCA" : rarity === "all" ? "CATÁLOGO COMPLETO" : rarity === "legendary" ? "LENDÁRIOS" : "MÍTICOS"}</span><strong>{searching ? "Resultado exato" : `Página ${page} de ${pages}`}</strong></div>{!searching && <small>{total || "…"} Pokémon disponíveis</small>}</div><div id="shop-results" ref={results} className="shop-grid" aria-live="polite" aria-busy={loading}>{loading ? <p className="shop-loading">Preparando a vitrine…</p> : catalogError ? <p className="shop-empty">Não foi possível preparar o catálogo. Tente novamente.</p> : visible.length ? visible.map((pokemon) => <ShopCard key={pokemon.id} pokemon={pokemon} balance={balance} owned={collection.find((item) => item.id === pokemon.id)} onBuy={setPurchase} />) : <p className="shop-empty">Nenhum Pokémon encontrado nesta seleção.</p>}</div>{!searching && <Pagination page={page} pages={pages} disabled={loading || !total} onChange={changePage} />}</>;
-  const upgradeContent = <section id="shop-results" className="shop-upgrades"><div className="shop-catalog-heading"><div><span>INVENTÁRIO E TREINAMENTO</span><strong>Prepare sua próxima batalha</strong></div><small>Itens são usados na Arena. TMs ficam na sua coleção.</small></div><div className="shop-upgrade-filters" role="group" aria-label="Filtrar itens"><button type="button" className={upgradeCategory === "all" ? "selected" : ""} onClick={() => setUpgradeCategory("all")}>Todos</button><button type="button" className={upgradeCategory === "battle" ? "selected" : ""} onClick={() => setUpgradeCategory("battle")}>Mochila</button><button type="button" className={upgradeCategory === "held" ? "selected" : ""} onClick={() => setUpgradeCategory("held")}>Segurados</button><button type="button" className={upgradeCategory === "tm" ? "selected" : ""} onClick={() => setUpgradeCategory("tm")}>TMs</button></div><div className="shop-upgrade-grid">{upgrades.map((upgrade) => <UpgradeCard key={upgrade.id} upgrade={upgrade} economy={economy} balance={balance} onBuy={buyUpgrade} />)}</div></section>;
-  return <main className="shop-page"><a className="shop-skip" href="#shop-results">Ir para a vitrine</a><header className="shop-header"><Link href="/pokedex"><ArrowLeft size={20} /> Pokédex</Link><div><Link href="/como-jogar">Como jogar</Link><CoinBalance /></div></header><div className="shop-shell"><section className="shop-hero"><div><span>LOJA POKÉMON</span><h1>Escolha seu próximo parceiro.</h1><p>Vença batalhas, junte moedas e fortaleça sua coleção do seu jeito.</p></div><div className="shop-balance"><Coin /><span>SEU SALDO</span><strong>{formatCoins(balance)}</strong><small>moedas</small></div></section><section className="shop-browser"><div className="shop-tabs" role="tablist" aria-label="Seções da loja"><button type="button" role="tab" aria-selected={shopTab === "pokemon"} className={shopTab === "pokemon" ? "selected" : ""} onClick={() => setShopTab("pokemon")}>Pokémon</button><button type="button" role="tab" aria-selected={shopTab === "upgrades"} className={shopTab === "upgrades" ? "selected" : ""} onClick={() => setShopTab("upgrades")}>Itens e TMs</button></div>{shopTab === "pokemon" ? pokemonContent : upgradeContent}</section></div><AnimatePresence>{purchase && <QuantityModal purchase={purchase} balance={balance} onChange={setPurchase} onCancel={() => setPurchase(null)} onConfirm={confirmPurchase} />}</AnimatePresence><AnimatePresence>{feedback && <motion.div className="shop-feedback" role="status" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><CheckCircle size={22} weight="fill" /><span>{feedback}</span><button type="button" onClick={() => setFeedback(null)} aria-label="Fechar mensagem"><X size={18} /></button></motion.div>}</AnimatePresence></main>;
+  const loadPokemon = async (name) => {
+    const key = name.trim().toLowerCase();
+    if (cache.current.has(key)) return cache.current.get(key);
+    const custom = getCustomPokemon(key);
+    if (custom) {
+      cache.current.set(key, custom);
+      return custom;
+    }
+    const response = await fetch(
+      `https://pokeapi.co/api/v2/pokemon/${encodeURIComponent(key)}`,
+    );
+    if (!response.ok) throw new Error("not-found");
+    const pokemon = await enrichPokemonRarity(await response.json());
+    cache.current.set(key, pokemon);
+    return pokemon;
+  };
+  useEffect(() => {
+    webStore.getData("Pokedex").then((data) => dispatch(actAddPokedex(data)));
+    webStore.getEconomy().then((data) => {
+      setEconomy(data);
+      dispatch(actCoins(data.coins));
+    });
+  }, [dispatch]);
+  useEffect(() => {
+    void preloadItemVisuals(SHOP_UPGRADES.map((upgrade) => upgrade.id));
+  }, []);
+  useEffect(() => {
+    let active = true;
+    getShopCatalog()
+      .then((data) => active && setCatalog(data))
+      .catch(() => active && setCatalogError(true));
+    return () => {
+      active = false;
+    };
+  }, []);
+  const filteredCatalog = useMemo(
+    () =>
+      catalog
+        .filter(
+          (pokemon) => rarity === "all" || getPokemonRarity(pokemon) === rarity,
+        )
+        .sort((a, b) =>
+          sort === "number"
+            ? a.id - b.id
+            : sort === "name"
+              ? a.name.localeCompare(b.name)
+              : sort === "price-desc"
+                ? getPokemonPrice(b) - getPokemonPrice(a)
+                : getPokemonPrice(a) - getPokemonPrice(b),
+        ),
+    [catalog, rarity, sort],
+  );
+  const total = searching ? items.length : filteredCatalog.length;
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const pageCatalog = useMemo(
+    () => filteredCatalog.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [filteredCatalog, page],
+  );
+  useEffect(() => {
+    if (page > pages) setPage(pages);
+  }, [page, pages]);
+  useEffect(() => {
+    let active = true;
+    const request = async () => {
+      setLoading(true);
+      try {
+        if (query.trim()) {
+          const pokemon = await loadPokemon(query).catch(() => null);
+          if (active) setItems(pokemon ? [pokemon] : []);
+          return;
+        }
+        const pokemon = await Promise.all(
+          pageCatalog.map(async (item) => {
+            const detail = await loadPokemon(item.name).catch(() => null);
+            return detail ? { ...detail, rarity: item.rarity } : null;
+          }),
+        );
+        if (active) setItems(pokemon.filter(Boolean));
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    const timer = setTimeout(request, query.trim() ? 350 : 0);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [pageCatalog, query]);
+  const visible = useMemo(
+    () =>
+      searching
+        ? items
+        : [...items].sort(
+            (a, b) =>
+              pageCatalog.findIndex((item) => item.id === a.id) -
+              pageCatalog.findIndex((item) => item.id === b.id),
+          ),
+    [items, pageCatalog, searching],
+  );
+  const changePage = (next) => {
+    setPage(Math.min(pages, Math.max(1, next)));
+    results.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  async function confirmPurchase() {
+    if (!purchase) return;
+    const result = await webStore.purchasePokemon(
+      purchase.pokemon,
+      purchase.price,
+      purchase.quantity,
+    );
+    if (!result.ok) {
+      setFeedback(
+        result.reason === "insufficient"
+          ? "Você não tem moedas suficientes para esta quantidade."
+          : "Essa quantidade ultrapassa o nível máximo.",
+      );
+      setPurchase(null);
+      return;
+    }
+    playBattleSound("coin", 0.6);
+    dispatch(actCoins(result.coins));
+    dispatch(actAddPokedex(await webStore.getData("Pokedex")));
+    if (!result.duplicate)
+      celebratePokemonPurchase({ rarity: result.pokemon?.rarity });
+    setFeedback(
+      result.duplicate
+        ? `${result.pokemon.name.toUpperCase()} subiu do nível ${result.previousLevel} para o ${result.pokemon.level}!`
+        : `${result.pokemon.name.toUpperCase()} entrou na Pokédex no nível ${result.pokemon.level}!`,
+    );
+    setPurchase(null);
+  }
+  async function buyUpgrade(upgrade) {
+    const result = await webStore.purchaseUpgrade(upgrade.id);
+    if (!result.ok) {
+      setFeedback(
+        result.reason === "owned"
+          ? "Essa TM já está na sua coleção."
+          : "Você não tem moedas suficientes.",
+      );
+      return;
+    }
+    playBattleSound("coin", 0.6);
+    setEconomy(result.economy);
+    dispatch(actCoins(result.coins));
+    setFeedback(
+      `${upgrade.name.toUpperCase()} foi adicionado${upgrade.category === "tm" ? " à coleção de TMs" : " ao inventário"}!`,
+    );
+  }
+  const upgrades = SHOP_UPGRADES.filter(
+    (upgrade) =>
+      upgradeCategory === "all" || upgrade.category === upgradeCategory,
+  );
+  const pokemonContent = (
+    <>
+      <label className="shop-search">
+        <MagnifyingGlass size={22} />
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setPage(1);
+          }}
+          placeholder="Pesquisar Pokémon: Pikachu, Charizard..."
+        />
+      </label>
+      <div className="shop-controls">
+        <div>
+          <button
+            type="button"
+            className={rarity === "all" ? "selected" : ""}
+            onClick={() => {
+              setRarity("all");
+              setPage(1);
+            }}
+          >
+            Todos
+          </button>
+          <button
+            type="button"
+            className={rarity === "legendary" ? "selected" : ""}
+            onClick={() => {
+              setRarity("legendary");
+              setPage(1);
+            }}
+          >
+            Lendários
+          </button>
+          <button
+            type="button"
+            className={rarity === "mythical" ? "selected" : ""}
+            onClick={() => {
+              setRarity("mythical");
+              setPage(1);
+            }}
+          >
+            Míticos
+          </button>
+        </div>
+        <label>
+          Ordenar
+          <select
+            value={sort}
+            onChange={(event) => {
+              setSort(event.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="number">Número Pokédex</option>
+            <option value="price-asc">Menor preço</option>
+            <option value="price-desc">Maior preço</option>
+            <option value="name">A–Z</option>
+          </select>
+        </label>
+      </div>
+      <div className="shop-catalog-heading">
+        <div>
+          <span>
+            {searching
+              ? "RESULTADO DA BUSCA"
+              : rarity === "all"
+                ? "CATÁLOGO COMPLETO"
+                : rarity === "legendary"
+                  ? "LENDÁRIOS"
+                  : "MÍTICOS"}
+          </span>
+          <strong>
+            {searching ? "Resultado exato" : `Página ${page} de ${pages}`}
+          </strong>
+        </div>
+        {!searching && <small>{total || "…"} Pokémon disponíveis</small>}
+      </div>
+      <div
+        id="shop-results"
+        ref={results}
+        className="shop-grid"
+        aria-live="polite"
+        aria-busy={loading}
+      >
+        {loading ? (
+          <p className="shop-loading">Preparando a vitrine…</p>
+        ) : catalogError ? (
+          <p className="shop-empty">
+            Não foi possível preparar o catálogo. Tente novamente.
+          </p>
+        ) : visible.length ? (
+          visible.map((pokemon) => (
+            <ShopCard
+              key={pokemon.id}
+              pokemon={pokemon}
+              balance={balance}
+              owned={collection.find((item) => item.id === pokemon.id)}
+              onBuy={setPurchase}
+            />
+          ))
+        ) : (
+          <p className="shop-empty">Nenhum Pokémon encontrado nesta seleção.</p>
+        )}
+      </div>
+      {!searching && (
+        <Pagination
+          page={page}
+          pages={pages}
+          disabled={loading || !total}
+          onChange={changePage}
+        />
+      )}
+    </>
+  );
+  const upgradeContent = (
+    <section id="shop-results" className="shop-upgrades">
+      <div className="shop-catalog-heading">
+        <div>
+          <span>INVENTÁRIO E TREINAMENTO</span>
+          <strong>Prepare sua próxima batalha</strong>
+        </div>
+        <small>Itens são usados na Arena. TMs ficam na sua coleção.</small>
+      </div>
+      <div
+        className="shop-upgrade-filters"
+        role="group"
+        aria-label="Filtrar itens"
+      >
+        <button
+          type="button"
+          className={upgradeCategory === "all" ? "selected" : ""}
+          onClick={() => setUpgradeCategory("all")}
+        >
+          Todos
+        </button>
+        <button
+          type="button"
+          className={upgradeCategory === "battle" ? "selected" : ""}
+          onClick={() => setUpgradeCategory("battle")}
+        >
+          Mochila
+        </button>
+        <button
+          type="button"
+          className={upgradeCategory === "held" ? "selected" : ""}
+          onClick={() => setUpgradeCategory("held")}
+        >
+          Segurados
+        </button>
+        <button
+          type="button"
+          className={upgradeCategory === "tm" ? "selected" : ""}
+          onClick={() => setUpgradeCategory("tm")}
+        >
+          TMs
+        </button>
+      </div>
+      <div className="shop-upgrade-grid">
+        {upgrades.map((upgrade) => (
+          <UpgradeCard
+            key={upgrade.id}
+            upgrade={upgrade}
+            economy={economy}
+            balance={balance}
+            onBuy={buyUpgrade}
+          />
+        ))}
+      </div>
+    </section>
+  );
+  return (
+    <main className="shop-page">
+      <a className="shop-skip" href="#shop-results">
+        Ir para a vitrine
+      </a>
+      <header className="shop-header">
+        <Link href="/pokedex">
+          <ArrowLeft size={20} /> Pokédex
+        </Link>
+        <div>
+          <Link href="/como-jogar">Como jogar</Link>
+          <CoinBalance />
+        </div>
+      </header>
+      <div className="shop-shell">
+        <section className="shop-hero">
+          <div>
+            <span>LOJA POKÉMON</span>
+            <h1>Escolha seu próximo parceiro.</h1>
+            <p>
+              Vença batalhas, junte moedas e fortaleça sua coleção do seu jeito.
+            </p>
+          </div>
+          <div className="shop-balance">
+            <Coin />
+            <span>SEU SALDO</span>
+            <strong>{formatCoins(balance)}</strong>
+            <small>moedas</small>
+          </div>
+        </section>
+        <section className="shop-browser">
+          <div className="shop-tabs" role="tablist" aria-label="Seções da loja">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={shopTab === "pokemon"}
+              className={shopTab === "pokemon" ? "selected" : ""}
+              onClick={() => setShopTab("pokemon")}
+            >
+              Pokémon
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={shopTab === "upgrades"}
+              className={shopTab === "upgrades" ? "selected" : ""}
+              onClick={() => setShopTab("upgrades")}
+            >
+              Itens e TMs
+            </button>
+          </div>
+          {shopTab === "pokemon" ? pokemonContent : upgradeContent}
+        </section>
+      </div>
+      <AnimatePresence>
+        {purchase && (
+          <QuantityModal
+            purchase={purchase}
+            balance={balance}
+            onChange={setPurchase}
+            onCancel={() => setPurchase(null)}
+            onConfirm={confirmPurchase}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {feedback && (
+          <motion.div
+            className="shop-feedback"
+            role="status"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+          >
+            <CheckCircle size={22} weight="fill" />
+            <span>{feedback}</span>
+            <button
+              type="button"
+              onClick={() => setFeedback(null)}
+              aria-label="Fechar mensagem"
+            >
+              <X size={18} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </main>
+  );
 }
