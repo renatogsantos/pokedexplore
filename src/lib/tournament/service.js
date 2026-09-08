@@ -125,6 +125,11 @@ export async function completeTournamentMatch(matchId, winnerId) {
   if (tournament.status === TOURNAMENT_STATUS.CANCELLED) return error("Este campeonato foi cancelado pelo organizador.");
   if (match.status === MATCH_STATUS.FINISHED) return getTournament(match.tournament_id);
   if (![match.player1_id, match.player2_id].includes(winnerId)) return error("Resultado inválido para esta partida.");
+  if (match.round === ROUND.FINAL) {
+    const { error: finishError } = await db.rpc("finish_tournament_final", { p_match_id: matchId, p_winner_id: winnerId });
+    if (finishError) throw finishError;
+    return getTournament(match.tournament_id);
+  }
   const { data: updated, error: updateError } = await db.from("tournament_matches").update({ winner_id: winnerId, status: MATCH_STATUS.FINISHED, finished_at: new Date().toISOString() }).eq("id", matchId).neq("status", MATCH_STATUS.FINISHED).select().maybeSingle();
   if (updateError) throw updateError;
   if (!updated) return getTournament(match.tournament_id);
@@ -133,10 +138,6 @@ export async function completeTournamentMatch(matchId, winnerId) {
     db.from("tournament_players").update({ status: match.round === ROUND.FINAL ? "CHAMPION" : "QUALIFIED" }).eq("tournament_id", match.tournament_id).eq("player_id", winnerId),
     db.from("tournament_players").update({ status: "ELIMINATED" }).eq("tournament_id", match.tournament_id).eq("player_id", loserId),
   ]);
-  if (match.round === ROUND.FINAL) {
-    await db.from("tournaments").update({ status: TOURNAMENT_STATUS.FINISHED, finished_at: new Date().toISOString() }).eq("id", match.tournament_id).neq("status", TOURNAMENT_STATUS.FINISHED);
-    return getTournament(match.tournament_id);
-  }
   const { data: semis } = await db.from("tournament_matches").select("*").eq("tournament_id", match.tournament_id).eq("round", ROUND.SEMIFINAL).eq("status", MATCH_STATUS.FINISHED);
   if (semis?.length === 2) {
     const { error: finalError } = await db.from("tournament_matches").insert({ tournament_id: match.tournament_id, round: ROUND.FINAL, round_index: 1, player1_id: semis[0].winner_id, player2_id: semis[1].winner_id, status: MATCH_STATUS.WAITING, battle_room_code: `PKT-${match.tournament_id.slice(0, 8)}-F` });
