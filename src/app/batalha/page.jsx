@@ -619,6 +619,7 @@ export default function BattlePage() {
               onReady={readyTeam}
               waiting={readySent}
               canReady={mode === "cpu" || connection === "CONNECTED"}
+              onUseDeck={setSelected}
               onEquipmentChanged={(updated) => { setCollection((current) => current.map((pokemon) => String(pokemon.id) === String(updated.id) ? updated : pokemon)); setSelected((current) => current.map((pokemon) => String(pokemon.id) === String(updated.id) ? updated : pokemon)); }}
             />
           </>

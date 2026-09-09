@@ -2,9 +2,13 @@
 
 import {
   CheckCircle,
+  FloppyDisk,
   GameController,
   MagnifyingGlass,
+  PencilSimple,
   Plus,
+  Star,
+  Trash,
 } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import { getPokemonArtwork, getPokemonType } from "@/lib/battle/pokemon";
@@ -17,6 +21,7 @@ import ItemSprite from "@/components/ItemSprite/ItemSprite";
 import PokemonAura from "@/components/PokemonAura/PokemonAura";
 import HeldItemDrawer from "@/components/HeldItemDrawer/HeldItemDrawer";
 import { webStore } from "@/helpers/webStore";
+import { getPokemonSprite, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
 
 function TypeBadge({ type }) {
   return (
@@ -41,12 +46,15 @@ export default function TeamSelector({
   waiting,
   canReady = true,
   onEquipmentChanged,
+  onUseDeck,
 }) {
   const [query, setQuery] = useState("");
   const [selectedType, setSelectedType] = useState("all");
   const [page, setPage] = useState(1);
   const [economy, setEconomy] = useState({ inventory: {} });
   const [equipmentPokemon, setEquipmentPokemon] = useState(null);
+  const [activeTab, setActiveTab] = useState("pokemon");
+  const [decks, setDecks] = useState([]);
   const { pageSize } = useThreeRowPagination({
     selector: ".battle-collection-grid",
   });
@@ -79,6 +87,7 @@ export default function TeamSelector({
     setPage((current) => Math.min(current, pages));
   }, [pages]);
   useEffect(() => { webStore.getEconomy().then(setEconomy); }, []);
+  useEffect(() => { webStore.getDecks().then(setDecks); }, []);
 
   if (collection.length < 3)
     return (
@@ -111,6 +120,13 @@ export default function TeamSelector({
           {selected.length} / 3
         </span>
       </div>
+      <div className="team-selection-tabs" role="tablist" aria-label="Forma de montar o time">
+        <button type="button" role="tab" aria-controls="team-pokemon-panel" aria-selected={activeTab === "pokemon"} className={activeTab === "pokemon" ? "selected" : ""} onClick={() => setActiveTab("pokemon")} disabled={waiting}>Pokémon</button>
+        <button type="button" role="tab" aria-controls="team-decks-panel" aria-selected={activeTab === "decks"} className={activeTab === "decks" ? "selected" : ""} onClick={() => setActiveTab("decks")} disabled={waiting}>Decks</button>
+      </div>
+      {activeTab === "decks" ? (
+        <DecksPanel collection={collection} decks={decks} waiting={waiting} onDecksChange={setDecks} onUseDeck={(team) => { onUseDeck?.(team); setActiveTab("pokemon"); }} />
+      ) : <div id="team-pokemon-panel" role="tabpanel">
       <div className="battle-collection-controls">
         <label className="battle-collection-search">
           <MagnifyingGlass size={20} aria-hidden="true" />
@@ -227,6 +243,53 @@ export default function TeamSelector({
             : "Conectando a sala..."}
       </button>
       <HeldItemDrawer pokemon={equipmentPokemon || collection[0]} economy={economy} heldItem={equipmentPokemon?.heldItem || null} open={Boolean(equipmentPokemon)} onClose={() => setEquipmentPokemon(null)} onEquipped={(updated) => { setEconomy((current) => current); onEquipmentChanged?.(updated); setEquipmentPokemon((current) => current ? { ...current, heldItem: updated.heldItem } : null); }} />
+      </div>}
     </section>
   );
+}
+
+function DeckThumbnail({ pokemon }) {
+  return pokemon ? <><img src={getPokemonSprite({ pokemon, context: SPRITE_CONTEXT.BATTLE_THUMBNAIL })} alt="" /><small>Lv. {getPokemonLevel(pokemon)}</small></> : <><span className="deck-missing">?</span><small>Indisponível</small></>;
+}
+
+function DecksPanel({ collection, decks, waiting, onDecksChange, onUseDeck }) {
+  const [editor, setEditor] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const resolve = (deck) => deck.pokemonIds.map((id) => collection.find((pokemon) => String(pokemon.id) === String(id))).filter(Boolean);
+  const edit = (deck = null) => setEditor(deck ? { ...deck, pokemonIds: [...deck.pokemonIds] } : { name: "", pokemonIds: [] });
+  const toggle = (pokemon) => setEditor((current) => {
+    const id = String(pokemon.id);
+    if (current.pokemonIds.includes(id)) return { ...current, pokemonIds: current.pokemonIds.filter((item) => item !== id) };
+    return current.pokemonIds.length === 3 ? current : { ...current, pokemonIds: [...current.pokemonIds, id] };
+  });
+  const save = async () => {
+    if (!editor?.name.trim() || editor.pokemonIds.length !== 3) return;
+    setSaving(true);
+    const saved = await webStore.saveDeck(editor);
+    setSaving(false);
+    if (saved) { onDecksChange((current) => [...current.filter((deck) => deck.id !== saved.id), saved]); setEditor(null); }
+  };
+  const remove = async (deck) => {
+    if (!window.confirm(`Excluir "${deck.name}"? Isso não pode ser desfeito.`)) return;
+    if (await webStore.deleteDeck(deck.id)) onDecksChange((current) => current.filter((item) => item.id !== deck.id));
+  };
+
+  if (editor) return <div id="team-decks-panel" className="deck-editor" role="tabpanel">
+    <div className="deck-panel-heading"><div><span className="eyebrow">{editor.id ? "EDITAR DECK" : "NOVO DECK"}</span><h3>{editor.pokemonIds.length} / 3 Pokémon</h3></div><button type="button" onClick={() => setEditor(null)} disabled={saving}>Cancelar</button></div>
+    <label className="deck-name-field">Nome do deck<input value={editor.name} maxLength={28} placeholder="Ex.: Meus favoritos" onChange={(event) => setEditor((current) => ({ ...current, name: event.target.value }))} disabled={saving} /></label>
+    <p className="deck-editor-help">Escolha três Pokémon da sua coleção. A ordem será mantida na batalha.</p>
+    <div className="deck-editor-slots" aria-label="Pokémon escolhidos para o deck">{editor.pokemonIds.map((id, index) => { const pokemon = collection.find((item) => String(item.id) === id); return <button type="button" key={`${id}-${index}`} onClick={() => setEditor((current) => ({ ...current, pokemonIds: current.pokemonIds.filter((item) => item !== id) }))} disabled={saving}><b>{index + 1}</b><DeckThumbnail pokemon={pokemon} /><span>Remover</span></button>; })}</div>
+    <div className="deck-picker-grid">
+      {collection.map((pokemon) => { const selected = editor.pokemonIds.includes(String(pokemon.id)); return <button key={pokemon.id} type="button" className={`deck-picker-card ${selected ? "selected" : ""}`} onClick={() => toggle(pokemon)} aria-pressed={selected} disabled={saving || (!selected && editor.pokemonIds.length === 3)}><DeckThumbnail pokemon={pokemon} /><strong>{pokemon.name}</strong>{selected && <b>{editor.pokemonIds.indexOf(String(pokemon.id)) + 1}</b>}</button>; })}
+    </div>
+    <button type="button" className="ready-button" onClick={save} disabled={saving || !editor.name.trim() || editor.pokemonIds.length !== 3}><FloppyDisk size={18} weight="bold" aria-hidden="true" /> {saving ? "Salvando..." : "Salvar deck"}</button>
+  </div>;
+
+  return <div id="team-decks-panel" className="decks-panel" role="tabpanel">
+    <div className="deck-panel-heading"><div><span className="eyebrow">TIMES FAVORITOS</span><h3>Decks salvos</h3></div><button type="button" className="deck-create-button" onClick={() => edit()} disabled={waiting}><Plus size={17} weight="bold" aria-hidden="true" /> Criar deck</button></div>
+    {!decks.length ? <div className="decks-empty"><Star size={34} weight="fill" aria-hidden="true" /><h3>Ainda não há decks</h3><p>Salve seus times favoritos para entrar nas batalhas mais rápido.</p><button type="button" onClick={() => edit()} disabled={waiting}><Plus size={17} weight="bold" aria-hidden="true" /> Criar primeiro deck</button></div> : <div className="deck-list">{decks.map((deck) => {
+      const team = resolve(deck); const complete = team.length === 3;
+      return <article className={`deck-card ${complete ? "" : "incomplete"}`} key={deck.id}><div className="deck-card-heading"><strong><Star size={15} weight="fill" aria-hidden="true" /> {deck.name}</strong>{!complete && <span>Deck incompleto</span>}</div><div className="deck-pokemon-row">{deck.pokemonIds.map((id, index) => <div className="deck-pokemon" key={`${id}-${index}`}><DeckThumbnail pokemon={collection.find((item) => String(item.id) === String(id))} /></div>)}</div>{!complete && <p>Um Pokémon não está mais disponível. Edite este deck para usá-lo.</p>}<div className="deck-card-actions"><button type="button" onClick={() => onUseDeck(team)} disabled={waiting || !complete}>Usar este deck</button><button type="button" onClick={() => edit(deck)} disabled={waiting} aria-label={`Editar ${deck.name}`}><PencilSimple size={18} weight="bold" aria-hidden="true" /></button><button type="button" onClick={() => remove(deck)} disabled={waiting} aria-label={`Excluir ${deck.name}`}><Trash size={18} weight="bold" aria-hidden="true" /></button></div></article>;
+    })}</div>}
+  </div>;
 }

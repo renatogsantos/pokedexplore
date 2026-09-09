@@ -4575,6 +4575,46 @@
   transform: translate3d(0, 0, 0);
   will-change: transform;
 }
+.team-selection-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0 0 14px;
+  padding: 4px;
+  border: 1px solid #ffffff18;
+  border-radius: 12px;
+  background: #071426;
+}
+.team-selection-tabs button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #b9cce4;
+  font-weight: 850;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  touch-action: manipulation;
+}
+.team-selection-tabs button.selected { background: #183450; color: #ffdf5d; box-shadow: inset 0 -2px 0 #ffcb05; }
+.team-selection-tabs button:focus-visible, .deck-card-actions button:focus-visible, .deck-create-button:focus-visible, .deck-picker-card:focus-visible { outline: 2px solid #ffdc50; outline-offset: 2px; }
+.decks-panel, .deck-editor { min-width: 0; }
+.deck-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.deck-panel-heading h3 { margin: 2px 0 0; color: #f4f8ff; }
+.deck-panel-heading button, .deck-create-button, .decks-empty button { min-height: 40px; border: 1px solid #ffcb0570; border-radius: 9px; background: #213b52; color: #ffdf5d; font-weight: 800; }
+.deck-create-button, .decks-empty button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 0 10px; }
+.decks-empty { display: grid; justify-items: center; gap: 8px; padding: 24px 16px; border: 1px dashed #ffffff2b; border-radius: 14px; color: #b9cce4; text-align: center; }
+.decks-empty svg { color: #ffcb05; }.decks-empty h3, .decks-empty p { margin: 0; }.decks-empty p { max-width: 34ch; }
+.deck-list { display: grid; gap: 10px; max-height: min(54svh, 500px); overflow: auto; padding-right: 2px; }
+.deck-card { padding: 11px; border: 1px solid #ffffff1e; border-radius: 13px; background: linear-gradient(145deg, #112843, #0a182b); box-shadow: inset 0 1px 0 #ffffff0b; }
+.deck-card.incomplete { border-color: #edaa5e88; }.deck-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }.deck-card-heading strong { display: inline-flex; align-items: center; gap: 5px; color: #f7fbff; }.deck-card-heading strong svg { color: #ffcb05; }.deck-card-heading span { color: #ffd28b; font-size: .68rem; font-weight: 800; text-transform: uppercase; }.deck-card > p { margin: 8px 0 0; color: #ffd28b; font-size: .76rem; }
+.deck-pokemon-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 9px 0; }.deck-pokemon { display: grid; justify-items: center; min-width: 0; color: #b9cce4; }.deck-pokemon img { width: 58px; height: 48px; object-fit: contain; image-rendering: auto; }.deck-pokemon small { overflow: hidden; max-width: 100%; font-size: .62rem; text-overflow: ellipsis; white-space: nowrap; }.deck-missing { display: grid; width: 48px; height: 48px; place-items: center; border: 1px dashed #ffca8677; border-radius: 50%; color: #ffca86; font-weight: 900; }
+.deck-card-actions { display: grid; grid-template-columns: 1fr 40px 40px; gap: 6px; }.deck-card-actions button { min-height: 40px; border: 1px solid #ffffff16; border-radius: 8px; background: #183450; color: #dce9fb; font-weight: 800; touch-action: manipulation; }.deck-card-actions button:first-child { border-color: #ffcb0577; color: #ffdf5d; }.deck-card-actions button:disabled { opacity: .48; }
+.deck-name-field { display: grid; gap: 5px; color: #dce9fb; font-size: .78rem; font-weight: 800; }.deck-name-field input { min-height: 44px; padding: 0 10px; border: 1px solid #ffffff24; border-radius: 9px; background: #071426; color: #f7fbff; font: inherit; }.deck-editor-help { margin: 10px 0; color: #b9cce4; font-size: .78rem; }.deck-picker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 7px; max-height: min(46svh, 410px); overflow: auto; }.deck-picker-card { position: relative; display: grid; min-height: 104px; place-items: center; padding: 6px; border: 1px solid #ffffff1a; border-radius: 10px; background: #0d2139; color: #dce9fb; }.deck-picker-card img { width: 58px; height: 48px; object-fit: contain; }.deck-picker-card strong, .deck-picker-card small { max-width: 100%; overflow: hidden; font-size: .66rem; text-overflow: ellipsis; white-space: nowrap; }.deck-picker-card small { color: #b9cce4; }.deck-picker-card b { position: absolute; top: 4px; right: 4px; display: grid; width: 20px; height: 20px; place-items: center; border-radius: 50%; background: #ffcb05; color: #172133; font-size: .7rem; }.deck-picker-card.selected { border-color: #ffcb05; background: #183450; }
+.deck-editor-slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin: 10px 0; }.deck-editor-slots button { position: relative; display: grid; min-height: 72px; place-items: center; border: 1px solid #ffffff20; border-radius: 9px; background: #0a182b; color: #b9cce4; font-size: .58rem; }.deck-editor-slots img { width: 42px; height: 34px; object-fit: contain; }.deck-editor-slots small { font-size: .57rem; }.deck-editor-slots b { position: absolute; top: 4px; left: 5px; color: #ffdf5d; }.deck-editor-slots span { color: #ffca86; }
+@media (max-width: 360px) { .deck-panel-heading { align-items: flex-start; flex-direction: column; }.deck-create-button { width: 100%; }.deck-picker-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (prefers-reduced-motion: no-preference) { .team-selection-tabs button, .deck-card, .deck-picker-card { transition: transform .14s ease, border-color .14s ease, background .14s ease; }.deck-card-actions button:active, .deck-picker-card:active { transform: scale(.98); } }
+
 .battle-environment__forest {
   inset: -24px;
   background:

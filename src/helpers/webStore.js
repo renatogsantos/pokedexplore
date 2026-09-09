@@ -10,6 +10,7 @@ const PLAYER_STORE = "player";
 const CACHE_STORE = "pokeapi-cache";
 const ECONOMY_KEY = "economy";
 const TRAINER_PROFILE_KEY = "trainer-profile";
+const DECKS_KEY = "pokemon-decks";
 const EMPTY_ECONOMY = { key: ECONOMY_KEY, coins: 0, rewardedMatchIds: [], secretRewards: {}, inventory: {}, ownedTms: [], consumedItemActionIds: [] };
 const EMPTY_PROGRESS = { achievements: {}, streak: 0, bestStreak: 0, wins: 0, totalBattles: 0, processedOutcomeMatchIds: [], journeyCompleted: [], badges: [] };
 const normalizeEconomy = (economy) => ({ ...EMPTY_ECONOMY, ...(economy || {}), secretRewards: { ...EMPTY_ECONOMY.secretRewards, ...(economy?.secretRewards || {}) }, inventory: Object.fromEntries(Object.entries(economy?.inventory || {}).filter(([, quantity]) => Number(quantity) > 0).map(([id, quantity]) => [id, Math.floor(Number(quantity))])), ownedTms: [...new Set(economy?.ownedTms || [])], progress: { ...EMPTY_PROGRESS, ...(economy?.progress || {}), achievements: { ...EMPTY_PROGRESS.achievements, ...(economy?.progress?.achievements || {}) } } });
@@ -126,6 +127,53 @@ export const webStore = {
       }));
       return trainerName;
     } catch (error) { console.error("Erro ao salvar nome do treinador:", error); return trainerName; }
+  },
+  async getDecks() {
+    try {
+      return await withDatabase((database) => new Promise((resolve, reject) => {
+        const request = database.transaction(PLAYER_STORE, "readonly").objectStore(PLAYER_STORE).get(DECKS_KEY);
+        request.onsuccess = () => resolve(Array.isArray(request.result?.decks) ? request.result.decks.filter((deck) => deck?.id && Array.isArray(deck.pokemonIds)).map((deck) => ({ id: String(deck.id), name: String(deck.name || "Time sem nome").trim() || "Time sem nome", pokemonIds: deck.pokemonIds.map(String).slice(0, 3), createdAt: deck.createdAt || Date.now(), updatedAt: deck.updatedAt || Date.now() })) : []);
+        request.onerror = () => reject(request.error);
+      }));
+    } catch (error) { console.error("Erro ao recuperar decks:", error); return []; }
+  },
+  async saveDeck(deck) {
+    const pokemonIds = [...new Set((deck?.pokemonIds || []).map(String).filter(Boolean))];
+    if (pokemonIds.length !== 3) return null;
+    const id = String(deck?.id || `deck_${crypto.randomUUID()}`);
+    const name = String(deck?.name || "").trim().slice(0, 28);
+    if (!name) return null;
+    try {
+      return await withDatabase((database) => new Promise((resolve, reject) => {
+        const transaction = database.transaction(PLAYER_STORE, "readwrite"); const store = transaction.objectStore(PLAYER_STORE); const request = store.get(DECKS_KEY);
+        request.onsuccess = () => {
+          const previous = Array.isArray(request.result?.decks) ? request.result.decks : [];
+          const current = previous.find((item) => String(item.id) === id);
+          const saved = { id, name, pokemonIds, createdAt: current?.createdAt || deck?.createdAt || Date.now(), updatedAt: Date.now() };
+          store.put({ key: DECKS_KEY, decks: [...previous.filter((item) => String(item.id) !== id), saved] });
+          transaction.result = saved;
+        };
+        transaction.oncomplete = () => resolve(transaction.result);
+        transaction.onerror = () => reject(transaction.error);
+        request.onerror = () => reject(request.error);
+      }));
+    } catch (error) { console.error("Erro ao salvar deck:", error); return null; }
+  },
+  async deleteDeck(deckId) {
+    if (!deckId) return false;
+    try {
+      return await withDatabase((database) => new Promise((resolve, reject) => {
+        const transaction = database.transaction(PLAYER_STORE, "readwrite"); const store = transaction.objectStore(PLAYER_STORE); const request = store.get(DECKS_KEY);
+        request.onsuccess = () => {
+          const previous = Array.isArray(request.result?.decks) ? request.result.decks : [];
+          store.put({ key: DECKS_KEY, decks: previous.filter((deck) => String(deck.id) !== String(deckId)) });
+          transaction.result = true;
+        };
+        transaction.oncomplete = () => resolve(transaction.result);
+        transaction.onerror = () => reject(transaction.error);
+        request.onerror = () => reject(request.error);
+      }));
+    } catch (error) { console.error("Erro ao excluir deck:", error); return false; }
   },
   async exportBackup() {
     const [collection, player] = await Promise.all([this.getData("Pokedex"), this.getEconomy()]);
