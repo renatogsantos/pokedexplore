@@ -12,12 +12,14 @@ const matchStatus = (match) => match?.status === "FINISHED" ? "FINALIZADA" : mat
 function PlayerNode({ player, playerId, matches }) {
   const eliminated = player?.status === "ELIMINATED";
   const winner = matches.some((match) => match.winner_id === player?.player_id);
-  return <article className={`tree-player ${player?.player_id === playerId ? "is-local" : ""} ${eliminated ? "is-eliminated" : ""} ${winner ? "is-winner" : ""}`}>
+  const final = matches.find((match) => match.round === ROUND.FINAL);
+  const runnerUp = final?.status === "FINISHED" && [final.player1_id, final.player2_id].includes(player?.player_id) && final.winner_id !== player?.player_id;
+  return <article className={`tree-player ${player?.player_id === playerId ? "is-local" : ""} ${eliminated ? "is-eliminated" : ""} ${runnerUp ? "is-runner-up" : ""} ${winner ? "is-winner" : ""}`}>
     <span className="tree-player-initial" aria-hidden="true">{player?.display_name?.slice(0, 1)?.toUpperCase() || "?"}</span>
     <strong title={player?.display_name}>{player?.display_name || "Aguardando..."}</strong>
     {player?.player_id === playerId && <small>VOCÊ</small>}
     {player?.status === "CHAMPION" && <small>CAMPEÃO</small>}
-    {eliminated && <small>ELIMINADO</small>}
+    {runnerUp ? <small>VICE-CAMPEÃO</small> : player?.status === "QUALIFIED" ? <small>CLASSIFICADO</small> : eliminated && <small>ELIMINADO</small>}
   </article>;
 }
 
@@ -27,8 +29,8 @@ function TreeMatch({ tournament, match, playerId, onEnter, final = false }) {
   const playerOneWon = match?.winner_id === match?.player1_id;
   const playerTwoWon = match?.winner_id === match?.player2_id;
   return <article className={`tree-match ${final ? "is-final" : ""} ${finished ? "is-finished" : ""} ${mine && !finished ? "is-current" : ""}`}>
-    <div className="tree-match-heading"><span>{final ? "FINAL" : roundLabel(match?.round)}</span><small>{matchStatus(match)}</small></div>
-    {match ? <div className="tree-match-players"><strong className={playerOneWon ? "is-winner" : ""} title={playerName(tournament, match.player1_id)}>{playerName(tournament, match.player1_id)} {playerOneWon && <Crown size={14} weight="fill" aria-label="Vencedor" />}</strong><b>VS</b><strong className={playerTwoWon ? "is-winner" : ""} title={playerName(tournament, match.player2_id)}>{playerName(tournament, match.player2_id)} {playerTwoWon && <Crown size={14} weight="fill" aria-label="Vencedor" />}</strong></div> : <p className="tree-pending">Aguardando os vencedores...</p>}
+    <div className="tree-match-heading"><span>{mine && !finished ? final ? "SUA FINAL" : "SUA SEMIFINAL" : final ? "FINAL" : roundLabel(match?.round)}</span><small>{matchStatus(match)}</small></div>
+    {match ? <div className="tree-match-players"><strong className={playerOneWon ? "is-winner" : ""} title={playerName(tournament, match.player1_id)}><span>{playerName(tournament, match.player1_id)}</span>{playerOneWon ? <em><Crown size={14} weight="fill" aria-hidden="true" /> VENCEDOR</em> : finished && <em>ELIMINADO</em>}</strong><b>VS</b><strong className={playerTwoWon ? "is-winner" : ""} title={playerName(tournament, match.player2_id)}><span>{playerName(tournament, match.player2_id)}</span>{playerTwoWon ? <em><Crown size={14} weight="fill" aria-hidden="true" /> VENCEDOR</em> : finished && <em>ELIMINADO</em>}</strong></div> : <p className="tree-pending">Aguardando os vencedores...</p>}
     <footer>{final ? <><Trophy size={15} weight="fill" aria-hidden="true" /> +{TOURNAMENT_CONFIG.rewards.final}</> : <><Trophy size={15} weight="fill" aria-hidden="true" /> +{TOURNAMENT_CONFIG.rewards.semifinal}</>}</footer>
     {mine && !finished && <button type="button" onClick={() => onEnter(match)}><Play size={17} weight="fill" aria-hidden="true" /> {final ? "Preparar para a final" : "Entrar na batalha"}</button>}
   </article>;
