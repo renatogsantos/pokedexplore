@@ -73,6 +73,21 @@ export default function BattlePage() {
   const [tournamentMatch, setTournamentMatch] = useState(null);
   const [tournamentCode, setTournamentCode] = useState("");
   const [tournamentBusy, setTournamentBusy] = useState(false);
+  const arenaBackgrounds = useRef([]);
+  const isStartingBattle = useRef(false);
+
+  const loadArenaBackgrounds = useCallback(async () => {
+    try {
+      const response = await fetch("/api/arena-backgrounds", { cache: "no-store" });
+      const data = response.ok ? await response.json() : { backgrounds: [] };
+      if (Array.isArray(data.backgrounds)) arenaBackgrounds.current = data.backgrounds;
+    } catch {}
+    return arenaBackgrounds.current;
+  }, []);
+
+  useEffect(() => {
+    void loadArenaBackgrounds();
+  }, [loadArenaBackgrounds]);
 
   useEffect(() => {
     if (mode !== "tournament" || battle?.status !== "finished" || role !== "host" || !tournamentMatch) return;
@@ -119,16 +134,21 @@ export default function BattlePage() {
       });
   }, []);
   const startState = useCallback(
-    (hostTeam, guestTeam, host, guest) => {
+    async (hostTeam, guestTeam, host, guest) => {
+      if (isStartingBattle.current) return;
+      isStartingBattle.current = true;
+      const backgrounds = await loadArenaBackgrounds();
       const next = createBattleState(
         { ...host, inventory: { potion: inventory.potion || 0, "full-heal": inventory["full-heal"] || 0 }, team: hostTeam.map(toBattlePokemon) },
         { ...guest, team: guestTeam.map(toBattlePokemon) },
       );
       next.matchId = makeMatchId();
+      if (backgrounds.length) next.arenaBackground = backgrounds[Math.floor(Math.random() * backgrounds.length)];
       next.status = "countdown";
       next.log = "3 · 2 · 1 · BATALHA!";
       setBattle(next);
       setScreen("battle");
+      isStartingBattle.current = false;
       broadcast(BATTLE_EVENTS.START, next);
       clearTimeout(introTimer.current);
       introTimer.current = setTimeout(() => {
@@ -142,7 +162,7 @@ export default function BattlePage() {
         broadcast(BATTLE_EVENTS.STATE, playing);
       }, 1650);
     },
-    [broadcast, inventory],
+    [broadcast, inventory, loadArenaBackgrounds],
   );
   const awardVictory = useCallback(
     async (matchId, amount) => {
@@ -541,7 +561,14 @@ export default function BattlePage() {
   }
 
   return (
-    <main className="battle-page">
+    <main
+      className="battle-page"
+      style={
+        battle?.arenaBackground
+          ? { "--battle-background": `url("${battle.arenaBackground}")` }
+          : undefined
+      }
+    >
       <div className="battle-shell">
         <header className="battle-header">
           <Link href="/#pokedex" className="battle-back">

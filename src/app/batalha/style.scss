@@ -4541,7 +4541,7 @@
 .battle-page:has(.battle-arena) {
   background:
     linear-gradient(180deg, #06132355 0%, #03091488 100%),
-    url("/arena-bg.png") center / cover no-repeat;
+    var(--battle-background, url("/backgrounds/arena-bg-1.png")) center / cover no-repeat;
   background-attachment: fixed;
 }
 
@@ -4579,7 +4579,7 @@
   inset: -24px;
   background:
     linear-gradient(180deg, #04132666 0%, #07142688 55%, #020812bb 100%),
-    url("/arena-bg.png") center / cover no-repeat;
+    var(--arena-background, url("/backgrounds/arena-bg-1.png")) center / cover no-repeat;
   opacity: .82;
 }
 .battle-environment__light {

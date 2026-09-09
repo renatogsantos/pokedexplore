@@ -500,12 +500,13 @@ function BattleResultModal({ won, reward, coins, mode, onRematch, tournamentCont
   );
 }
 
-function BattleEnvironment() {
+function BattleEnvironment({ background }) {
   return (
     <div className="battle-environment" aria-hidden="true">
       <div
         className="battle-environment__layer battle-environment__forest"
         data-parallax-layer="forest"
+        style={background ? { "--arena-background": `url("${background}")` } : undefined}
       />
       <div
         className="battle-environment__layer battle-environment__light"
@@ -580,7 +581,7 @@ export default function BattleArena({
         className={`battle-arena arena-${myTurn ? "ready" : "waiting"}`}
         aria-label="Arena de batalha"
       >
-        <BattleEnvironment />
+        <BattleEnvironment background={state.arenaBackground} />
         <div className="persistent-turn" aria-hidden="true">
           {myTurn
             ? "SUA VEZ"
