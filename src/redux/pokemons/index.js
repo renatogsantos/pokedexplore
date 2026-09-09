@@ -265,7 +265,7 @@ export const addPokemonCard = (pokemon, revealElement) => {
           Notify.failure("NÃ£o foi possÃ­vel salvar este PokÃ©mon. Tente novamente.", { position: "center-top" });
           return;
         }
-        playBattleSound("coin", 0.6);
+        playBattleSound("caught", 0.6);
         dispatch(actAddPokedex(await webStore.getData("Pokedex")));
         if (capture?.duplicate) {
           dispatch(actOpenCardPokedex(false));
