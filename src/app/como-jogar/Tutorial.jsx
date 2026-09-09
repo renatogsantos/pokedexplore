@@ -598,7 +598,7 @@ export default function Tutorial() {
             <PotionDemo />
             <div className="tutorial-item-rules" aria-label="Regras da Mochila">
               <span><Backpack size={18} weight="fill" aria-hidden="true" /> Mochila: escolha o alvo e confirme o uso.</span>
-              <span><FirstAid size={18} weight="fill" aria-hidden="true" /> Poção e Cura Total gastam turno e uma unidade.</span>
+              <span><FirstAid size={18} weight="fill" aria-hidden="true" /> Poção e Purificação gastam turno e uma unidade.</span>
               <span><Shield size={18} weight="fill" aria-hidden="true" /> ×0 deixa o item indisponível até comprar mais.</span>
             </div>
             <p className="tutorial-note">Uma Poção recupera até {percent}% do HP máximo e consome seu turno. Ela não revive Pokémon desmaiado nem funciona com HP cheio.</p>
@@ -667,12 +667,12 @@ export default function Tutorial() {
           <div><span className="tutorial-eyebrow">PREPARE SUA EQUIPE</span><h2 id="tutorial-progression-title">Mais escolhas, sem complicação</h2><p>Cada Pokémon entra na Arena com movimentos próprios. O especial continua limitado a {MAX_SPECIAL_ATTACK_USES} usos; TMs permitem montar até 4 golpes e você sempre escolhe qual esquecer.</p></div>
           <div className="tutorial-progression-guide__cards">
             <article><strong>Itens segurados</strong><small>Equipe uma Berry para sobreviver ou um amplificador de tipo para causar +10% de dano.</small></article>
-            <article><strong>Bolsa e estados</strong><small>Poção recupera HP; Cura Total remove queimadura, veneno, paralisia ou sono. Ambos gastam o turno.</small></article>
+            <article><strong>Bolsa e estados</strong><small>Poção recupera HP; Purificação remove queimadura, veneno, paralisia ou sono. Ambos gastam o turno.</small></article>
             <article><strong>Habilidades</strong><small>Algumas habilidades ativam em condições específicas, como Blaze com HP baixo.</small></article>
             <article><strong>Jornada</strong><small>Vença rotas, enfrente ginásios e adicione insígnias à sua coleção.</small></article>
           </div>
           <div className="tutorial-item-explainer">
-            <div><Backpack size={24} weight="fill" aria-hidden="true" /><strong>Mochila na Arena</strong><span>Use Poção para HP e Cura Total para queimadura, veneno, paralisia ou sono. O contador diminui assim que a ação é válida.</span></div>
+            <div><Backpack size={24} weight="fill" aria-hidden="true" /><strong>Mochila na Arena</strong><span>Use Poção para HP e Purificação para queimadura, veneno, paralisia ou sono. O contador diminui assim que a ação é válida.</span></div>
             <div><Heart size={24} weight="fill" aria-hidden="true" /><strong>Equipamento no Pokémon</strong><span>Berry Oran ativa com 50% de HP ou menos e recupera 20%; Sitrus recupera 30%. A berry some do equipamento e do inventário após ativar.</span></div>
             <div><Lightning size={24} weight="fill" aria-hidden="true" /><strong>Amplificador de tipo</strong><span>Fica equipado e aumenta em 10% os golpes do tipo principal. Ele não é consumido durante a batalha.</span></div>
           </div>

@@ -257,7 +257,7 @@ function BattleNotification({ state, role, opponentName }) {
     else if (state.effect?.kind === "item")
       setNotification({
         title:
-          state.effect.itemId === "full-heal" ? "CURA TOTAL!" : "ITEM USADO!",
+          state.effect.itemId === "full-heal" ? "PURIFICAÇÃO!" : "ITEM USADO!",
         detail: `${state.effect.curedStatus ? `${getStatusLabel(state.effect.curedStatus)} removido · ` : ""}×${state.effect.remaining} restante${state.effect.remaining === 1 ? "" : "s"}`,
         tone: "healing",
       });
@@ -844,7 +844,7 @@ export default function BattleArena({
                   >
                     <ItemSprite item="full-heal" alt="" />
                     <span>
-                      <strong>Cura Total</strong>
+                      <strong>Purificação</strong>
                       <small>
                         {bag["full-heal"] ? "Remove condições" : "Esgotado"}
                       </small>
