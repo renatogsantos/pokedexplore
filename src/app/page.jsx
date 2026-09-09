@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import { Col, Container, Row } from "react-bootstrap";
 import { useDispatch, useSelector } from "react-redux";
 import {
-  actAddPokedex,
   actOpenCardPokedex,
   actOpenCardPokemon,
   getPokemon,
@@ -33,12 +32,9 @@ import { gerarNumeroAleatorio, scrollTo } from "@/helpers";
 import AliceCarousel from "react-alice-carousel";
 import CardAddPokemon from "@/components/CardAddPokemon";
 import PokemonTypeIcon from "@/components/PokemonTypeIcon";
-import CardPokedex from "@/components/CardPokedex";
 import Link from "next/link";
-import { getPokemonPage } from "@/services/pokemons";
 import Paginate from "@/components/Paginate";
 import { AnimatePresence, motion } from "framer-motion";
-import CoinBalance from "@/components/CoinBalance";
 import { actCoins } from "@/redux/economy";
 import { SECRET_REWARD_COINS, SECRET_REWARD_ID, advancePokemonSecret } from "@/lib/easter-egg/pokemonSequence";
 import { formatCoins } from "@/lib/economy";
@@ -54,7 +50,6 @@ export default function Home() {
     Pokemon,
     OpenCardPokemon,
     OpenCardPokedex,
-    Pokedex,
   } = useSelector((state) => state.pokemons);
   const divRef = useRef(null);
   const secretProgress = useRef({ index: 0, lastInputAt: 0 });
@@ -122,10 +117,6 @@ export default function Home() {
   }, [OpenCardPokedex]);
 
   useEffect(() => {
-    webStore.getData("Pokedex").then((pokedex) => {
-      dispatch(actAddPokedex(pokedex));
-    });
-    getPokemonPage(1);
     dispatch(getPokemons(9));
   }, []);
 
@@ -204,7 +195,7 @@ export default function Home() {
                 <span><b>03</b> Batalhe</span>
               </div>
               <div className="project-intro__actions">
-                <Link href="#pokedex" className="project-intro__primary">Explorar Pokédex</Link>
+                <Link href="/pokedex" className="project-intro__primary">Explorar Pokédex</Link>
                 <Link href="/como-jogar" className="project-intro__secondary">Como jogar</Link>
               </div>
             </Col>
@@ -231,35 +222,6 @@ export default function Home() {
             </Link>
           </div>
         </section>
-      </Container>
-
-      <Container>
-        <div id="pokedex" className="pokedex-header my-3">
-          <img
-            loading="lazy"
-            draggable={false}
-            src="/pokeball.png"
-            width="32"
-            alt="Pokeball"
-          />
-          <div>
-            <h2 className="text-light m-0">Pokédex</h2>
-            <small className="text-light opacity-75">Sua coleção de Pokémon</small>
-          </div>
-          <span className="pokedex-count" role="status" aria-live="polite" aria-atomic="true">
-            {Pokedex?.length || 0} capturados
-          </span>
-          <div className="pokedex-actions">
-            <Link href="/como-jogar" className="pokedex-guide-link">Como jogar</Link>
-            <CoinBalance />
-            <Link href="/pokedex" className="pokedex-collection-link">Minha Pokédex</Link>
-          </div>
-        </div>
-        <div className="pokedex-list" title="Ctrl + scroll para navegar.">
-          {Pokedex?.map((pk, i) => {
-            return <CardPokedex key={i} pokemon={pk} />;
-          })}
-        </div>
       </Container>
 
       <Container fluid className="m-0 py-4">
