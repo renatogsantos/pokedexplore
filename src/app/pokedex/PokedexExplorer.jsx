@@ -172,13 +172,12 @@ export default function PokedexExplorer() {
               equipe.
             </p>
             <div className="collection-hero-actions">
-              <button
-                type="button"
+              <Link
+                href="/batalha"
                 className="collection-capture"
-                onClick={() => dispatch(getPokemonToPokedex())}
               >
-                <Ball size={23} /> Abrir Pokébola
-              </button>
+                <GameController size={23} weight="fill" aria-hidden="true" /> Batalhar
+              </Link>
             </div>
           </div>
           <div className="collection-hero-art" aria-hidden="true">
