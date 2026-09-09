@@ -718,7 +718,7 @@ export default function Tutorial() {
           <div>
             <span className="tutorial-eyebrow">NOVO POR AQUI?</span>
             <h2>Treine primeiro contra a CPU</h2>
-            <p>O botão flutuante <strong>Batalhar</strong> fica disponível durante sua exploração. Use-o para entrar na Arena quando quiser e escolher Treino contra CPU.</p>
+            <p>Use o botão central dourado da navegação inferior para entrar na Arena quando quiser e escolher Treino contra CPU.</p>
           </div>
           <div>
             <span className="tutorial-eyebrow">CONTRA UM AMIGO</span>
