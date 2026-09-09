@@ -112,8 +112,8 @@ export async function leaveTournament(tournamentId, playerId) {
 
 export async function markTournamentMatchPlaying(matchId) {
   const db = client();
-  const { error: updateError } = await db.from("tournament_matches").update({ status: MATCH_STATUS.PLAYING, started_at: new Date().toISOString() }).eq("id", matchId).in("status", [MATCH_STATUS.WAITING, MATCH_STATUS.READY]);
-  if (updateError) throw updateError;
+  const { error: markError } = await db.rpc("mark_tournament_match_playing", { p_match_id: matchId });
+  if (markError) throw markError;
 }
 
 export async function completeTournamentMatch(matchId, winnerId) {

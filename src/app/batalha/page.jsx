@@ -211,6 +211,17 @@ export default function BattlePage() {
     return () => { unsubscribe(); window.clearInterval(timer); };
   }, [tournament?.id, tournament?.status]);
 
+  useEffect(() => {
+    if (mode !== "tournament" || tournament?.status !== "CANCELLED") return;
+    realtime.current?.leave();
+    setBattle(null);
+    setRemoteTeam(null);
+    setReadySent(false);
+    setTournamentMatch(null);
+    setScreen("tournament");
+    setNotice(tournament.cancellation_reason === "INACTIVITY" ? "Campeonato encerrado: não houve partida em andamento por 5 minutos." : "O organizador encerrou o campeonato.");
+  }, [mode, tournament?.cancellation_reason, tournament?.status]);
+
   const connectRoom = useCallback(
     (code, currentPlayer, currentRole) => {
       try {
@@ -295,8 +306,11 @@ export default function BattlePage() {
       battle
     )
       return;
+    if (mode === "tournament" && tournamentMatch) {
+      void markTournamentMatchPlaying(tournamentMatch.id).catch((error) => setNotice(error.message));
+    }
     startState(selected, remoteTeam.team, player, remoteTeam.player);
-  }, [mode, role, readySent, selected, remoteTeam, player, battle, startState]);
+  }, [mode, role, readySent, selected, remoteTeam, player, battle, startState, tournamentMatch]);
 
   useEffect(() => {
     if (
@@ -478,7 +492,7 @@ export default function BattlePage() {
     const currentPlayer = { id: profile.playerId, name: name.trim() || profile.displayName };
     const currentRole = match.player1_id === profile.playerId ? "host" : "guest";
     setMode("tournament"); setTournamentMatch(match); setPlayer(currentPlayer); setRole(currentRole); setRoomCode(match.battle_room_code); setSelected([]); setBattle(null); setReadySent(false); setScreen("team");
-    try { await markTournamentMatchPlaying(match.id); connectRoom(match.battle_room_code, currentPlayer, currentRole); }
+    try { connectRoom(match.battle_room_code, currentPlayer, currentRole); }
     catch (error) { setNotice(error.message); setScreen("tournament"); }
   }
   function sendAction(action) {
