@@ -4545,6 +4545,17 @@
   background-attachment: fixed;
 }
 
+.selected-equipment-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 14px 0; }
+.selected-equipment-list article { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px 10px; align-items: center; min-width: 0; padding: 10px; border: 1px solid #ffffff22; border-radius: 12px; background: #071528cc; }
+.selected-equipment-list article > div, .selected-equipment-list article > span { display: grid; min-width: 0; }
+.selected-equipment-list strong { overflow: hidden; color: #f8fbff; font-size: .8rem; text-overflow: ellipsis; text-transform: capitalize; white-space: nowrap; }
+.selected-equipment-list small { color: #b7c8dd; font-size: .62rem; font-weight: 750; }
+.selected-equipment-list article > span > small { color: #ffdf5d; letter-spacing: .06em; }
+.selected-equipment-list .battle-held-item { margin-top: 3px; padding: 0; border: 0; background: transparent; }
+.selected-equipment-list button { grid-column: 1 / -1; min-height: 36px; border: 1px solid #ffcb0566; border-radius: 8px; background: #2d260fba; color: #ffdf5d; font-size: .65rem; font-weight: 900; cursor: pointer; }
+.selected-equipment-list button:disabled { opacity: .5; cursor: not-allowed; }
+@media (max-width: 680px) { .selected-equipment-list { grid-template-columns: 1fr; }.selected-equipment-list article { grid-template-columns: minmax(0, 1fr) auto; }.selected-equipment-list button { grid-column: auto; grid-row: 1 / span 2; grid-column: 2; min-width: 108px; min-height: 44px; } }
+
 .battle-page:has(.battle-arena) .battle-arena {
   background: linear-gradient(180deg, #0b1c3370 0%, #071526a6 100%);
 }

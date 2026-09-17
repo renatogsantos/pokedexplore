@@ -25,15 +25,8 @@ import { useEffect, useState } from "react";
 import { Col, Container, Row } from "react-bootstrap";
 import { useDispatch, useSelector } from "react-redux";
 import { getPokemonSprite, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
+import { getHeldItemDefinition } from "@/lib/economy/heldItems";
 
-const HELD_ITEMS = [
-  { id: "oran", name: "Berry Oran", description: "Recupera 20% do HP automaticamente quando o HP cai para 50% ou menos." },
-  { id: "sitrus", name: "Berry Sitrus", description: "Recupera 30% do HP automaticamente quando o HP cai para 50% ou menos." },
-  { id: "type-boost", name: "Amplificador de tipo", description: "Aumenta em 10% os golpes do tipo principal deste Pokémon." },
-];
-
-const getHeldItemId = (item) => item?.endsWith("-boost") ? "type-boost" : item;
-const getHeldItemInfo = (item) => HELD_ITEMS.find((entry) => entry.id === getHeldItemId(item));
 
 export default function PokemonPage({ pokemon }) {
   const dispatch = useDispatch();
@@ -43,8 +36,8 @@ export default function PokemonPage({ pokemon }) {
   const [moveset, setMoveset] = useState([]);
   const [pendingTm, setPendingTm] = useState(null);
   const [economy, setEconomy] = useState({ inventory: {}, ownedTms: [] });
+  const [collection, setCollection] = useState([]);
   const [equipmentOpen, setEquipmentOpen] = useState(false);
-  const [replacementItem, setReplacementItem] = useState(null);
   const [equipmentFeedback, setEquipmentFeedback] = useState("");
   const { Weaknesses, OpenCardPokemon } = useSelector(
     (state) => state.pokemons
@@ -73,29 +66,13 @@ export default function PokemonPage({ pokemon }) {
   useEffect(() => {
     Promise.all([webStore.getData("Pokedex"), webStore.getEconomy()]).then(([collection, player]) => {
       const captured = collection.find((item) => String(item.id) === String(pokemon.id));
+      setCollection(collection);
       setIsCaptured(Boolean(captured));
       setHeldItem(captured?.heldItem || null);
       setMoveset(captured?.moveset?.length ? captured.moveset : getBattleMoves(pokemon));
       setEconomy(player);
     });
   }, [pokemon.id]);
-
-  async function equipHeldItem(item) {
-    const result = await webStore.setHeldItem(pokemon.id, item);
-    if (result?.ok) {
-      setHeldItem(result.pokemon.heldItem);
-      setEquipmentOpen(false);
-      setReplacementItem(null);
-      const equipped = getHeldItemInfo(result.pokemon.heldItem);
-      setEquipmentFeedback(equipped ? `${equipped.name.toUpperCase()} ${equipped.id === "type-boost" ? "EQUIPADO" : "EQUIPADA"}! ${pokemon.name} agora está segurando ${equipped.name}. ${equipped.id === "type-boost" ? "O amplificador fica ativo passivamente durante a batalha." : "Ela será ativada automaticamente durante a batalha."}` : "Item removido. Este Pokémon entrará na batalha sem item segurado.");
-    }
-  }
-
-  function requestEquipment(item) {
-    if (item === heldItem) return;
-    if (heldItem && item) { setReplacementItem(item); return; }
-    void equipHeldItem(item);
-  }
 
   async function learnTm(tm, replaceIndex) {
     const nextMoves = replaceIndex === undefined ? [...moveset, tm] : moveset.map((move, index) => index === replaceIndex ? tm : move);
@@ -243,31 +220,14 @@ export default function PokemonPage({ pokemon }) {
                   <section className="held-item-panel" aria-labelledby="held-item-title">
                     <div>
                       <span className="eyebrow">ITEM SEGURADO</span>
-                      <h2 id="held-item-title">{getHeldItemInfo(heldItem)?.name || "Nenhum item equipado"}</h2>
+                      <h2 id="held-item-title">{getHeldItemDefinition(heldItem)?.name || "Nenhum item equipado"}</h2>
                       <p>{isCaptured ? "Escolha um item. Cada Pokémon pode levar apenas um para a batalha." : "Capture este Pokémon para equipar um item."}</p>
                     </div>
-                    {isCaptured && false && <div className="held-item-options" role="group" aria-label="Escolher item segurado">
-                      <button type="button" className={!heldItem ? "selected" : ""} onClick={() => equipHeldItem(null)}>Sem item</button>
-                      <button type="button" disabled={!economy.inventory?.oran && heldItem !== "oran"} className={heldItem === "oran" ? "selected" : ""} onClick={() => equipHeldItem("oran")}>Oran<br /><small>{economy.inventory?.oran || 0} disponível</small></button>
-                      <button type="button" disabled={!economy.inventory?.sitrus && heldItem !== "sitrus"} className={heldItem === "sitrus" ? "selected" : ""} onClick={() => equipHeldItem("sitrus")}>Sitrus<br /><small>{economy.inventory?.sitrus || 0} disponível</small></button>
-                      <button type="button" disabled={!economy.inventory?.["type-boost"] && heldItem !== pokemon.types[0].type.name + "-boost"} className={heldItem === pokemon.types[0].type.name + "-boost" ? "selected" : ""} onClick={() => equipHeldItem(pokemon.types[0].type.name + "-boost")}>Amplificador<br /><small>{economy.inventory?.["type-boost"] || 0} disponível</small></button>
-                    </div>}
                     {equipmentFeedback && <p className="held-item-feedback" role="status">{equipmentFeedback}</p>}
                     {isCaptured && <div className="held-item-actions">
-                      <button type="button" className="equipment-drawer-trigger" onClick={() => { setEquipmentOpen(true); setReplacementItem(null); }} aria-label={heldItem ? "Trocar item segurado" : "Equipar item segurado"}>+</button>
-                      {heldItem && <button type="button" className="secondary" onClick={() => requestEquipment(null)}>Remover</button>}
+                      <button type="button" className="equipment-drawer-trigger" onClick={() => setEquipmentOpen(true)}>{heldItem ? "TROCAR ITEM" : "EQUIPAR ITEM"}</button>
                     </div>}
-                    {false && equipmentOpen && <div className="held-item-selector" role="group" aria-label="Escolha um item segurado">
-                      <strong>Escolha um item</strong>
-                      {HELD_ITEMS.map((item) => {
-                        const available = economy.inventory?.[item.id] || 0;
-                        const storedItem = item.id === "type-boost" ? `${pokemon.types[0].type.name}-boost` : item.id;
-                        const selected = heldItem === storedItem;
-                        return <article key={item.id} className={selected ? "selected" : ""}><div><strong>{item.name}</strong><small>×{available} disponível</small><p>{item.description}</p></div><button type="button" disabled={!available && !selected} onClick={() => requestEquipment(storedItem)}>{selected ? "Equipado" : "Equipar"}</button></article>;
-                      })}
-                    </div>}
-                    {false && replacementItem && <div className="held-item-confirm" role="alert"><strong>Trocar item?</strong><span>{getHeldItemInfo(heldItem)?.name} será substituído por {getHeldItemInfo(replacementItem)?.name}.</span><div><button type="button" className="secondary" onClick={() => setReplacementItem(null)}>Cancelar</button><button type="button" onClick={() => void equipHeldItem(replacementItem)}>Trocar item</button></div></div>}
-                    <HeldItemDrawer pokemon={pokemon} economy={economy} heldItem={heldItem} open={equipmentOpen} onClose={() => setEquipmentOpen(false)} onEquipped={(updated, message) => { setHeldItem(updated.heldItem); setEquipmentFeedback(message); }} />
+                    <HeldItemDrawer pokemon={pokemon} economy={economy} collection={collection} heldItem={heldItem} open={equipmentOpen} onClose={() => setEquipmentOpen(false)} onEquipped={(updated, message, result) => { setHeldItem(updated.heldItem); setEquipmentFeedback(message); if (result?.economy) setEconomy(result.economy); if (result?.collection) setCollection(result.collection); }} />
                   </section>
                   <section className="held-item-panel" aria-labelledby="moveset-title">
                     <div><span className="eyebrow">MOVIMENTOS</span><h2 id="moveset-title">{moveset.length}/{MAX_BATTLE_MOVES} espaços</h2><p>{pendingTm ? "Escolha qual movimento esquecer para aprender a TM." : "Seu moveset é usado diretamente na Arena."}</p></div>

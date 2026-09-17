@@ -42,6 +42,7 @@ import { BADGE_REQUIRED_WINS, BADGE_TEAM_SIZE, getBadgeConfig } from "@/lib/badg
 import { acceptBadgeChallenge, getBadgeChallenge, getCompetitiveStatus, hasBadgeServiceConfig, markBadgeChallengeStarted, recordBadgeBattleResult, recordCompetitiveBattleActivity, registerCompetitivePlayer, subscribeBadgeChallenge, subscribeBadges } from "@/lib/badges/service";
 import { getBadgeTeamErrorMessage, validateBadgeTeam } from "@/lib/badges/rules";
 import { preloadBattlePokemonSprites } from "@/lib/pokemon/sprites";
+import { validateHeldItemAssignments } from "@/lib/economy/heldItems";
 import "./style.scss";
 
 const makeCode = () => `PKDX-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -79,6 +80,7 @@ export default function BattlePage() {
   const [battle, setBattle] = useState(null);
   const [notice, setNotice] = useState("");
   const [readySent, setReadySent] = useState(false);
+  const [preparingTeam, setPreparingTeam] = useState(false);
   const [connection, setConnection] = useState("CONNECTING");
   const [profile, setProfile] = useState(null);
   const [tournament, setTournament] = useState(null);
@@ -537,12 +539,44 @@ export default function BattlePage() {
           : current,
     );
   }
-  function readyTeam() {
+  async function readyTeam() {
+    if (preparingTeam) return;
+    setPreparingTeam(true);
+    let currentCollection;
+    let currentEconomy;
+    try {
+      [currentCollection, currentEconomy] = await Promise.all([webStore.getData("Pokedex"), webStore.getEconomy()]);
+    } catch {
+      setNotice("Não foi possível carregar sua equipe atual. Tente novamente.");
+      setPreparingTeam(false);
+      return;
+    }
+    const currentTeam = selected.map((selectedPokemon) => currentCollection.find((pokemon) => String(pokemon.id) === String(selectedPokemon.id))).filter(Boolean);
+    if (currentTeam.length !== selected.length || currentTeam.length !== 3) {
+      setNotice("Um Pokémon selecionado não foi encontrado na sua coleção. Monte a equipe novamente.");
+      setCollection(currentCollection);
+      setSelected(currentTeam);
+      setPreparingTeam(false);
+      return;
+    }
+    const invalidAssignments = validateHeldItemAssignments({ economy: currentEconomy, collection: currentCollection });
+    if (invalidAssignments.length) {
+      setNotice("Há mais itens equipados do que unidades disponíveis. Remova um item antes de batalhar.");
+      setCollection(currentCollection);
+      setSelected(currentTeam);
+      setInventory(currentEconomy.inventory || {});
+      setPreparingTeam(false);
+      return;
+    }
+    setCollection(currentCollection);
+    setSelected(currentTeam);
+    setInventory(currentEconomy.inventory || {});
     const badgeConfig = getBadgeConfig(badgeChallenge?.badge?.code);
     if (badgeConfig) {
-      const validation = validateBadgeTeam(selected, badgeConfig.type);
+      const validation = validateBadgeTeam(currentTeam, badgeConfig.type);
       if (!validation.valid) {
         setNotice(getBadgeTeamErrorMessage(validation, badgeConfig.localizedTypeName));
+        setPreparingTeam(false);
         return;
       }
     }
@@ -552,22 +586,25 @@ export default function BattlePage() {
       const journeyTeam = mode === "badge-cpu"
         ? getBadgeCpuTeam(badgeConfig.type, badgeChallenge.current_battle)
         : journeyNode ? journeyNode.team.map((entry) => { const rosterEntry = CPU_ROSTER.find((pokemon) => pokemon.id === (entry.id || entry)) || CPU_TEAM[0]; return { ...rosterEntry, level: entry.level || rosterEntry.level }; }) : CPU_TEAM;
-      startState(selected, journeyTeam, local, { id: "cpu", name: mode === "badge-cpu" ? badgeConfig.leaderName : journeyNode?.badge ? "Líder do Ginásio" : journeyNode ? journeyNode.title : "CPU" });
+      await startState(currentTeam, journeyTeam, local, { id: "cpu", name: mode === "badge-cpu" ? badgeConfig.leaderName : journeyNode?.badge ? "Líder do Ginásio" : journeyNode ? journeyNode.title : "CPU" });
+      setPreparingTeam(false);
       return;
     }
     if (!realtime.current?.isConnected()) {
       setNotice("Ainda conectando à sala. Aguarde antes de confirmar.");
+      setPreparingTeam(false);
       return;
     }
-    const payload = { player: { ...player, inventory: { potion: inventory.potion || 0, "full-heal": inventory["full-heal"] || 0 } }, team: selected.map(toBattlePokemon) };
-    realtime.current
+    const currentInventory = currentEconomy.inventory || {};
+    const payload = { player: { ...player, inventory: { potion: currentInventory.potion || 0, "full-heal": currentInventory["full-heal"] || 0 } }, team: currentTeam.map(toBattlePokemon) };
+    try {
+      await realtime.current
       .updatePresence({ ready: true, team: payload.team })
-      .then(() => {
-        broadcast(BATTLE_EVENTS.TEAM, payload);
-        setReadySent(true);
-        setNotice("PRONTO! Aguardando adversário...");
-      })
-      .catch((error) => setNotice(error.message));
+      broadcast(BATTLE_EVENTS.TEAM, payload);
+      setReadySent(true);
+      setNotice("PRONTO! Aguardando adversário...");
+    } catch (error) { setNotice(error.message); }
+    setPreparingTeam(false);
   }
   function createRoom() {
     if (!hasRealtimeConfig()) {
@@ -827,7 +864,8 @@ export default function BattlePage() {
               selected={selected}
               onToggle={togglePokemon}
               onReady={readyTeam}
-              waiting={readySent}
+              waiting={readySent || preparingTeam}
+              preparing={preparingTeam}
               canReady={["cpu", "badge-cpu"].includes(mode) || connection === "CONNECTED"}
               onUseDeck={setSelected}
               badgeContext={String(mode).startsWith("badge") ? getBadgeConfig(badgeChallenge?.badge?.code) : null}

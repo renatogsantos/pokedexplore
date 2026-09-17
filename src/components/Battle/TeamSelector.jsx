@@ -48,6 +48,7 @@ export default function TeamSelector({
   onToggle,
   onReady,
   waiting,
+  preparing = false,
   canReady = true,
   onEquipmentChanged,
   onUseDeck,
@@ -137,6 +138,13 @@ export default function TeamSelector({
           <li className={!badgeValidation?.hasLegendary && !badgeValidation?.hasMythical ? "valid" : ""}>{!badgeValidation?.hasLegendary && !badgeValidation?.hasMythical ? <CheckCircle weight="fill" /> : <span />} Sem Lendários ou Míticos</li>
         </ul>
         {selected.length === 3 && !badgeValidation?.valid && <p role="alert">{getBadgeTeamErrorMessage(badgeValidation, badgeContext.localizedTypeName)}</p>}
+      </section>}
+      {selected.length > 0 && <section className="selected-equipment-list" aria-label="Itens equipados na equipe selecionada">
+        {selected.map((selectedPokemon) => {
+          const pokemon = collection.find((entry) => String(entry.id) === String(selectedPokemon.id)) || selectedPokemon;
+          const types = pokemon.types?.map((item) => item.type?.name || item.name).filter(Boolean) || [];
+          return <article key={pokemon.id}><div><strong>{pokemon.name}</strong><small>Lv. {getPokemonLevel(pokemon)} · {types.map(getTypeLabel).join(" / ")}</small></div><span><small>ITEM EQUIPADO</small><HeldItemBadge item={pokemon.heldItem} /></span><button type="button" onClick={() => setEquipmentPokemon(pokemon)} disabled={waiting}>{pokemon.heldItem ? "TROCAR ITEM" : "EQUIPAR ITEM"}</button></article>;
+        })}
       </section>}
       <div className="team-selection-tabs" role="tablist" aria-label="Forma de montar o time">
         <button type="button" role="tab" aria-controls="team-pokemon-panel" aria-selected={activeTab === "pokemon"} className={activeTab === "pokemon" ? "selected" : ""} onClick={() => setActiveTab("pokemon")} disabled={waiting}>Pokémon</button>
@@ -258,13 +266,15 @@ export default function TeamSelector({
         disabled={selected.length !== 3 || waiting || !canReady || (badgeContext && !badgeValidation?.valid)}
         onClick={onReady}
       >
-        {waiting
+        {preparing
+          ? "PREPARANDO EQUIPE..."
+          : waiting
           ? "PRONTO! Aguardando adversário..."
           : canReady
             ? "Pronto para batalhar"
             : "Conectando a sala..."}
       </button>
-      <HeldItemDrawer pokemon={equipmentPokemon || collection[0]} economy={economy} heldItem={equipmentPokemon?.heldItem || null} open={Boolean(equipmentPokemon)} onClose={() => setEquipmentPokemon(null)} onEquipped={(updated) => { setEconomy((current) => current); onEquipmentChanged?.(updated); setEquipmentPokemon((current) => current ? { ...current, heldItem: updated.heldItem } : null); }} />
+      <HeldItemDrawer pokemon={equipmentPokemon || collection[0]} economy={economy} collection={collection} heldItem={equipmentPokemon?.heldItem || null} open={Boolean(equipmentPokemon)} onClose={() => setEquipmentPokemon(null)} onEquipped={(updated, _message, result) => { if (result?.economy) setEconomy(result.economy); onEquipmentChanged?.(updated); setEquipmentPokemon(updated); }} />
       </div>}
     </section>
   );

@@ -1,3 +1,5 @@
+import { normalizePokemonHeldItem } from "@/lib/economy/heldItems";
+
 export const MAX_POKEMON_LEVEL = 10;
 export const STAT_BONUS_PER_LEVEL = 0.05;
 
@@ -20,5 +22,9 @@ export function calculateLeveledStat(baseStat, level = 1) {
 }
 
 export function normalizeCapturedPokemon(pokemon) {
-  return { ...pokemon, level: getPokemonLevel(pokemon), baseStats: getBaseStats(pokemon) };
+  const current = { ...(pokemon || {}) };
+  delete current.held_item;
+  delete current.equippedItem;
+  delete current.equipped_item;
+  return { ...current, level: getPokemonLevel(pokemon), baseStats: getBaseStats(pokemon), heldItem: normalizePokemonHeldItem(pokemon) };
 }

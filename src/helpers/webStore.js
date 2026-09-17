@@ -1,6 +1,7 @@
 import { MAX_POKEMON_LEVEL, normalizeCapturedPokemon } from "@/lib/pokemon/progression";
 import { enrichPokemonRarity, hasResolvedPokemonRarity } from "@/lib/pokemon/rarity";
 import { getShopUpgrade } from "@/lib/economy/gameItems";
+import { getHeldItemInventoryId, planHeldItemChange } from "@/lib/economy/heldItems";
 import { getAchievement } from "@/lib/journey/achievements";
 
 const DATABASE_NAME = "PokedExploreDB";
@@ -284,11 +285,30 @@ export const webStore = {
     } catch (error) { console.error("Erro ao salvar dados no IndexedDB:", error); return false; }
   },
   async getData(_key) {
-    try { const collection = await withDatabase((database) => new Promise((resolve, reject) => {
-      const request = database.transaction(POKEDEX_STORE, "readonly").objectStore(POKEDEX_STORE).getAll();
-      request.onsuccess = () => resolve((request.result || []).map(normalizeCapturedPokemon));
-      request.onerror = () => reject(request.error);
-    })); const missing = collection.filter((pokemon) => !hasResolvedPokemonRarity(pokemon)); if (!missing.length) return collection; const enriched = await Promise.all(collection.map((pokemon) => hasResolvedPokemonRarity(pokemon) ? pokemon : enrichPokemonRarity(pokemon))); await withDatabase((database) => new Promise((resolve, reject) => { const transaction = database.transaction(POKEDEX_STORE, "readwrite"); enriched.forEach((pokemon) => transaction.objectStore(POKEDEX_STORE).put(pokemon)); transaction.oncomplete = resolve; transaction.onerror = () => reject(transaction.error); })); return enriched; } catch (error) { console.error("Erro ao recuperar dados do IndexedDB:", error); return []; }
+    try {
+      const records = await withDatabase((database) => new Promise((resolve, reject) => {
+        const request = database.transaction(POKEDEX_STORE, "readonly").objectStore(POKEDEX_STORE).getAll();
+        request.onsuccess = () => resolve(request.result || []);
+        request.onerror = () => reject(request.error);
+      }));
+      const normalized = records.map(normalizeCapturedPokemon);
+      const collection = await Promise.all(normalized.map((pokemon) => hasResolvedPokemonRarity(pokemon) ? pokemon : enrichPokemonRarity(pokemon)));
+      const needsMigration = records.some((record, index) =>
+        record.heldItem !== collection[index].heldItem ||
+        "held_item" in record ||
+        "equippedItem" in record ||
+        "equipped_item" in record
+      );
+      if (needsMigration || collection.some((pokemon, index) => !hasResolvedPokemonRarity(normalized[index]) && hasResolvedPokemonRarity(pokemon))) {
+        await withDatabase((database) => new Promise((resolve, reject) => {
+          const transaction = database.transaction(POKEDEX_STORE, "readwrite");
+          collection.forEach((pokemon) => transaction.objectStore(POKEDEX_STORE).put(pokemon));
+          transaction.oncomplete = resolve;
+          transaction.onerror = () => reject(transaction.error);
+        }));
+      }
+      return collection;
+    } catch (error) { console.error("Erro ao recuperar dados do IndexedDB:", error); return []; }
   },
   async capturePokemon(pokemon) {
     try { return await withDatabase((database) => new Promise((resolve, reject) => {
@@ -330,13 +350,38 @@ export const webStore = {
   },
   async consumeHeldItem(pokemonId, heldItem, consumptionId) {
     if (!pokemonId || !heldItem) return { ok: false, reason: "invalid-item" };
-    const inventoryId = heldItem.endsWith("-boost") ? "type-boost" : heldItem;
+    const inventoryId = getHeldItemInventoryId(heldItem);
+    if (!inventoryId) return { ok: false, reason: "invalid-item" };
     try {
       return await withDatabase((database) => new Promise((resolve, reject) => {
-        const transaction = database.transaction([POKEDEX_STORE, PLAYER_STORE], "readwrite"); const pokedexStore = transaction.objectStore(POKEDEX_STORE); const playerStore = transaction.objectStore(PLAYER_STORE); const pokemonRequest = pokedexStore.get(pokemonId); const economyRequest = playerStore.get(ECONOMY_KEY); let pokemon; let economy;
-        const finish = () => { if (!pokemon || !economy) return; if (consumptionId && economy.consumedItemActionIds?.includes(consumptionId)) { transaction.result = { ok: true, duplicate: true, economy, pokemon }; return; } if (pokemon.heldItem !== heldItem) { transaction.result = { ok: false, reason: "not-equipped", economy, pokemon }; return; } const inventory = { ...economy.inventory }; inventory[inventoryId] = Math.max(0, (inventory[inventoryId] || 0) - 1); if (!inventory[inventoryId]) delete inventory[inventoryId]; const nextEconomy = { ...economy, inventory, consumedItemActionIds: consumptionId ? [...(economy.consumedItemActionIds || []), consumptionId].slice(-100) : economy.consumedItemActionIds }; const nextPokemon = { ...pokemon, heldItem: null }; pokedexStore.put(nextPokemon); playerStore.put(nextEconomy); transaction.result = { ok: true, economy: nextEconomy, pokemon: nextPokemon }; };
-        pokemonRequest.onsuccess = () => { pokemon = pokemonRequest.result ? normalizeCapturedPokemon(pokemonRequest.result) : null; finish(); }; economyRequest.onsuccess = () => { economy = normalizeEconomy(economyRequest.result); finish(); };
-        transaction.oncomplete = () => resolve(transaction.result); transaction.onerror = () => reject(transaction.error); pokemonRequest.onerror = () => reject(pokemonRequest.error); economyRequest.onerror = () => reject(economyRequest.error);
+        const transaction = database.transaction([POKEDEX_STORE, PLAYER_STORE], "readwrite");
+        const pokedexStore = transaction.objectStore(POKEDEX_STORE);
+        const playerStore = transaction.objectStore(PLAYER_STORE);
+        const collectionRequest = pokedexStore.getAll();
+        const economyRequest = playerStore.get(ECONOMY_KEY);
+        let collection;
+        let economy;
+        const finish = () => {
+          if (!collection || !economy) return;
+          const pokemon = collection.find((entry) => String(entry.id) === String(pokemonId));
+          if (!pokemon) { transaction.result = { ok: false, reason: "pokemon-not-found", economy }; return; }
+          if (consumptionId && economy.consumedItemActionIds?.includes(consumptionId)) { transaction.result = { ok: true, duplicate: true, economy, pokemon }; return; }
+          if (pokemon.heldItem !== heldItem) { transaction.result = { ok: false, reason: "not-equipped", economy, pokemon }; return; }
+          const inventory = { ...economy.inventory };
+          inventory[inventoryId] = Math.max(0, (inventory[inventoryId] || 0) - 1);
+          if (!inventory[inventoryId]) delete inventory[inventoryId];
+          const nextEconomy = { ...economy, inventory, consumedItemActionIds: consumptionId ? [...(economy.consumedItemActionIds || []), consumptionId].slice(-100) : economy.consumedItemActionIds };
+          const nextPokemon = { ...pokemon, heldItem: null };
+          pokedexStore.put(nextPokemon);
+          playerStore.put(nextEconomy);
+          transaction.result = { ok: true, economy: nextEconomy, pokemon: nextPokemon };
+        };
+        collectionRequest.onsuccess = () => { collection = (collectionRequest.result || []).map(normalizeCapturedPokemon); finish(); };
+        economyRequest.onsuccess = () => { economy = normalizeEconomy(economyRequest.result); finish(); };
+        transaction.oncomplete = () => resolve(transaction.result);
+        transaction.onerror = () => reject(transaction.error);
+        collectionRequest.onerror = () => reject(collectionRequest.error);
+        economyRequest.onerror = () => reject(economyRequest.error);
       }));
     } catch (error) { console.error("Erro ao consumir item equipado:", error); return { ok: false, reason: "persistence" }; }
   },
@@ -368,12 +413,30 @@ export const webStore = {
     })); } catch (error) { console.error("Erro ao concluir jornada:", error); return { completed: false }; }
   },
   async setHeldItem(pokemonId, heldItem) {
-    try { return await withDatabase((database) => new Promise((resolve, reject) => {
-      const transaction = database.transaction([POKEDEX_STORE, PLAYER_STORE], "readwrite"); const store = transaction.objectStore(POKEDEX_STORE); const playerStore = transaction.objectStore(PLAYER_STORE); const request = store.get(pokemonId); const economyRequest = playerStore.get(ECONOMY_KEY); let economy;
-      const finish = () => { if (!economy || !request.result) return; const pokemon = normalizeCapturedPokemon(request.result); const normalizedItem = heldItem?.endsWith("-boost") ? "type-boost" : heldItem; const equippedRequest = store.getAll(); equippedRequest.onsuccess = () => { const equipped = equippedRequest.result.filter((item) => String(item.id) !== String(pokemonId) && (item.heldItem === heldItem || (normalizedItem === "type-boost" && item.heldItem?.endsWith("-boost")))).length; if (normalizedItem && (economy.inventory[normalizedItem] || 0) <= equipped) { transaction.result = { ok: false, reason: "not-owned" }; return; } const next = { ...pokemon, heldItem: heldItem || null }; store.put(next); transaction.result = { ok: true, pokemon: next }; }; equippedRequest.onerror = () => reject(equippedRequest.error); };
-      request.onsuccess = finish; economyRequest.onsuccess = () => { economy = normalizeEconomy(economyRequest.result); finish(); };
-      transaction.oncomplete = () => resolve(transaction.result); transaction.onerror = () => reject(transaction.error); request.onerror = () => reject(request.error);
-    })); } catch (error) { console.error("Erro ao equipar item:", error); return null; }
+    try {
+      return await withDatabase((database) => new Promise((resolve, reject) => {
+        const transaction = database.transaction([POKEDEX_STORE, PLAYER_STORE], "readwrite");
+        const pokedexStore = transaction.objectStore(POKEDEX_STORE);
+        const playerStore = transaction.objectStore(PLAYER_STORE);
+        const collectionRequest = pokedexStore.getAll();
+        const economyRequest = playerStore.get(ECONOMY_KEY);
+        let collection;
+        let economy;
+        const finish = () => {
+          if (!collection || !economy) return;
+          const result = planHeldItemChange({ pokemonId, requestedItem: heldItem, economy, collection });
+          if (result.ok && !result.unchanged) pokedexStore.put(result.pokemon);
+          transaction.result = result;
+          if (process.env.NODE_ENV !== "production") console.info("[HeldItem]", { operation: heldItem ? "equip" : "unequip", pokemonId, itemId: heldItem || null, previousItem: result.previousHeldItem || null, owned: result.stock?.owned, reserved: result.stock?.equipped, available: result.stock?.available, result: result.ok ? "success" : result.reason });
+        };
+        collectionRequest.onsuccess = () => { collection = (collectionRequest.result || []).map(normalizeCapturedPokemon); finish(); };
+        economyRequest.onsuccess = () => { economy = normalizeEconomy(economyRequest.result); finish(); };
+        transaction.oncomplete = () => resolve(transaction.result || { ok: false, reason: "persistence" });
+        transaction.onerror = () => reject(transaction.error);
+        collectionRequest.onerror = () => reject(collectionRequest.error);
+        economyRequest.onerror = () => reject(economyRequest.error);
+      }));
+    } catch (error) { console.error("Erro ao equipar item:", error); return { ok: false, reason: "persistence" }; }
   },
   async setMoveset(pokemonId, moveset) {
     try { return await withDatabase((database) => new Promise((resolve, reject) => {
