@@ -10,7 +10,7 @@ O modo de Insígnia reutiliza `createBattleState`, `resolveAction`, `BattleArena
 
 ## Banco e migração
 
-Aplique `supabase/migrations/20260917_competitive_badges.sql` pelo fluxo de migrações do projeto antes de testar. A migração cria:
+Aplique, nesta ordem, `supabase/migrations/20260917_competitive_badges.sql` e `supabase/migrations/202609170001_badge_challenge_cancellation.sql` pelo fluxo de migrações do projeto antes de testar. As migrações criam:
 
 - `competitive_players`
 - `badges` e o seed idempotente dos 18 tipos
@@ -20,6 +20,8 @@ Aplique `supabase/migrations/20260917_competitive_badges.sql` pelo fluxo de migr
 - `badge_history`
 
 As funções `start_badge_challenge` e `record_badge_battle_result` bloqueiam as linhas envolvidas e fazem criação, progresso, defesa e transferência em transações do Postgres. `release_expired_badge_state` usa `now()` do servidor, expira desafios abandonados e libera todas as Insígnias de jogadores sem batalha concluída há 48 horas. A migração agenda essa função a cada minuto com `pg_cron`; as leituras também a invocam, mantendo a regra verificável no servidor.
+
+`cancel_badge_challenge` encerra explicitamente uma tentativa com bloqueio e revalidação das linhas do desafio e da Insígnia. CPU volta a `AVAILABLE`; PvP ainda não iniciado volta a `OWNED` sem defesa; abandono explícito após o início oficial mantém o campeão e soma exatamente uma defesa. A linha do desafio permanece como registro terminal e não são criados resultados de batalha fictícios. `accept_badge_challenge` registra a aceitação do campeão e `mark_badge_challenge_started` separa a espera PvP do início real da série.
 
 ## Regras e recompensas
 
@@ -37,7 +39,7 @@ O bônus é aplicado por `calculateBattleRewards` somente em CPU normal e PvP no
 
 `recordCompetitiveBattleActivity` registra apenas batalhas concluídas de CPU, PvP e torneio. Desafios de Insígnia registram os participantes dentro da mesma função transacional que processa o resultado. Abrir o app, navegar, abandonar uma luta ou editar um Deck não atualiza atividade.
 
-Fluxo: iniciar desafio -> preparar uma equipe válida -> concluir batalha -> host registra o resultado -> Postgres avança a série ou encerra -> ambos recebem a atualização -> nova equipe pode ser preparada. Em 4–0, a transferência e o histórico são gravados atomicamente; numa vitória do defensor, `defense_count` incrementa uma única vez.
+Fluxo: iniciar desafio -> preparar uma equipe válida -> concluir batalha -> host registra o resultado -> Postgres avança a série ou encerra -> ambos recebem a atualização -> nova equipe pode ser preparada. Em 4–0, a transferência e o histórico são gravados atomicamente; numa vitória do defensor, `defense_count` incrementa uma única vez. Fechar modal, navegar ou atualizar o navegador nunca cancela uma tentativa: cancelamento e abandono exigem confirmação explícita do desafiante.
 
 ## Arte
 
@@ -47,6 +49,10 @@ As 18 artes finais otimizadas ficam em `public/badges/`, com os nomes `badge-nor
 
 CPU: abra Jornada -> Insígnias, escolha uma disponível, conquiste e vença quatro batalhas. Troque a equipe entre rodadas e confirme que uma derrota encerra o desafio.
 
+Cancelamento CPU: inicie uma tentativa, volte ao detalhe e use `Cancelar desafio`. Confirme que o diálogo começa com foco em `Voltar`, que o X apenas fecha o detalhe e que atualizar a página preserva a tentativa. Após confirmar o cancelamento, verifique `badge_challenges.status = 'CANCELLED'`, a Insígnia em `AVAILABLE` e uma nova tentativa começando em 0/4.
+
 PvP com dois clientes: o cliente A deve possuir a Insígnia. No cliente B, inicie o desafio; no cliente A, abra a mesma Insígnia e entre na disputa. Confirme equipes legais nos dois lados, jogue quatro batalhas e verifique o placar compartilhado. No 4–0, confira proprietário, bônus e histórico nos dois clientes. Depois repita com uma vitória do defensor e confirme uma única defesa.
+
+Cancelamento PvP: antes do início oficial, confirme que apenas o desafiante vê `Cancelar desafio`, que o campeão permanece e nenhuma defesa é somada. Depois da aceitação e do início da primeira batalha oficial, confirme a mudança para `Abandonar desafio` e uma única defesa para o campeão, inclusive sob duplo envio.
 
 Para validar expiração, altere timestamps apenas em um ambiente de teste e execute `select public.release_expired_badge_state();`. Não use o relógio do navegador como prova da regra.

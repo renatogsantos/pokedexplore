@@ -12,6 +12,11 @@ export const BADGE_SERIES_STATUS = Object.freeze({
   DEFENDED: "DEFENDED",
 });
 
+export const BADGE_CHALLENGE_EXIT_ACTION = Object.freeze({
+  CANCEL: "CANCEL",
+  ABANDON: "ABANDON",
+});
+
 function normalizedTypes(pokemon) {
   if (Array.isArray(pokemon?.types)) {
     return pokemon.types
@@ -74,6 +79,16 @@ export function isBadgeOwnerInactive({ lastBattleAt, now, activeChallenge = fals
 
 export function getChampionCoinMultiplier(badgeCount) {
   return Number(badgeCount) > 0 ? BADGE_CHAMPION_COIN_MULTIPLIER : 1;
+}
+
+export function getBadgeChallengeExitAction(challenge, playerId) {
+  if (!challenge || challenge.challenger_player_id !== playerId) return null;
+  if (!["PENDING_ACCEPTANCE", "ACTIVE"].includes(challenge.status)) return null;
+  if (challenge.challenge_kind === "INITIAL_CPU") return BADGE_CHALLENGE_EXIT_ACTION.CANCEL;
+  if (challenge.challenge_kind !== "PVP_TAKEOVER") return null;
+  return challenge.series_started_at
+    ? BADGE_CHALLENGE_EXIT_ACTION.ABANDON
+    : BADGE_CHALLENGE_EXIT_ACTION.CANCEL;
 }
 
 export function getBadgeTeamErrorMessage(validation, localizedTypeName) {

@@ -22,8 +22,21 @@ function friendlyError(error, fallback = "Não foi possível atualizar as Insíg
     PB004: "Este desafio não está mais ativo.",
     PB005: "O campeão mudou. Atualize a Insígnia antes de desafiar novamente.",
     PB006: "O resultado desta batalha não é válido para o desafio.",
+    PB007: "Você não pode encerrar ou aceitar este desafio.",
+    PB008: "Este desafio já foi encerrado.",
+    PB009: "O campeão ainda precisa aceitar o desafio.",
   };
-  return new Error(messages[error?.code] || fallback);
+  if (process.env.NODE_ENV !== "production" && error) {
+    console.error("[Badges] Supabase request failed", {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
+  }
+  const friendly = new Error(messages[error?.code] || fallback);
+  friendly.code = error?.code;
+  return friendly;
 }
 
 export function hasBadgeServiceConfig() {
@@ -112,6 +125,36 @@ export async function recordBadgeBattleResult({ challengeId, battleId, winnerPla
   return data;
 }
 
+export async function acceptBadgeChallenge({ challengeId, playerId }) {
+  const db = client();
+  const { data, error } = await db.rpc("accept_badge_challenge", {
+    p_challenge_id: challengeId,
+    p_player_id: playerId,
+  });
+  if (error) throw friendlyError(error, "Não foi possível aceitar a defesa agora.");
+  return data;
+}
+
+export async function markBadgeChallengeStarted({ challengeId, playerId }) {
+  const db = client();
+  const { data, error } = await db.rpc("mark_badge_challenge_started", {
+    p_challenge_id: challengeId,
+    p_player_id: playerId,
+  });
+  if (error) throw friendlyError(error, "Não foi possível iniciar esta série agora.");
+  return data;
+}
+
+export async function cancelBadgeChallenge({ challengeId, playerId }) {
+  const db = client();
+  const { data, error } = await db.rpc("cancel_badge_challenge", {
+    p_challenge_id: challengeId,
+    p_player_id: playerId,
+  });
+  if (error) throw friendlyError(error, "Não foi possível encerrar este desafio agora.");
+  return data;
+}
+
 export async function recordCompetitiveBattleActivity({ battleId, playerId, displayName: name, battleMode }) {
   if (!battleId || !playerId) return false;
   const db = client();
@@ -151,4 +194,3 @@ export function subscribeBadgeChallenge(challengeId, onChange) {
     .subscribe();
   return () => { void db.removeChannel(channel); };
 }
-

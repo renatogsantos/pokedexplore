@@ -39,7 +39,7 @@ import { cancelTournament, completeTournamentMatch, createTournament, getPlayerA
 import BadgeArtwork from "@/components/Badges/BadgeArtwork";
 import { getBadgeCpuTeam } from "@/lib/badges/cpu";
 import { BADGE_REQUIRED_WINS, BADGE_TEAM_SIZE, getBadgeConfig } from "@/lib/badges/config";
-import { getBadgeChallenge, getCompetitiveStatus, hasBadgeServiceConfig, recordBadgeBattleResult, recordCompetitiveBattleActivity, registerCompetitivePlayer, subscribeBadgeChallenge, subscribeBadges } from "@/lib/badges/service";
+import { acceptBadgeChallenge, getBadgeChallenge, getCompetitiveStatus, hasBadgeServiceConfig, markBadgeChallengeStarted, recordBadgeBattleResult, recordCompetitiveBattleActivity, registerCompetitivePlayer, subscribeBadgeChallenge, subscribeBadges } from "@/lib/badges/service";
 import { getBadgeTeamErrorMessage, validateBadgeTeam } from "@/lib/badges/rules";
 import "./style.scss";
 
@@ -87,6 +87,7 @@ export default function BattlePage() {
   const [badgeChallenge, setBadgeChallenge] = useState(null);
   const [badgeResolution, setBadgeResolution] = useState(null);
   const [badgeResolving, setBadgeResolving] = useState(false);
+  const [badgePreparing, setBadgePreparing] = useState(false);
   const [badgeResultError, setBadgeResultError] = useState("");
   const [isBadgeChampion, setIsBadgeChampion] = useState(false);
   const arenaBackgrounds = useRef([]);
@@ -223,6 +224,17 @@ export default function BattlePage() {
         }
       }
       isStartingBattle.current = true;
+      if (badgeChallenge?.challenge_kind === "PVP_TAKEOVER") {
+        try {
+          const startedChallenge = await markBadgeChallengeStarted({ challengeId: badgeChallenge.id, playerId: profile?.playerId });
+          setBadgeChallenge((current) => ({ ...current, ...startedChallenge, badge: current?.badge || badgeChallenge.badge }));
+        } catch (error) {
+          isStartingBattle.current = false;
+          setNotice(error.message);
+          broadcast(BATTLE_EVENTS.BADGE_ERROR, { message: error.message });
+          return;
+        }
+      }
       const backgrounds = await loadArenaBackgrounds();
       const next = createBattleState(
         { ...host, inventory: { potion: inventory.potion || 0, "full-heal": inventory["full-heal"] || 0 }, team: hostTeam.map(toBattlePokemon) },
@@ -252,7 +264,7 @@ export default function BattlePage() {
         broadcast(BATTLE_EVENTS.STATE, playing);
       }, 1650);
     },
-    [badgeChallenge, broadcast, inventory, loadArenaBackgrounds],
+    [badgeChallenge, broadcast, inventory, loadArenaBackgrounds, profile?.playerId],
   );
   const awardVictory = useCallback(
     async (matchId, amount) => {
@@ -593,7 +605,7 @@ export default function BattlePage() {
     setScreen("team");
     connectRoom(code, currentPlayer, "guest");
   }
-  function prepareBadgeChallenge() {
+  async function prepareBadgeChallenge() {
     if (!badgeChallenge || !profile) return;
     if (!["ACTIVE", "PENDING_ACCEPTANCE"].includes(badgeChallenge.status)) {
       router.push("/jornada/insignias");
@@ -606,16 +618,29 @@ export default function BattlePage() {
     }
     const currentRole = badgeChallenge.challenger_player_id === profile.playerId ? "host" : "guest";
     const currentPlayer = { id: profile.playerId, name: profile.displayName };
-    setRole(currentRole);
-    setPlayer(currentPlayer);
-    setSelected([]);
-    setRemoteTeam(null);
-    setBattle(null);
-    setReadySent(false);
-    setBadgeResolution(null);
-    setBadgeResultError("");
-    if (badgeChallenge.challenge_kind === "PVP_TAKEOVER") connectRoom(badgeChallenge.battle_room_code, currentPlayer, currentRole);
-    setScreen("team");
+    setBadgePreparing(true);
+    try {
+      let preparedChallenge = badgeChallenge;
+      if (badgeChallenge.challenge_kind === "PVP_TAKEOVER" && currentRole === "guest" && badgeChallenge.status === "PENDING_ACCEPTANCE") {
+        const accepted = await acceptBadgeChallenge({ challengeId: badgeChallenge.id, playerId: profile.playerId });
+        preparedChallenge = { ...badgeChallenge, ...accepted, badge: badgeChallenge.badge };
+        setBadgeChallenge(preparedChallenge);
+      }
+      setRole(currentRole);
+      setPlayer(currentPlayer);
+      setSelected([]);
+      setRemoteTeam(null);
+      setBattle(null);
+      setReadySent(false);
+      setBadgeResolution(null);
+      setBadgeResultError("");
+      if (preparedChallenge.challenge_kind === "PVP_TAKEOVER") connectRoom(preparedChallenge.battle_room_code, currentPlayer, currentRole);
+      setScreen("team");
+    } catch (error) {
+      setNotice(error.message);
+    } finally {
+      setBadgePreparing(false);
+    }
   }
   async function createTournamentFlow() {
     if (!profile) return setNotice("Carregando seu perfil local...");
@@ -782,7 +807,7 @@ export default function BattlePage() {
             notice={notice}
           />
         )}
-        {screen === "badge-intro" && <BadgeChallengeIntro challenge={badgeChallenge} profile={profile} notice={notice} onPrepare={prepareBadgeChallenge} onBack={() => router.push("/jornada/insignias")} />}
+        {screen === "badge-intro" && <BadgeChallengeIntro challenge={badgeChallenge} profile={profile} notice={notice} busy={badgePreparing} onPrepare={prepareBadgeChallenge} onBack={() => router.push("/jornada/insignias")} />}
         {screen === "team" && (
           <>
             <RoomStatus
@@ -825,17 +850,19 @@ export default function BattlePage() {
   );
 }
 
-function BadgeChallengeIntro({ challenge, profile, notice, onPrepare, onBack }) {
+function BadgeChallengeIntro({ challenge, profile, notice, busy, onPrepare, onBack }) {
   if (!challenge) return <section className="battle-panel badge-challenge-intro"><span className="eyebrow">DESAFIO DA INSÍGNIA</span><h2>Carregando disputa...</h2>{notice && <p className="setup-notice" role="alert">{notice}</p>}<button type="button" className="badge-intro-back" onClick={onBack}>Voltar às Insígnias</button></section>;
   const config = getBadgeConfig(challenge.badge?.code);
   const participant = [challenge.challenger_player_id, challenge.defender_player_id].includes(profile?.playerId);
+  const isChallenger = challenge.challenger_player_id === profile?.playerId;
+  const isWaitingForChampion = challenge.challenge_kind === "PVP_TAKEOVER" && challenge.status === "PENDING_ACCEPTANCE";
   const terminal = !["ACTIVE", "PENDING_ACCEPTANCE"].includes(challenge.status);
   return <section className="battle-panel badge-challenge-intro" style={{ "--badge-color": config.color }}>
     <div className="badge-intro-hero"><BadgeArtwork badge={config} /><div><span className="eyebrow">DESAFIO DA INSÍGNIA</span><h2>{config.name}</h2><p>Batalha {challenge.current_battle} · {challenge.challenger_wins}/{challenge.wins_required} vitórias consecutivas</p></div></div>
     <div className="badge-intro-versus"><article><span>DESAFIANTE</span><strong>{challenge.challenger_name}</strong></article><b>VS</b><article><span>{challenge.challenge_kind === "INITIAL_CPU" ? "LÍDER" : "CAMPEÃO"}</span><strong>{challenge.challenge_kind === "INITIAL_CPU" ? config.leaderName : challenge.defender_name}</strong></article></div>
     <section className="badge-intro-rules" aria-labelledby="badge-intro-rules-title"><span className="eyebrow">CONDIÇÃO DE CONQUISTA</span><h3 id="badge-intro-rules-title">Uma série perfeita</h3><ul><li><Trophy weight="fill" /> Vença {BADGE_REQUIRED_WINS} batalhas consecutivas.</li><li><Check weight="bold" /> Ambos levam pelo menos 1 Pokémon {config.localizedTypeName}.</li><li><ShieldCheck weight="fill" /> Equipes de {BADGE_TEAM_SIZE}, sem Lendários ou Míticos.</li><li><Sword weight="fill" /> A equipe pode mudar entre as batalhas.</li></ul></section>
     {notice && <p className="setup-notice" role="alert">{notice}</p>}
-    <div className="badge-intro-actions"><button type="button" className="badge-intro-back" onClick={onBack}>Voltar</button><button type="button" className="badge-intro-prepare" onClick={terminal ? onBack : onPrepare} disabled={!participant && !terminal}>{terminal ? "Ver Insígnias" : participant ? "Preparar equipe" : "Disputa em andamento"}</button></div>
+    <div className="badge-intro-actions"><button type="button" className="badge-intro-back" onClick={onBack} disabled={busy}>Voltar</button><button type="button" className="badge-intro-prepare" onClick={terminal ? onBack : onPrepare} disabled={busy || (!participant && !terminal)}>{busy ? "Confirmando..." : terminal ? "Ver Insígnias" : !participant ? "Disputa em andamento" : isWaitingForChampion ? isChallenger ? "Preparar e aguardar" : "Aceitar defesa" : "Preparar equipe"}</button></div>
   </section>;
 }
 

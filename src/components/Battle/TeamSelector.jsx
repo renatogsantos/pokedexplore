@@ -11,7 +11,7 @@ import {
   Star,
   Trash,
 } from "@phosphor-icons/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getPokemonArtwork, getPokemonType } from "@/lib/battle/pokemon";
 import { getPokemonLevel } from "@/lib/pokemon/progression";
 import PokemonRarity, { getRarityClassName } from "@/components/PokemonRarity";
@@ -25,6 +25,7 @@ import { webStore } from "@/helpers/webStore";
 import { getPokemonSprite, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
 import { getTypeLabel } from "@/lib/localization/ptBR";
 import { getBadgePokemonRestriction, getBadgeTeamErrorMessage, validateBadgeTeam } from "@/lib/badges/rules";
+import ConfirmationDialog from "@/components/ConfirmationDialog";
 
 function TypeBadge({ type }) {
   return (
@@ -278,7 +279,6 @@ function DecksPanel({ collection, decks, waiting, badgeContext, onDecksChange, o
   const [saving, setSaving] = useState(false);
   const [pendingDeletion, setPendingDeletion] = useState(null);
   const [deleting, setDeleting] = useState(false);
-  const cancelDeletionRef = useRef(null);
   const resolve = (deck) => deck.pokemonIds.map((id) => collection.find((pokemon) => String(pokemon.id) === String(id))).filter(Boolean);
   const edit = (deck = null) => setEditor(deck ? { ...deck, pokemonIds: [...deck.pokemonIds] } : { name: "", pokemonIds: [] });
   const toggle = (pokemon) => setEditor((current) => {
@@ -293,13 +293,6 @@ function DecksPanel({ collection, decks, waiting, badgeContext, onDecksChange, o
     setSaving(false);
     if (saved) { onDecksChange((current) => [...current.filter((deck) => deck.id !== saved.id), saved]); setEditor(null); }
   };
-  useEffect(() => {
-    if (!pendingDeletion) return undefined;
-    cancelDeletionRef.current?.focus();
-    const closeOnEscape = (event) => { if (event.key === "Escape" && !deleting) setPendingDeletion(null); };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [pendingDeletion, deleting]);
   const remove = (deck) => setPendingDeletion(deck);
   const confirmDeletion = async () => {
     if (!pendingDeletion) return;
@@ -328,6 +321,6 @@ function DecksPanel({ collection, decks, waiting, badgeContext, onDecksChange, o
       const team = resolve(deck); const complete = team.length === 3; const validation = badgeContext && complete ? validateBadgeTeam(team, badgeContext.type) : null; const compatible = complete && (!badgeContext || validation.valid);
       return <article className={`deck-card ${complete ? "" : "incomplete"} ${!compatible && badgeContext ? "badge-incompatible" : ""}`} key={deck.id}><div className="deck-card-heading"><strong><Star size={15} weight="fill" aria-hidden="true" /> {deck.name}</strong>{!complete ? <span>Deck incompleto</span> : !compatible ? <span>Deck incompatível</span> : null}</div><div className="deck-pokemon-row">{deck.pokemonIds.map((id, index) => <div className="deck-pokemon" key={`${id}-${index}`}><DeckThumbnail pokemon={collection.find((item) => String(item.id) === String(id))} /></div>)}</div>{!complete ? <p>Um Pokémon não está mais disponível. Edite este deck para usá-lo.</p> : !compatible ? <p>{getBadgeTeamErrorMessage(validation, badgeContext.localizedTypeName)}</p> : null}<div className="deck-card-actions"><button type="button" onClick={() => onUseDeck(team)} disabled={waiting || !compatible}>Usar este deck</button><button type="button" onClick={() => edit(deck)} disabled={waiting} aria-label={`Editar ${deck.name}`}><PencilSimple size={18} weight="bold" aria-hidden="true" /></button><button type="button" onClick={() => remove(deck)} disabled={waiting} aria-label={`Excluir ${deck.name}`}><Trash size={18} weight="bold" aria-hidden="true" /></button></div></article>;
     })}</div>}
-    {pendingDeletion && <div className="deck-delete-backdrop" role="presentation"><section className="deck-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="deck-delete-title" aria-describedby="deck-delete-description"><span className="eyebrow">EXCLUIR DECK</span><h3 id="deck-delete-title">Excluir “{pendingDeletion.name}”?</h3><p id="deck-delete-description">Somente o deck será apagado. Seus Pokémon permanecerão na coleção.</p><div><button ref={cancelDeletionRef} type="button" onClick={() => setPendingDeletion(null)} disabled={deleting}>Cancelar</button><button type="button" className="deck-delete-confirm" onClick={confirmDeletion} disabled={deleting}>{deleting ? "Excluindo..." : "Excluir deck"}</button></div></section></div>}
+    <ConfirmationDialog open={Boolean(pendingDeletion)} id="deck-delete-dialog" eyebrow="EXCLUIR DECK" title={pendingDeletion ? `Excluir “${pendingDeletion.name}”?` : "Excluir deck?"} description="Somente o deck será apagado. Seus Pokémon permanecerão na coleção." cancelLabel="Cancelar" confirmLabel="Excluir deck" busyLabel="Excluindo..." busy={deleting} onCancel={() => setPendingDeletion(null)} onConfirm={confirmDeletion} />
   </div>;
 }

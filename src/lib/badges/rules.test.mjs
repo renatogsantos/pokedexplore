@@ -10,7 +10,7 @@ const source = (await readFile(new URL("./rules.js", import.meta.url), "utf8")).
   'const BADGE_CHAMPION_COIN_MULTIPLIER = 1.25; const BADGE_INACTIVITY_HOURS = 48; const BADGE_REQUIRED_WINS = 4; const BADGE_TEAM_SIZE = 3;',
 );
 const rules = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
-const { advanceBadgeSeries, getChampionCoinMultiplier, isBadgeOwnerInactive, validateBadgeTeam } = rules;
+const { advanceBadgeSeries, getBadgeChallengeExitAction, getChampionCoinMultiplier, isBadgeOwnerInactive, validateBadgeTeam } = rules;
 
 const pokemon = (name, types, extra = {}) => ({ name, types: types.map((type) => ({ type: { name: type } })), rarity: "normal", ...extra });
 
@@ -46,4 +46,17 @@ test("inactivity uses the 48-hour boundary and protects active challenges", () =
   assert.equal(isBadgeOwnerInactive({ lastBattleAt: "2026-09-15T12:00:00.000Z", now }), true);
   assert.equal(isBadgeOwnerInactive({ lastBattleAt: "2026-09-15T12:01:00.000Z", now }), false);
   assert.equal(isBadgeOwnerInactive({ lastBattleAt: "2026-09-14T12:00:00.000Z", now, activeChallenge: true }), false);
+});
+
+test("only the challenger can cancel or abandon and PvP consequences start with the official series", () => {
+  const base = { challenger_player_id: "challenger", status: "ACTIVE" };
+  for (let challengerWins = 0; challengerWins <= 3; challengerWins += 1) {
+    assert.equal(getBadgeChallengeExitAction({ ...base, challenge_kind: "INITIAL_CPU", challenger_wins: challengerWins }, "challenger"), "CANCEL");
+  }
+  assert.equal(getBadgeChallengeExitAction({ ...base, status: "PENDING_ACCEPTANCE", challenge_kind: "PVP_TAKEOVER", series_started_at: null }, "challenger"), "CANCEL");
+  assert.equal(getBadgeChallengeExitAction({ ...base, challenge_kind: "PVP_TAKEOVER", accepted_at: "2026-09-17T12:00:00Z", series_started_at: null }, "challenger"), "CANCEL");
+  assert.equal(getBadgeChallengeExitAction({ ...base, challenge_kind: "PVP_TAKEOVER", series_started_at: "2026-09-17T12:05:00Z" }, "challenger"), "ABANDON");
+  assert.equal(getBadgeChallengeExitAction({ ...base, challenge_kind: "PVP_TAKEOVER", series_started_at: "2026-09-17T12:05:00Z" }, "defender"), null);
+  assert.equal(getBadgeChallengeExitAction({ ...base, status: "COMPLETED", challenge_kind: "INITIAL_CPU" }, "challenger"), null);
+  assert.equal(getBadgeChallengeExitAction({ ...base, status: "CANCELLED", challenge_kind: "INITIAL_CPU" }, "challenger"), null);
 });

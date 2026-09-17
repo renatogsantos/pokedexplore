@@ -16,8 +16,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import BadgeArtwork from "@/components/Badges/BadgeArtwork";
+import ConfirmationDialog from "@/components/ConfirmationDialog";
 import { BADGE_CONFIG, BADGE_INACTIVITY_HOURS, BADGE_REQUIRED_WINS } from "@/lib/badges/config";
+import { BADGE_CHALLENGE_EXIT_ACTION, getBadgeChallengeExitAction } from "@/lib/badges/rules";
 import {
+  cancelBadgeChallenge,
   getBadgeHistory,
   listBadges,
   registerCompetitivePlayer,
@@ -35,6 +38,7 @@ const FILTERS = Object.freeze([
 ]);
 
 const STATUS_LABEL = Object.freeze({ AVAILABLE: "Disponível", OWNED: "Com campeão", CHALLENGED: "Em disputa" });
+const VISIBLE_HISTORY_EVENTS = new Set(["INITIAL_CLAIM", "TRANSFER", "DEFENSE", "RELEASED_INACTIVITY"]);
 
 function formatActivity(value) {
   if (!value) return "Sem batalha recente";
@@ -83,22 +87,28 @@ function BadgeCard({ badge, playerId, onOpen }) {
   );
 }
 
-function BadgeDetail({ badge, history, profile, busy, onClose, onStart, onContinue }) {
+function BadgeDetail({ badge, history, profile, busy, exitBusy, exitDialogOpen, onClose, onStart, onContinue, onRequestExit }) {
   const closeRef = useRef(null);
   const config = badge.config;
   const mine = badge.owner_player_id === profile?.playerId;
   const challenge = badge.activeChallenge;
   const participant = challenge && [challenge.challenger_player_id, challenge.defender_player_id].includes(profile?.playerId);
+  const exitAction = getBadgeChallengeExitAction(challenge, profile?.playerId);
+  const visibleHistory = history?.filter((event) => VISIBLE_HISTORY_EVENTS.has(event.event_type));
+  const isPendingTakeover = challenge?.challenge_kind === "PVP_TAKEOVER" && challenge.status === "PENDING_ACCEPTANCE";
+  const continueLabel = isPendingTakeover
+    ? challenge.challenger_player_id === profile?.playerId ? "Entrar e aguardar campeão" : "Aceitar defesa"
+    : "Entrar no desafio";
   useEffect(() => {
     closeRef.current?.focus();
-    const onKey = (event) => { if (event.key === "Escape" && !busy) onClose(); };
+    const onKey = (event) => { if (event.key === "Escape" && !busy && !exitBusy && !exitDialogOpen) onClose(); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [busy, onClose]);
+  }, [busy, exitBusy, exitDialogOpen, onClose]);
   return (
-    <div className="badge-detail-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}>
-      <section className="badge-detail" role="dialog" aria-modal="true" aria-labelledby="badge-detail-title" style={{ "--badge-color": config.color }}>
-        <button ref={closeRef} type="button" className="badge-detail__close" onClick={onClose} aria-label="Fechar detalhes da Insígnia" disabled={busy}><X size={21} weight="bold" /></button>
+    <div className="badge-detail-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy && !exitBusy && !exitDialogOpen) onClose(); }}>
+      <section className="badge-detail" role="dialog" aria-modal={!exitDialogOpen} aria-hidden={exitDialogOpen} aria-labelledby="badge-detail-title" style={{ "--badge-color": config.color }}>
+        <button ref={closeRef} type="button" className="badge-detail__close" onClick={onClose} aria-label="Fechar detalhes da Insígnia" disabled={busy || exitBusy || exitDialogOpen}><X size={21} weight="bold" /></button>
         <header className="badge-detail__hero">
           <BadgeArtwork badge={badge} />
           <div><span className="eyebrow">{config.localizedTypeName.toUpperCase()}</span><h2 id="badge-detail-title">{config.name}</h2></div>
@@ -118,9 +128,9 @@ function BadgeDetail({ badge, history, profile, busy, onClose, onStart, onContin
           </ul>
         </section>
         <section className="badge-detail__benefit"><Coins size={25} weight="fill" aria-hidden="true" /><div><span className="eyebrow">BENEFÍCIO DO CAMPEÃO</span><strong>+25% de moedas em batalhas CPU e PvP elegíveis</strong></div></section>
-        <section className="badge-detail__history" aria-labelledby="badge-history-title"><span className="eyebrow">HISTÓRICO</span><h3 id="badge-history-title">Disputas registradas</h3>{history === null ? <p>Carregando histórico...</p> : history.length ? <ol>{history.filter((event) => event.event_type !== "CHALLENGE_COMPLETED").map((event) => <li key={event.id}><ShieldCheck size={17} weight="fill" aria-hidden="true" /><div><strong>{historyText(event)}</strong><time dateTime={event.created_at}>{new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(event.created_at))}</time></div></li>)}</ol> : <p>A primeira conquista ainda está por vir.</p>}</section>
+        <section className="badge-detail__history" aria-labelledby="badge-history-title"><span className="eyebrow">HISTÓRICO</span><h3 id="badge-history-title">Disputas registradas</h3>{history === null ? <p>Carregando histórico...</p> : visibleHistory.length ? <ol>{visibleHistory.map((event) => <li key={event.id}><ShieldCheck size={17} weight="fill" aria-hidden="true" /><div><strong>{historyText(event)}</strong><time dateTime={event.created_at}>{new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(event.created_at))}</time></div></li>)}</ol> : <p>A primeira conquista ainda está por vir.</p>}</section>
         <footer className="badge-detail__actions">
-          {challenge && participant ? <button type="button" onClick={() => onContinue(challenge)} disabled={busy}>Entrar no desafio</button> : mine ? <p><Crown weight="fill" aria-hidden="true" /> Você não pode desafiar sua própria Insígnia.</p> : challenge ? <p><ClockCountdown aria-hidden="true" /> Acompanhe o placar enquanto a disputa acontece.</p> : <button type="button" onClick={() => onStart(badge)} disabled={busy}>{busy ? "Confirmando..." : badge.owner_player_id ? `Desafiar ${badge.owner_display_name}` : "Conquistar Insígnia"}</button>}
+          {challenge && participant ? <div className="badge-detail__action-group"><button type="button" onClick={() => onContinue(challenge)} disabled={busy || exitBusy || exitDialogOpen}>{continueLabel}</button>{exitAction && <button type="button" className="badge-detail__exit" onClick={() => onRequestExit(challenge, exitAction)} disabled={busy || exitBusy || exitDialogOpen}>{exitAction === BADGE_CHALLENGE_EXIT_ACTION.ABANDON ? "Abandonar desafio" : "Cancelar desafio"}</button>}</div> : mine ? <p><Crown weight="fill" aria-hidden="true" /> Você não pode desafiar sua própria Insígnia.</p> : challenge ? <p><ClockCountdown aria-hidden="true" /> Acompanhe o placar enquanto a disputa acontece.</p> : <button type="button" onClick={() => onStart(badge)} disabled={busy}>{busy ? "Confirmando..." : badge.owner_player_id ? `Desafiar ${badge.owner_display_name}` : "Conquistar Insígnia"}</button>}
         </footer>
       </section>
     </div>
@@ -136,6 +146,10 @@ export default function CompetitiveBadgesPage() {
   const [history, setHistory] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [pendingExit, setPendingExit] = useState(null);
+  const [exitBusy, setExitBusy] = useState(false);
+  const [exitError, setExitError] = useState("");
+  const [feedback, setFeedback] = useState("");
 
   const refresh = useCallback(async () => {
     try { setError(""); setBadges(await listBadges()); }
@@ -169,6 +183,48 @@ export default function CompetitiveBadgesPage() {
     setSelected(badge); setHistory(null);
     try { setHistory(await getBadgeHistory(badge.id)); } catch { setHistory([]); }
   }
+  function closeBadge() {
+    if (exitBusy || pendingExit) return;
+    setSelected(null);
+  }
+  function requestChallengeExit(challenge, action) {
+    setExitError("");
+    setPendingExit({ challenge, action });
+  }
+  function closeExitDialog() {
+    if (exitBusy) return;
+    setExitError("");
+    setPendingExit(null);
+  }
+  async function confirmChallengeExit() {
+    if (!pendingExit || !profile?.playerId || exitBusy) return;
+    const { challenge, action } = pendingExit;
+    setExitBusy(true);
+    setExitError("");
+    try {
+      await cancelBadgeChallenge({ challengeId: challenge.id, playerId: profile.playerId });
+      setPendingExit(null);
+      setSelected(null);
+      setHistory(null);
+      setFeedback(action === BADGE_CHALLENGE_EXIT_ACTION.ABANDON
+        ? "Desafio abandonado. A Insígnia continua com o campeão atual."
+        : "Desafio cancelado com sucesso.");
+      await refresh();
+    } catch (cancelError) {
+      if (process.env.NODE_ENV !== "production") console.error("[Badges] challenge exit failed", cancelError);
+      if (["PB004", "PB005", "PB008"].includes(cancelError.code)) {
+        setPendingExit(null);
+        setFeedback("Este desafio já foi encerrado ou atualizado. O estado compartilhado foi recarregado.");
+        await refresh();
+        return;
+      }
+      setExitError(action === BADGE_CHALLENGE_EXIT_ACTION.ABANDON
+        ? "Não foi possível abandonar o desafio. Tente novamente."
+        : "Não foi possível cancelar o desafio. Tente novamente.");
+    } finally {
+      setExitBusy(false);
+    }
+  }
   async function beginChallenge(badge) {
     if (!profile) return;
     setBusy(true);
@@ -181,6 +237,7 @@ export default function CompetitiveBadgesPage() {
     <main className="competitive-badges-page">
       <section className="competitive-badges-shell">
         <header className="competitive-badges-heading"><Link href="/jornada"><ArrowLeft size={20} /> Jornada</Link><span className="eyebrow">TÍTULOS COMPETITIVOS</span><h1>Insígnias</h1><p>Conquiste. Defenda. Domine. Cada tipo possui um único campeão entre todos os jogadores.</p></header>
+        {feedback && <p className="competitive-badges-feedback" role="status"><Check size={20} weight="bold" aria-hidden="true" /> {feedback}</p>}
         {error && <section className="competitive-badges-error" role="alert"><Warning size={28} weight="fill" /><div><strong>{error}</strong><p>Verifique sua conexão e tente novamente. Sua coleção local continua disponível.</p></div><button type="button" onClick={refresh}>Tentar novamente</button></section>}
         <section className="competitive-badges-summary" aria-label="Resumo das Insígnias"><article><Trophy weight="fill" /><strong>{BADGE_CONFIG.length}</strong><span>Insígnias</span></article><article><ShieldCheck weight="fill" /><strong>{summary.available}</strong><span>Disponíveis</span></article><article><Crown weight="fill" /><strong>{summary.owned}</strong><span>Com campeão</span></article><article><Sword weight="fill" /><strong>{summary.challenged}</strong><span>Em disputa</span></article></section>
         <div className="competitive-badges-filters" role="group" aria-label="Filtrar Insígnias">{FILTERS.map((item) => <button key={item.id} type="button" className={filter === item.id ? "selected" : ""} aria-pressed={filter === item.id} onClick={() => setFilter(item.id)}>{item.label}</button>)}</div>
@@ -189,7 +246,23 @@ export default function CompetitiveBadgesPage() {
         {badges && badges.length > 0 && <div className="competitive-badges-grid">{visible.map((badge) => <BadgeCard key={badge.id} badge={badge} playerId={profile?.playerId} onOpen={openBadge} />)}</div>}
         {badges && visible.length === 0 && <p className="competitive-badges-no-filter">Nenhuma Insígnia corresponde a este filtro agora.</p>}
       </section>
-      {selected && <BadgeDetail badge={selected} history={history} profile={profile} busy={busy} onClose={() => setSelected(null)} onStart={beginChallenge} onContinue={(challenge) => router.push(`/batalha?badgeChallenge=${challenge.id}`)} />}
+      {selected && <BadgeDetail badge={selected} history={history} profile={profile} busy={busy} exitBusy={exitBusy} exitDialogOpen={Boolean(pendingExit)} onClose={closeBadge} onStart={beginChallenge} onContinue={(challenge) => router.push(`/batalha?badgeChallenge=${challenge.id}`)} onRequestExit={requestChallengeExit} />}
+      <ConfirmationDialog
+        open={Boolean(pendingExit)}
+        id="badge-challenge-exit"
+        eyebrow="DESAFIO DA INSÍGNIA"
+        title={pendingExit?.action === BADGE_CHALLENGE_EXIT_ACTION.ABANDON ? "ABANDONAR DESAFIO?" : "CANCELAR DESAFIO?"}
+        description={pendingExit && <>{Number(pendingExit.challenge.challenger_wins) > 0
+          ? <>Você já possui {pendingExit.challenge.challenger_wins} de {BADGE_REQUIRED_WINS} vitórias consecutivas. Ao {pendingExit.action === BADGE_CHALLENGE_EXIT_ACTION.ABANDON ? "abandonar" : "cancelar"}, esse progresso será perdido.</>
+          : <>Você tem certeza que deseja {pendingExit.action === BADGE_CHALLENGE_EXIT_ACTION.ABANDON ? "abandonar" : "cancelar"} este Desafio da Insígnia? Seu progresso nesta tentativa será perdido.</>}{pendingExit.action === BADGE_CHALLENGE_EXIT_ACTION.ABANDON && <> O campeão manterá a Insígnia e receberá uma defesa.</>}</>}
+        cancelLabel="Voltar"
+        confirmLabel={pendingExit?.action === BADGE_CHALLENGE_EXIT_ACTION.ABANDON ? "Abandonar desafio" : "Cancelar desafio"}
+        busyLabel={pendingExit?.action === BADGE_CHALLENGE_EXIT_ACTION.ABANDON ? "Abandonando..." : "Cancelando..."}
+        busy={exitBusy}
+        error={exitError}
+        onCancel={closeExitDialog}
+        onConfirm={confirmChallengeExit}
+      />
     </main>
   );
 }
