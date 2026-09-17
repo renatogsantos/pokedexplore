@@ -4,6 +4,7 @@ const COLORS = {
   victory: ["#ffcb05", "#ffe274", "#4aa8ff", "#ffffff", "#ef646b"],
   legendary: ["#ffcb05", "#ffe77a", "#fff7cf", "#ffffff"],
   mythical: ["#d68cff", "#ff8fcf", "#73ddff", "#ffffff"],
+  badge: ["#ffcb05", "#fff1a8", "#4aa8ff", "#ffffff"],
 };
 
 let confettiLoader;
@@ -57,4 +58,11 @@ export function celebrateBattleVictory() {
   later(() => void fire({ particleCount: 46, angle: 58, spread: 58, startVelocity: 38, origin: { x: 0.03, y: 0.68 }, colors: COLORS.victory, scalar: 0.92, zIndex: resultModalZIndex }), 180);
   later(() => void fire({ particleCount: 46, angle: 122, spread: 58, startVelocity: 38, origin: { x: 0.97, y: 0.68 }, colors: COLORS.victory, scalar: 0.92, zIndex: resultModalZIndex }), 220);
   later(() => void fire({ particleCount: 40, spread: 110, startVelocity: 18, gravity: 0.72, ticks: 120, origin: { x: 0.5, y: 0.24 }, colors: COLORS.victory, scalar: 0.78, zIndex: resultModalZIndex }), 520);
+}
+
+export function celebrateBadgeChampionship(color = "#ffcb05") {
+  const colors = [color, ...COLORS.badge];
+  void fire({ particleCount: 120, spread: 104, startVelocity: 48, origin: { x: .5, y: .56 }, colors, shapes: ["star", "circle"], zIndex: 140 });
+  later(() => void fire({ particleCount: 58, angle: 60, spread: 62, startVelocity: 42, origin: { x: .03, y: .7 }, colors, zIndex: 140 }), 180);
+  later(() => void fire({ particleCount: 58, angle: 120, spread: 62, startVelocity: 42, origin: { x: .97, y: .7 }, colors, zIndex: 140 }), 230);
 }

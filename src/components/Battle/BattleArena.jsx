@@ -3,6 +3,7 @@
 import {
   ArrowsClockwise,
   Backpack,
+  Crown,
   Lightning,
   Sword,
   Trophy,
@@ -38,6 +39,8 @@ import { formatCoins } from "@/lib/economy";
 import useBattleParallax from "@/hooks/useBattleParallax";
 import ItemSprite from "@/components/ItemSprite/ItemSprite";
 import PokemonAura from "@/components/PokemonAura/PokemonAura";
+import BadgeArtwork from "@/components/Badges/BadgeArtwork";
+import { BADGE_REQUIRED_WINS } from "@/lib/badges/config";
 
 function HpBar({ pokemon }) {
   const percent = Math.max(0, (pokemon.hp / pokemon.maxHp) * 100);
@@ -358,9 +361,38 @@ function RewardRow({ icon: Icon, label, value }) {
   );
 }
 
+function BadgeBattleResultModal({ won, badgeContext, onRematch }) {
+  const actionRef = useRef(null);
+  const { config, challenge, resolution, resolving, playerId, error } = badgeContext;
+  const status = resolution?.status || challenge?.status;
+  const isChallenger = challenge?.challenger_player_id === playerId;
+  const acquired = status === "COMPLETED";
+  const defended = status === "FAILED";
+  const active = status === "ACTIVE" && resolution && Number(resolution.current_battle) > Number(challenge?.current_battle || 0);
+  useEffect(() => { const frame = requestAnimationFrame(() => actionRef.current?.focus()); return () => cancelAnimationFrame(frame); }, [resolving]);
+  const title = resolving ? "Confirmando resultado..." : error ? "Resultado pendente" : acquired ? "Novo campeão!" : defended ? (challenge?.challenge_kind === "PVP_TAKEOVER" ? "Insígnia defendida" : "Desafio encerrado") : active ? (won ? "Vitória confirmada" : "O desafiante avançou") : "Batalha concluída";
+  const description = acquired
+    ? `${challenge?.challenger_name} conquistou a ${config.name} com ${BADGE_REQUIRED_WINS} vitórias consecutivas.`
+    : defended
+      ? challenge?.challenge_kind === "PVP_TAKEOVER" ? `${challenge?.defender_name} continua como campeão.` : `Você chegou a ${resolution?.challenger_wins || 0} de ${challenge?.wins_required || BADGE_REQUIRED_WINS} vitórias consecutivas.`
+      : active ? `${resolution?.challenger_wins || 0}/${challenge?.wins_required || BADGE_REQUIRED_WINS} vitórias consecutivas. A equipe pode mudar antes da próxima batalha.` : "Aguarde a confirmação compartilhada antes de continuar.";
+  const canContinue = !resolving && !error && (active || acquired || defended);
+  return <motion.div className="result-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+    <motion.section className={`result-card result-modal badge-result-modal ${acquired ? "is-victory is-champion" : defended && isChallenger ? "is-defeat" : "is-victory"}`} role="dialog" aria-modal="true" aria-labelledby="badge-battle-result-title" initial={{ opacity: 0, scale: .9, y: 18 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", stiffness: 320, damping: 26 }}>
+      <BadgeArtwork badge={config} />
+      <span className="result-modal__eyebrow">DESAFIO DA INSÍGNIA</span>
+      <h2 id="badge-battle-result-title">{title}</h2>
+      <p>{description}</p>
+      {!resolving && !error && <div className="badge-series-result" aria-label={`${resolution?.challenger_wins || 0} de ${challenge?.wins_required || BADGE_REQUIRED_WINS} vitórias consecutivas`}><div>{Array.from({ length: challenge?.wins_required || BADGE_REQUIRED_WINS }, (_, index) => <i key={index} className={index < (resolution?.challenger_wins || 0) ? "won" : ""} />)}</div><strong>{resolution?.challenger_wins || 0} / {challenge?.wins_required || BADGE_REQUIRED_WINS}</strong><span>{active && Number(resolution?.challenger_wins) === BADGE_REQUIRED_WINS - 1 ? "MATCH POINT" : acquired ? "SÉRIE PERFEITA" : defended ? "SÉRIE ENCERRADA" : "VITÓRIAS CONSECUTIVAS"}</span></div>}
+      {error && <p className="badge-result-error">{error}</p>}
+      <div className="result-modal__actions"><button ref={actionRef} type="button" className="rematch-button" onClick={onRematch} disabled={!canContinue}>{resolving ? "Confirmando..." : active ? "Preparar próxima batalha" : "Voltar às Insígnias"}</button></div>
+    </motion.section>
+  </motion.div>;
+}
+
 function BattleResultModal({ won, reward, coins, mode, onRematch, tournamentContext }) {
   const rematchRef = useRef(null);
-  const isPerfect = reward.total === 60;
+  const isPerfect = reward.bonuses.fastVictory > 0 && reward.bonuses.onePokemonVictory > 0;
   const rematchLabel = mode === "tournament" ? "Voltar ao campeonato" : mode === "friend" ? "Pedir revanche" : "Jogar novamente";
 
   useEffect(() => {
@@ -449,6 +481,9 @@ function BattleResultModal({ won, reward, coins, mode, onRematch, tournamentCont
                     label="Um Pokémon só"
                     value={reward.bonuses.onePokemonVictory}
                   />
+                )}
+                {reward.bonuses.champion > 0 && (
+                  <RewardRow icon={Crown} label="Bônus de Campeão" value={reward.bonuses.champion} />
                 )}
               </ul>
               <div className="result-modal__balance">
@@ -541,6 +576,8 @@ export default function BattleArena({
   onAction,
   onRematch,
   tournamentContext = null,
+  badgeContext = null,
+  championBonusEligible = false,
 }) {
   const [actionMode, setActionMode] = useState("moves");
   const [selectedItem, setSelectedItem] = useState(null);
@@ -569,8 +606,10 @@ export default function BattleArena({
     durationMs:
       (state.performance?.endedAt || 0) - (state.performance?.startedAt || 0),
     usedOnlyOnePokemon: !state.performance?.players?.[role]?.hasSwitched,
+    championBonusEligible,
   });
-  const victoryReward = tournamentContext ? { base: tournamentContext.reward, bonuses: { fastVictory: 0, onePokemonVictory: 0 }, total: tournamentContext.reward } : normalReward;
+  const victoryReward = tournamentContext ? { base: tournamentContext.reward, bonuses: { fastVictory: 0, onePokemonVictory: 0, champion: 0 }, total: tournamentContext.reward } : normalReward;
+  const performanceRewardsVisible = mode === "cpu" || mode === "friend";
   const arenaRef = useBattleParallax(
     state.status === "playing" || state.status === "countdown",
   );
@@ -589,13 +628,13 @@ export default function BattleArena({
               ? "PREPARE-SE"
               : `VEZ DE ${opponent.name.toUpperCase()}`}
         </div>
-        <div className="battle-challenges" aria-label="Desafios da batalha">
+        {performanceRewardsVisible && <div className="battle-challenges" aria-label="Desafios da batalha">
           <span className={fastAvailable ? "" : "is-lost"}>
             ⏱ {String(Math.floor(elapsed / 60000)).padStart(2, "0")}:
             {String(Math.floor(elapsed / 1000) % 60).padStart(2, "0")} ⚡ +15
           </span>
           <span className={onePokemonAvailable ? "" : "is-lost"}>🏆 +30</span>
-        </div>
+        </div>}
         <div className="battle-status-stack" aria-label="Estado das equipes">
           <TeamStrip
             player={opponent}
@@ -905,7 +944,7 @@ export default function BattleArena({
         </div>
       </section>
       <AnimatePresence>
-        {state.status === "finished" && (
+        {state.status === "finished" && (badgeContext ? <BadgeBattleResultModal won={state.winner === role} badgeContext={badgeContext} onRematch={onRematch} /> : (
           <BattleResultModal
             won={state.winner === role}
             reward={victoryReward}
@@ -914,7 +953,7 @@ export default function BattleArena({
             onRematch={onRematch}
             tournamentContext={tournamentContext}
           />
-        )}
+        ))}
       </AnimatePresence>
     </>
   );

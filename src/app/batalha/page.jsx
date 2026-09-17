@@ -3,15 +3,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
+  Check,
   Copy,
+  Crown,
   GameController,
   LinkSimple,
   Question,
+  ShieldCheck,
+  Sword,
   Trophy,
   Users,
 } from "@phosphor-icons/react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useDispatch } from "react-redux";
 import { webStore } from "@/helpers/webStore";
 import TeamSelector from "@/components/Battle/TeamSelector";
@@ -27,27 +31,34 @@ import { playBattleSound } from "@/lib/battle/sound";
 import { calculateBattleRewards } from "@/lib/battle/rewards";
 import { actCoins } from "@/redux/economy";
 import CoinBalance from "@/components/CoinBalance";
-import { celebrateBattleVictory } from "@/lib/celebration";
+import { celebrateBadgeChampionship, celebrateBattleVictory } from "@/lib/celebration";
 import { getJourneyNode } from "@/lib/journey";
 import TournamentPanel from "@/components/Tournament/TournamentPanel";
 import { ROUND, getTournamentReward } from "@/lib/tournament/config";
 import { cancelTournament, completeTournamentMatch, createTournament, getPlayerActiveTournament, getTournament, joinTournament, leaveTournament, markTournamentMatchPlaying, startTournament, subscribeTournament } from "@/lib/tournament/service";
+import BadgeArtwork from "@/components/Badges/BadgeArtwork";
+import { getBadgeCpuTeam } from "@/lib/badges/cpu";
+import { BADGE_REQUIRED_WINS, BADGE_TEAM_SIZE, getBadgeConfig } from "@/lib/badges/config";
+import { getBadgeChallenge, getCompetitiveStatus, hasBadgeServiceConfig, recordBadgeBattleResult, recordCompetitiveBattleActivity, registerCompetitivePlayer, subscribeBadgeChallenge, subscribeBadges } from "@/lib/badges/service";
+import { getBadgeTeamErrorMessage, validateBadgeTeam } from "@/lib/badges/rules";
 import "./style.scss";
 
 const makeCode = () => `PKDX-${Math.floor(1000 + Math.random() * 9000)}`;
 const ROOM_PREFIX = "PKDX-";
 const getRoomDigits = (value = "") =>
   String(value).replace(/\D/g, "").slice(0, 4);
-const makePlayer = (name) => ({
-  id: crypto.randomUUID(),
+const makePlayer = (name, playerId) => ({
+  id: playerId || crypto.randomUUID(),
   name: name.trim() || "Treinador",
 });
 const makeMatchId = () => crypto.randomUUID();
 
 export default function BattlePage() {
   const dispatch = useDispatch();
+  const router = useRouter();
   const params = useSearchParams();
   const journeyNode = getJourneyNode(params.get("journey"));
+  const badgeChallengeId = params.get("badgeChallenge");
   const realtime = useRef(null);
   const cpuTimer = useRef(null);
   const introTimer = useRef(null);
@@ -73,8 +84,14 @@ export default function BattlePage() {
   const [tournamentMatch, setTournamentMatch] = useState(null);
   const [tournamentCode, setTournamentCode] = useState("");
   const [tournamentBusy, setTournamentBusy] = useState(false);
+  const [badgeChallenge, setBadgeChallenge] = useState(null);
+  const [badgeResolution, setBadgeResolution] = useState(null);
+  const [badgeResolving, setBadgeResolving] = useState(false);
+  const [badgeResultError, setBadgeResultError] = useState("");
+  const [isBadgeChampion, setIsBadgeChampion] = useState(false);
   const arenaBackgrounds = useRef([]);
   const isStartingBattle = useRef(false);
+  const processedBadgeBattles = useRef(new Set());
 
   const loadArenaBackgrounds = useCallback(async () => {
     try {
@@ -106,6 +123,62 @@ export default function BattlePage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!profile || !hasBadgeServiceConfig()) return undefined;
+    let unsubscribe;
+    const refreshChampion = async () => {
+      try {
+        await registerCompetitivePlayer(profile);
+        const status = await getCompetitiveStatus(profile.playerId);
+        setIsBadgeChampion(status.isChampion);
+      } catch { setIsBadgeChampion(false); }
+    };
+    void refreshChampion();
+    try { unsubscribe = subscribeBadges(() => { void refreshChampion(); }); } catch {}
+    return () => unsubscribe?.();
+  }, [profile]);
+
+  useEffect(() => {
+    if (!profile || !badgeChallengeId || !hasBadgeServiceConfig()) return undefined;
+    let active = true;
+    const loadChallenge = async () => {
+      try {
+        const challenge = await getBadgeChallenge(badgeChallengeId);
+        if (!active) return;
+        if (!challenge) { setNotice("Este Desafio da Insígnia não foi encontrado."); setScreen("badge-intro"); return; }
+        setBadgeChallenge(challenge);
+        setBadgeResolution(null);
+        setBadgeResultError("");
+        const badgeMode = challenge.challenge_kind === "INITIAL_CPU" ? "badge-cpu" : "badge-pvp";
+        const badgeRole = challenge.challenger_player_id === profile.playerId ? "host" : "guest";
+        setMode(badgeMode);
+        setRole(badgeRole);
+        setPlayer({ id: profile.playerId, name: profile.displayName });
+        setRoomCode(challenge.battle_room_code);
+        setScreen("badge-intro");
+      } catch (error) { if (active) { setNotice(error.message); setScreen("badge-intro"); } }
+    };
+    void loadChallenge();
+    return () => { active = false; };
+  }, [badgeChallengeId, profile]);
+
+  useEffect(() => {
+    if (!badgeChallengeId || !hasBadgeServiceConfig()) return undefined;
+    let unsubscribe;
+    const refresh = async () => {
+      try {
+        const latest = await getBadgeChallenge(badgeChallengeId);
+        if (!latest) return;
+        if (battle?.status === "finished") {
+          setBadgeResolution(latest);
+          setBadgeResolving(false);
+        } else setBadgeChallenge(latest);
+      } catch {}
+    };
+    try { unsubscribe = subscribeBadgeChallenge(badgeChallengeId, () => { void refresh(); }); } catch {}
+    return () => unsubscribe?.();
+  }, [badgeChallengeId, battle?.status]);
+
   const broadcast = useCallback(
     (type, payload) =>
       realtime.current
@@ -136,6 +209,19 @@ export default function BattlePage() {
   const startState = useCallback(
     async (hostTeam, guestTeam, host, guest) => {
       if (isStartingBattle.current) return;
+      const badgeConfig = getBadgeConfig(badgeChallenge?.badge?.code);
+      if (badgeConfig) {
+        const hostValidation = validateBadgeTeam(hostTeam, badgeConfig.type);
+        const guestValidation = validateBadgeTeam(guestTeam, badgeConfig.type);
+        if (!hostValidation.valid || !guestValidation.valid) {
+          const message = !hostValidation.valid
+            ? getBadgeTeamErrorMessage(hostValidation, badgeConfig.localizedTypeName)
+            : `A equipe adversária não atende ao formato da ${badgeConfig.name}.`;
+          setNotice(message);
+          if (!guestValidation.valid) broadcast(BATTLE_EVENTS.BADGE_ERROR, { message });
+          return;
+        }
+      }
       isStartingBattle.current = true;
       const backgrounds = await loadArenaBackgrounds();
       const next = createBattleState(
@@ -143,6 +229,10 @@ export default function BattlePage() {
         { ...guest, team: guestTeam.map(toBattlePokemon) },
       );
       next.matchId = makeMatchId();
+      if (badgeChallenge) {
+        next.badgeChallengeId = badgeChallenge.id;
+        next.seriesBattleNumber = badgeChallenge.current_battle;
+      }
       if (backgrounds.length) next.arenaBackground = backgrounds[Math.floor(Math.random() * backgrounds.length)];
       next.status = "countdown";
       next.log = "3 · 2 · 1 · BATALHA!";
@@ -162,7 +252,7 @@ export default function BattlePage() {
         broadcast(BATTLE_EVENTS.STATE, playing);
       }, 1650);
     },
-    [broadcast, inventory, loadArenaBackgrounds],
+    [badgeChallenge, broadcast, inventory, loadArenaBackgrounds],
   );
   const awardVictory = useCallback(
     async (matchId, amount) => {
@@ -174,7 +264,11 @@ export default function BattlePage() {
   );
   const rewardFinishedBattle = useCallback(
     (previous, next, localRole) => {
-      if (mode !== "tournament" && previous?.status !== "finished" && next?.status === "finished") {
+      const justFinished = previous?.status !== "finished" && next?.status === "finished";
+      if (justFinished && profile && hasBadgeServiceConfig() && !String(mode).startsWith("badge")) {
+        void recordCompetitiveBattleActivity({ battleId: next.matchId, playerId: profile.playerId, displayName: profile.displayName, battleMode: mode }).catch(() => {});
+      }
+      if (mode !== "tournament" && justFinished) {
         const performance = next.performance || {};
         const won = next.winner === localRole;
         void webStore.recordBattleOutcome(next.matchId, {
@@ -187,23 +281,44 @@ export default function BattlePage() {
         });
         if (journeyNode && won) void webStore.completeJourneyNode(journeyNode).then((result) => { if (result.completed) setNotice(journeyNode.badge ? "INSÍGNIA CONQUISTADA: " + journeyNode.badge : "ROTA CONCLUÍDA! +" + journeyNode.reward + " moedas"); });
       }
+      if (justFinished && String(mode).startsWith("badge") && badgeChallenge) {
+        setBadgeResolving(true);
+        setBadgeResultError("");
+        if (localRole === "host" && !processedBadgeBattles.current.has(next.matchId)) {
+          processedBadgeBattles.current.add(next.matchId);
+          const winnerPlayerId = next.winner === "host"
+            ? badgeChallenge.challenger_player_id
+            : badgeChallenge.challenge_kind === "INITIAL_CPU" ? "CPU" : badgeChallenge.defender_player_id;
+          void recordBadgeBattleResult({ challengeId: badgeChallenge.id, battleId: next.matchId, winnerPlayerId }).then((resolution) => {
+            setBadgeResolution(resolution);
+            setBadgeResolving(false);
+            if (resolution.status === "COMPLETED") {
+              celebrateBadgeChampionship(getBadgeConfig(badgeChallenge.badge?.code)?.color);
+              setIsBadgeChampion(true);
+            }
+          }).catch((error) => { setBadgeResultError(error.message); setBadgeResolving(false); });
+        } else if (localRole !== "host") {
+          window.setTimeout(() => { void getBadgeChallenge(badgeChallenge.id).then((resolution) => { setBadgeResolution(resolution); setBadgeResolving(false); }).catch(() => {}); }, 700);
+        }
+      }
       if (
-        previous?.status !== "finished" &&
-        next?.status === "finished" &&
-        next.winner === localRole && mode !== "tournament"
+        justFinished &&
+        next.winner === localRole &&
+        ["cpu", "friend"].includes(mode)
       ) {
         const performance = next.performance || {};
         const reward = calculateBattleRewards({
           won: true,
           durationMs: performance.endedAt - performance.startedAt,
           usedOnlyOnePokemon: !performance.players?.[localRole]?.hasSwitched,
+          championBonusEligible: isBadgeChampion,
         });
         celebrateBattleVictory();
         void awardVictory(next.matchId, reward.total);
       }
       return next;
     },
-    [awardVictory, journeyNode, mode],
+    [awardVictory, badgeChallenge, isBadgeChampion, journeyNode, mode, profile],
   );
 
   useEffect(() => {
@@ -302,22 +417,31 @@ export default function BattlePage() {
                 broadcast(BATTLE_EVENTS.STATE, next);
                 return rewardFinishedBattle(previous, next, currentRole);
               });
-            if (type === BATTLE_EVENTS.REMATCH)
+            if (type === BATTLE_EVENTS.BADGE_ERROR && payload?.message)
+              setNotice(payload.message);
+            if (type === BATTLE_EVENTS.REMATCH) {
+              setBattle(null);
+              setSelected([]);
+              setRemoteTeam(null);
+              setReadySent(false);
+              void realtime.current?.updatePresence({ ready: false, team: null }).catch(() => {});
+              setScreen("team");
               setNotice(
-                "Seu adversário quer uma revanche. Escolha sua equipe novamente.",
+                String(mode).startsWith("badge") ? "A próxima batalha está pronta. Escolha sua equipe novamente." : "Seu adversário quer uma revanche. Escolha sua equipe novamente.",
               );
+            }
           },
         });
       } catch {
         setNotice("Não foi possível conectar à sala.");
       }
     },
-    [broadcast, persistBattleConsumables, rewardFinishedBattle],
+    [broadcast, mode, persistBattleConsumables, rewardFinishedBattle],
   );
 
   useEffect(() => {
     if (
-      !["friend", "tournament"].includes(mode) ||
+      !["friend", "tournament", "badge-pvp"].includes(mode) ||
       role !== "host" ||
       !readySent ||
       selected.length !== 3 ||
@@ -334,7 +458,7 @@ export default function BattlePage() {
 
   useEffect(() => {
     if (
-      mode !== "cpu" ||
+      !["cpu", "badge-cpu"].includes(mode) ||
       !battle ||
       battle.turn !== "guest" ||
       battle.status !== "playing"
@@ -357,7 +481,8 @@ export default function BattlePage() {
           const enemy = current?.host?.team[current.host.active];
           const bestMove = [...availableMoves].sort((a, b) => calculateDamage({ attacker: active, defender: enemy, move: b }).damage - calculateDamage({ attacker: active, defender: enemy, move: a }).damage)[0];
           const reserveIndex = current?.guest?.team.findIndex((pokemon, index) => index !== current.guest.active && pokemon.hp > 0 && getPokemonMatchup(pokemon, enemy) === "advantage");
-          const shouldSwitch = cpuDifficulty === "hard" && reserveIndex >= 0 && getPokemonMatchup(active, enemy) === "disadvantage" && active.hp / active.maxHp < .65;
+          const strategicCpu = cpuDifficulty === "hard" || mode === "badge-cpu";
+          const shouldSwitch = strategicCpu && reserveIndex >= 0 && getPokemonMatchup(active, enemy) === "disadvantage" && active.hp / active.maxHp < .65;
           return rewardFinishedBattle(
             current,
             resolveAction(
@@ -369,7 +494,7 @@ export default function BattlePage() {
                 ? { type: "potion", targetPokemonId: active.id }
                 : {
                     type: "attack",
-                    moveId: (cpuDifficulty === "easy" ? regularMove : cpuDifficulty === "hard" ? bestMove : useSpecial ? specialMove : regularMove)?.id || "strike",
+                    moveId: (cpuDifficulty === "easy" && mode !== "badge-cpu" ? regularMove : strategicCpu ? bestMove : useSpecial ? specialMove : regularMove)?.id || "strike",
                   },
             ),
             "host",
@@ -399,11 +524,21 @@ export default function BattlePage() {
     );
   }
   function readyTeam() {
-    if (mode === "cpu") {
-      const local = makePlayer(name);
+    const badgeConfig = getBadgeConfig(badgeChallenge?.badge?.code);
+    if (badgeConfig) {
+      const validation = validateBadgeTeam(selected, badgeConfig.type);
+      if (!validation.valid) {
+        setNotice(getBadgeTeamErrorMessage(validation, badgeConfig.localizedTypeName));
+        return;
+      }
+    }
+    if (["cpu", "badge-cpu"].includes(mode)) {
+      const local = makePlayer(name, profile?.playerId);
       setPlayer(local);
-      const journeyTeam = journeyNode ? journeyNode.team.map((entry) => { const rosterEntry = CPU_ROSTER.find((pokemon) => pokemon.id === (entry.id || entry)) || CPU_TEAM[0]; return { ...rosterEntry, level: entry.level || rosterEntry.level }; }) : CPU_TEAM;
-      startState(selected, journeyTeam, local, { id: "cpu", name: journeyNode?.badge ? "Líder do Ginásio" : journeyNode ? journeyNode.title : "CPU" });
+      const journeyTeam = mode === "badge-cpu"
+        ? getBadgeCpuTeam(badgeConfig.type, badgeChallenge.current_battle)
+        : journeyNode ? journeyNode.team.map((entry) => { const rosterEntry = CPU_ROSTER.find((pokemon) => pokemon.id === (entry.id || entry)) || CPU_TEAM[0]; return { ...rosterEntry, level: entry.level || rosterEntry.level }; }) : CPU_TEAM;
+      startState(selected, journeyTeam, local, { id: "cpu", name: mode === "badge-cpu" ? badgeConfig.leaderName : journeyNode?.badge ? "Líder do Ginásio" : journeyNode ? journeyNode.title : "CPU" });
       return;
     }
     if (!realtime.current?.isConnected()) {
@@ -427,7 +562,7 @@ export default function BattlePage() {
       );
       return;
     }
-    const currentPlayer = makePlayer(name);
+    const currentPlayer = makePlayer(name, profile?.playerId);
     setName(currentPlayer.name);
     void webStore.setTrainerName(currentPlayer.name);
     const code = makeCode();
@@ -448,7 +583,7 @@ export default function BattlePage() {
       setNotice("Digite os 4 números do código da sala.");
       return;
     }
-    const currentPlayer = makePlayer(name);
+    const currentPlayer = makePlayer(name, profile?.playerId);
     setName(currentPlayer.name);
     void webStore.setTrainerName(currentPlayer.name);
     const code = `${ROOM_PREFIX}${joinCode}`;
@@ -457,6 +592,30 @@ export default function BattlePage() {
     setRoomCode(code);
     setScreen("team");
     connectRoom(code, currentPlayer, "guest");
+  }
+  function prepareBadgeChallenge() {
+    if (!badgeChallenge || !profile) return;
+    if (!["ACTIVE", "PENDING_ACCEPTANCE"].includes(badgeChallenge.status)) {
+      router.push("/jornada/insignias");
+      return;
+    }
+    const participant = [badgeChallenge.challenger_player_id, badgeChallenge.defender_player_id].includes(profile.playerId);
+    if (!participant) {
+      setNotice("Somente o desafiante e o campeão podem entrar nesta disputa.");
+      return;
+    }
+    const currentRole = badgeChallenge.challenger_player_id === profile.playerId ? "host" : "guest";
+    const currentPlayer = { id: profile.playerId, name: profile.displayName };
+    setRole(currentRole);
+    setPlayer(currentPlayer);
+    setSelected([]);
+    setRemoteTeam(null);
+    setBattle(null);
+    setReadySent(false);
+    setBadgeResolution(null);
+    setBadgeResultError("");
+    if (badgeChallenge.challenge_kind === "PVP_TAKEOVER") connectRoom(badgeChallenge.battle_room_code, currentPlayer, currentRole);
+    setScreen("team");
   }
   async function createTournamentFlow() {
     if (!profile) return setNotice("Carregando seu perfil local...");
@@ -538,6 +697,29 @@ export default function BattlePage() {
     else broadcast(BATTLE_EVENTS.ACTION, action);
   }
   function rematch() {
+    if (String(mode).startsWith("badge")) {
+      const terminal = ["COMPLETED", "FAILED", "EXPIRED", "CANCELLED"].includes(badgeResolution?.status);
+      if (terminal) {
+        realtime.current?.leave();
+        router.push("/jornada/insignias");
+        return;
+      }
+      if (badgeResolution?.status === "ACTIVE") {
+        setBadgeChallenge((current) => ({ ...current, ...badgeResolution, badge: current.badge }));
+        if (mode === "badge-pvp") {
+          void realtime.current?.updatePresence({ ready: false, team: null }).catch(() => {});
+          broadcast(BATTLE_EVENTS.REMATCH, {});
+        }
+        setBattle(null);
+        setSelected([]);
+        setRemoteTeam(null);
+        setReadySent(false);
+        setBadgeResolution(null);
+        setBadgeResultError("");
+        setScreen("team");
+      }
+      return;
+    }
     if (mode === "tournament") { realtime.current?.leave(); setBattle(null); setSelected([]); setRemoteTeam(null); setReadySent(false); setTournamentMatch(null); setScreen("tournament"); void getTournament(tournament?.id).then(setTournament).catch(() => {}); return; }
     if (mode === "friend") broadcast(BATTLE_EVENTS.REMATCH, {});
     setBattle(null);
@@ -584,7 +766,7 @@ export default function BattlePage() {
               <span>Como jogar</span>
             </Link>
             <CoinBalance />
-            <span className="battle-round">3 × 3</span>
+            <span className="battle-round">{String(mode).startsWith("badge") ? `${badgeChallenge?.challenger_wins || 0}/${BADGE_REQUIRED_WINS} · 3 × 3` : "3 × 3"}</span>
           </span>
         </header>
         {screen === "mode" && <ModeScreen onChoose={chooseMode} activeTournament={tournament} onResumeTournament={() => { setMode("tournament"); setScreen("tournament"); }} />}
@@ -600,6 +782,7 @@ export default function BattlePage() {
             notice={notice}
           />
         )}
+        {screen === "badge-intro" && <BadgeChallengeIntro challenge={badgeChallenge} profile={profile} notice={notice} onPrepare={prepareBadgeChallenge} onBack={() => router.push("/jornada/insignias")} />}
         {screen === "team" && (
           <>
             <RoomStatus
@@ -618,8 +801,9 @@ export default function BattlePage() {
               onToggle={togglePokemon}
               onReady={readyTeam}
               waiting={readySent}
-              canReady={mode === "cpu" || connection === "CONNECTED"}
+              canReady={["cpu", "badge-cpu"].includes(mode) || connection === "CONNECTED"}
               onUseDeck={setSelected}
+              badgeContext={String(mode).startsWith("badge") ? getBadgeConfig(badgeChallenge?.badge?.code) : null}
               onEquipmentChanged={(updated) => { setCollection((current) => current.map((pokemon) => String(pokemon.id) === String(updated.id) ? updated : pokemon)); setSelected((current) => current.map((pokemon) => String(pokemon.id) === String(updated.id) ? updated : pokemon)); }}
             />
           </>
@@ -632,11 +816,27 @@ export default function BattlePage() {
             onAction={sendAction}
             onRematch={rematch}
             tournamentContext={mode === "tournament" && tournamentMatch ? { round: tournamentMatch.round, reward: getTournamentReward(tournamentMatch.round) } : null}
+            championBonusEligible={isBadgeChampion && ["cpu", "friend"].includes(mode)}
+            badgeContext={String(mode).startsWith("badge") && badgeChallenge ? { config: getBadgeConfig(badgeChallenge.badge?.code), challenge: badgeChallenge, resolution: badgeResolution, resolving: badgeResolving, error: badgeResultError, playerId: profile?.playerId } : null}
           />
         )}
       </div>
     </main>
   );
+}
+
+function BadgeChallengeIntro({ challenge, profile, notice, onPrepare, onBack }) {
+  if (!challenge) return <section className="battle-panel badge-challenge-intro"><span className="eyebrow">DESAFIO DA INSÍGNIA</span><h2>Carregando disputa...</h2>{notice && <p className="setup-notice" role="alert">{notice}</p>}<button type="button" className="badge-intro-back" onClick={onBack}>Voltar às Insígnias</button></section>;
+  const config = getBadgeConfig(challenge.badge?.code);
+  const participant = [challenge.challenger_player_id, challenge.defender_player_id].includes(profile?.playerId);
+  const terminal = !["ACTIVE", "PENDING_ACCEPTANCE"].includes(challenge.status);
+  return <section className="battle-panel badge-challenge-intro" style={{ "--badge-color": config.color }}>
+    <div className="badge-intro-hero"><BadgeArtwork badge={config} /><div><span className="eyebrow">DESAFIO DA INSÍGNIA</span><h2>{config.name}</h2><p>Batalha {challenge.current_battle} · {challenge.challenger_wins}/{challenge.wins_required} vitórias consecutivas</p></div></div>
+    <div className="badge-intro-versus"><article><span>DESAFIANTE</span><strong>{challenge.challenger_name}</strong></article><b>VS</b><article><span>{challenge.challenge_kind === "INITIAL_CPU" ? "LÍDER" : "CAMPEÃO"}</span><strong>{challenge.challenge_kind === "INITIAL_CPU" ? config.leaderName : challenge.defender_name}</strong></article></div>
+    <section className="badge-intro-rules" aria-labelledby="badge-intro-rules-title"><span className="eyebrow">CONDIÇÃO DE CONQUISTA</span><h3 id="badge-intro-rules-title">Uma série perfeita</h3><ul><li><Trophy weight="fill" /> Vença {BADGE_REQUIRED_WINS} batalhas consecutivas.</li><li><Check weight="bold" /> Ambos levam pelo menos 1 Pokémon {config.localizedTypeName}.</li><li><ShieldCheck weight="fill" /> Equipes de {BADGE_TEAM_SIZE}, sem Lendários ou Míticos.</li><li><Sword weight="fill" /> A equipe pode mudar entre as batalhas.</li></ul></section>
+    {notice && <p className="setup-notice" role="alert">{notice}</p>}
+    <div className="badge-intro-actions"><button type="button" className="badge-intro-back" onClick={onBack}>Voltar</button><button type="button" className="badge-intro-prepare" onClick={terminal ? onBack : onPrepare} disabled={!participant && !terminal}>{terminal ? "Ver Insígnias" : participant ? "Preparar equipe" : "Disputa em andamento"}</button></div>
+  </section>;
 }
 
 function ModeScreen({ onChoose, activeTournament, onResumeTournament }) {
@@ -738,7 +938,7 @@ function RoomStatus({
   ready,
   onShare,
 }) {
-  if (mode === "cpu")
+  if (["cpu", "badge-cpu"].includes(mode))
     return (
       <div className="room-status">
         <span>Modo treino</span>

@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 
-export const BATTLE_EVENTS = Object.freeze({ TEAM: "team_ready", START: "battle_start", STATE: "battle_state", ACTION: "battle_action", REMATCH: "rematch_request" });
+export const BATTLE_EVENTS = Object.freeze({ TEAM: "team_ready", START: "battle_start", STATE: "battle_state", ACTION: "battle_action", REMATCH: "rematch_request", BADGE_ERROR: "badge_team_error" });
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

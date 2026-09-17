@@ -4,6 +4,7 @@ import {
   CheckCircle,
   FloppyDisk,
   GameController,
+  LockKey,
   MagnifyingGlass,
   PencilSimple,
   Plus,
@@ -22,12 +23,14 @@ import PokemonAura from "@/components/PokemonAura/PokemonAura";
 import HeldItemDrawer from "@/components/HeldItemDrawer/HeldItemDrawer";
 import { webStore } from "@/helpers/webStore";
 import { getPokemonSprite, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
+import { getTypeLabel } from "@/lib/localization/ptBR";
+import { getBadgePokemonRestriction, getBadgeTeamErrorMessage, validateBadgeTeam } from "@/lib/badges/rules";
 
 function TypeBadge({ type }) {
   return (
     <span className="battle-collection-type">
       <img src={`/types/${type}.svg`} alt="" />
-      {type}
+      {getTypeLabel(type)}
     </span>
   );
 }
@@ -47,6 +50,7 @@ export default function TeamSelector({
   canReady = true,
   onEquipmentChanged,
   onUseDeck,
+  badgeContext = null,
 }) {
   const [query, setQuery] = useState("");
   const [selectedType, setSelectedType] = useState("all");
@@ -78,6 +82,10 @@ export default function TeamSelector({
   const visibleCollection = filteredCollection.slice(
     (page - 1) * pageSize,
     page * pageSize,
+  );
+  const badgeValidation = useMemo(
+    () => badgeContext ? validateBadgeTeam(selected, badgeContext.type) : null,
+    [badgeContext, selected],
   );
 
   useEffect(() => {
@@ -120,12 +128,21 @@ export default function TeamSelector({
           {selected.length} / 3
         </span>
       </div>
+      {badgeContext && <section className="badge-team-requirements" aria-label="Requisitos do Desafio da Insígnia">
+        <div><img src={badgeContext.fallbackImage} alt="" aria-hidden="true" /><span><small>DESAFIO DA INSÍGNIA</small><strong>{badgeContext.name}</strong></span></div>
+        <ul>
+          <li className={selected.length === 3 ? "valid" : ""}>{selected.length === 3 ? <CheckCircle weight="fill" /> : <span />} Equipe {selected.length}/3</li>
+          <li className={badgeValidation?.hasRequiredType ? "valid" : ""}>{badgeValidation?.hasRequiredType ? <CheckCircle weight="fill" /> : <span />} 1 Pokémon {badgeContext.localizedTypeName}</li>
+          <li className={!badgeValidation?.hasLegendary && !badgeValidation?.hasMythical ? "valid" : ""}>{!badgeValidation?.hasLegendary && !badgeValidation?.hasMythical ? <CheckCircle weight="fill" /> : <span />} Sem Lendários ou Míticos</li>
+        </ul>
+        {selected.length === 3 && !badgeValidation?.valid && <p role="alert">{getBadgeTeamErrorMessage(badgeValidation, badgeContext.localizedTypeName)}</p>}
+      </section>}
       <div className="team-selection-tabs" role="tablist" aria-label="Forma de montar o time">
         <button type="button" role="tab" aria-controls="team-pokemon-panel" aria-selected={activeTab === "pokemon"} className={activeTab === "pokemon" ? "selected" : ""} onClick={() => setActiveTab("pokemon")} disabled={waiting}>Pokémon</button>
         <button type="button" role="tab" aria-controls="team-decks-panel" aria-selected={activeTab === "decks"} className={activeTab === "decks" ? "selected" : ""} onClick={() => setActiveTab("decks")} disabled={waiting}>Decks</button>
       </div>
       {activeTab === "decks" ? (
-        <DecksPanel collection={collection} decks={decks} waiting={waiting} onDecksChange={setDecks} onUseDeck={(team) => { onUseDeck?.(team); setActiveTab("pokemon"); }} />
+        <DecksPanel collection={collection} decks={decks} waiting={waiting} badgeContext={badgeContext} onDecksChange={setDecks} onUseDeck={(team) => { onUseDeck?.(team); setActiveTab("pokemon"); }} />
       ) : <div id="team-pokemon-panel" role="tabpanel">
       <div className="battle-collection-controls">
         <label className="battle-collection-search">
@@ -177,15 +194,18 @@ export default function TeamSelector({
               const color =
                 pokemonData.find((item) => item.type === primary)?.color ||
                 "#64748b";
+              const restriction = badgeContext ? getBadgePokemonRestriction(pokemon) : null;
+              const restrictionLabel = restriction === "legendary" ? "Lendário" : restriction === "mythical" ? "Mítico" : "";
               return <div key={pokemon.id} className="battle-collection-card-wrap">
                 <button
                   type="button"
-                  className={`battle-collection-card ${getRarityClassName(pokemon)} ${isSelected ? "selected" : ""}`}
+                  className={`battle-collection-card ${getRarityClassName(pokemon)} ${isSelected ? "selected" : ""} ${restriction ? "badge-ineligible" : ""}`}
                   style={{ "--type-color": color }}
-                  onClick={() => onToggle(pokemon)}
-                  aria-label={`${isSelected ? "Remover" : "Selecionar"} ${pokemon.name}${isSelected ? `, posição ${index + 1}` : ""}`}
+                  onClick={() => { if (!restriction) onToggle(pokemon); }}
+                  aria-disabled={Boolean(restriction)}
+                  aria-label={restriction ? `${pokemon.name}, ${restrictionLabel}, não permitido em Desafios de Insígnia` : `${isSelected ? "Remover" : "Selecionar"} ${pokemon.name}${isSelected ? `, posição ${index + 1}` : ""}`}
                   aria-pressed={isSelected}
-                  disabled={waiting}
+                  disabled={waiting || Boolean(restriction)}
                 >
                   <span className="battle-collection-id">
                     #{String(pokemon.id).padStart(3, "0")}
@@ -211,6 +231,7 @@ export default function TeamSelector({
                       <CheckCircle size={17} weight="fill" /> {index + 1}
                     </span>
                   )}
+                  {restriction && <span className="badge-ineligible-reason"><LockKey size={15} weight="fill" aria-hidden="true" /> Não permitido em Desafios de Insígnia</span>}
                 </button>
                 {pokemon.heldItem ? <button type="button" className="battle-held-item-trigger" onClick={() => setEquipmentPokemon(pokemon)} disabled={waiting} aria-label={`Editar item segurado de ${pokemon.name}`} title="Editar item segurado"><HeldItemBadge item={pokemon.heldItem} compact /></button> : <button type="button" className="battle-equipment-trigger" onClick={() => setEquipmentPokemon(pokemon)} disabled={waiting} aria-label={`Equipar item em ${pokemon.name}`}><Plus size={16} weight="bold" /></button>}
               </div>;
@@ -233,7 +254,7 @@ export default function TeamSelector({
       <button
         type="button"
         className="ready-button"
-        disabled={selected.length !== 3 || waiting || !canReady}
+        disabled={selected.length !== 3 || waiting || !canReady || (badgeContext && !badgeValidation?.valid)}
         onClick={onReady}
       >
         {waiting
@@ -252,7 +273,7 @@ function DeckThumbnail({ pokemon }) {
   return pokemon ? <><img src={getPokemonSprite({ pokemon, context: SPRITE_CONTEXT.BATTLE_THUMBNAIL })} alt="" /><small>Lv. {getPokemonLevel(pokemon)}</small></> : <><span className="deck-missing">?</span><small>Indisponível</small></>;
 }
 
-function DecksPanel({ collection, decks, waiting, onDecksChange, onUseDeck }) {
+function DecksPanel({ collection, decks, waiting, badgeContext, onDecksChange, onUseDeck }) {
   const [editor, setEditor] = useState(null);
   const [saving, setSaving] = useState(false);
   const [pendingDeletion, setPendingDeletion] = useState(null);
@@ -304,8 +325,8 @@ function DecksPanel({ collection, decks, waiting, onDecksChange, onUseDeck }) {
   return <div id="team-decks-panel" className="decks-panel" role="tabpanel">
     <div className="deck-panel-heading"><div><span className="eyebrow">TIMES FAVORITOS</span><h3>Decks salvos</h3></div><button type="button" className="deck-create-button" onClick={() => edit()} disabled={waiting}><Plus size={17} weight="bold" aria-hidden="true" /> Criar deck</button></div>
     {!decks.length ? <div className="decks-empty"><Star size={34} weight="fill" aria-hidden="true" /><h3>Ainda não há decks</h3><p>Salve seus times favoritos para entrar nas batalhas mais rápido.</p><button type="button" onClick={() => edit()} disabled={waiting}><Plus size={17} weight="bold" aria-hidden="true" /> Criar primeiro deck</button></div> : <div className="deck-list">{decks.map((deck) => {
-      const team = resolve(deck); const complete = team.length === 3;
-      return <article className={`deck-card ${complete ? "" : "incomplete"}`} key={deck.id}><div className="deck-card-heading"><strong><Star size={15} weight="fill" aria-hidden="true" /> {deck.name}</strong>{!complete && <span>Deck incompleto</span>}</div><div className="deck-pokemon-row">{deck.pokemonIds.map((id, index) => <div className="deck-pokemon" key={`${id}-${index}`}><DeckThumbnail pokemon={collection.find((item) => String(item.id) === String(id))} /></div>)}</div>{!complete && <p>Um Pokémon não está mais disponível. Edite este deck para usá-lo.</p>}<div className="deck-card-actions"><button type="button" onClick={() => onUseDeck(team)} disabled={waiting || !complete}>Usar este deck</button><button type="button" onClick={() => edit(deck)} disabled={waiting} aria-label={`Editar ${deck.name}`}><PencilSimple size={18} weight="bold" aria-hidden="true" /></button><button type="button" onClick={() => remove(deck)} disabled={waiting} aria-label={`Excluir ${deck.name}`}><Trash size={18} weight="bold" aria-hidden="true" /></button></div></article>;
+      const team = resolve(deck); const complete = team.length === 3; const validation = badgeContext && complete ? validateBadgeTeam(team, badgeContext.type) : null; const compatible = complete && (!badgeContext || validation.valid);
+      return <article className={`deck-card ${complete ? "" : "incomplete"} ${!compatible && badgeContext ? "badge-incompatible" : ""}`} key={deck.id}><div className="deck-card-heading"><strong><Star size={15} weight="fill" aria-hidden="true" /> {deck.name}</strong>{!complete ? <span>Deck incompleto</span> : !compatible ? <span>Deck incompatível</span> : null}</div><div className="deck-pokemon-row">{deck.pokemonIds.map((id, index) => <div className="deck-pokemon" key={`${id}-${index}`}><DeckThumbnail pokemon={collection.find((item) => String(item.id) === String(id))} /></div>)}</div>{!complete ? <p>Um Pokémon não está mais disponível. Edite este deck para usá-lo.</p> : !compatible ? <p>{getBadgeTeamErrorMessage(validation, badgeContext.localizedTypeName)}</p> : null}<div className="deck-card-actions"><button type="button" onClick={() => onUseDeck(team)} disabled={waiting || !compatible}>Usar este deck</button><button type="button" onClick={() => edit(deck)} disabled={waiting} aria-label={`Editar ${deck.name}`}><PencilSimple size={18} weight="bold" aria-hidden="true" /></button><button type="button" onClick={() => remove(deck)} disabled={waiting} aria-label={`Excluir ${deck.name}`}><Trash size={18} weight="bold" aria-hidden="true" /></button></div></article>;
     })}</div>}
     {pendingDeletion && <div className="deck-delete-backdrop" role="presentation"><section className="deck-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="deck-delete-title" aria-describedby="deck-delete-description"><span className="eyebrow">EXCLUIR DECK</span><h3 id="deck-delete-title">Excluir “{pendingDeletion.name}”?</h3><p id="deck-delete-description">Somente o deck será apagado. Seus Pokémon permanecerão na coleção.</p><div><button ref={cancelDeletionRef} type="button" onClick={() => setPendingDeletion(null)} disabled={deleting}>Cancelar</button><button type="button" className="deck-delete-confirm" onClick={confirmDeletion} disabled={deleting}>{deleting ? "Excluindo..." : "Excluir deck"}</button></div></section></div>}
   </div>;

@@ -78,6 +78,14 @@ export const CPU_ROSTER = Object.freeze([
   cpuPokemon(74, "geodude", "rock", ["rock", "ground"], { hp: 90, attack: 80, defense: 100, specialAttack: 30, specialDefense: 30, speed: 20 }),
   cpuPokemon(92, "gastly", "ghost", ["ghost", "poison"], { hp: 60, attack: 35, defense: 30, specialAttack: 100, specialDefense: 35, speed: 80 }),
   cpuPokemon(95, "onix", "rock", ["rock", "ground"], { hp: 70, attack: 45, defense: 160, specialAttack: 30, specialDefense: 45, speed: 70 }),
+  cpuPokemon(16, "pidgey", "flying", ["normal", "flying"], { hp: 80, attack: 45, defense: 40, specialAttack: 35, specialDefense: 35, speed: 56 }),
+  cpuPokemon(10, "caterpie", "bug", ["bug"], { hp: 90, attack: 30, defense: 35, specialAttack: 20, specialDefense: 20, speed: 45 }),
+  cpuPokemon(35, "clefairy", "fairy", ["fairy"], { hp: 110, attack: 45, defense: 48, specialAttack: 60, specialDefense: 65, speed: 35 }),
+  cpuPokemon(63, "abra", "psychic", ["psychic"], { hp: 60, attack: 20, defense: 15, specialAttack: 105, specialDefense: 55, speed: 90 }),
+  cpuPokemon(147, "dratini", "dragon", ["dragon"], { hp: 82, attack: 64, defense: 45, specialAttack: 50, specialDefense: 50, speed: 50 }),
+  cpuPokemon(261, "poochyena", "dark", ["dark"], { hp: 70, attack: 55, defense: 35, specialAttack: 30, specialDefense: 30, speed: 35 }),
+  cpuPokemon(304, "aron", "steel", ["steel", "rock"], { hp: 80, attack: 70, defense: 100, specialAttack: 40, specialDefense: 40, speed: 30 }),
+  cpuPokemon(361, "snorunt", "ice", ["ice"], { hp: 100, attack: 50, defense: 50, specialAttack: 50, specialDefense: 50, speed: 50 }),
 ]);
 
 export const CPU_TEAM = CPU_ROSTER.slice(0, 3);
