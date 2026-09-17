@@ -38,6 +38,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { actCoins } from "@/redux/economy";
 import { SECRET_REWARD_COINS, SECRET_REWARD_ID, advancePokemonSecret } from "@/lib/easter-egg/pokemonSequence";
 import { formatCoins } from "@/lib/economy";
+import { getPokemonSprite, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
 
 export default function Home() {
   const dispatch = useDispatch();
@@ -308,12 +309,10 @@ export default function Home() {
                       id={pokemon.id}
                       name={pokemon.name}
                       img={
-                        pokemon.sprites.other["official-artwork"].front_default
-                          ? pokemon.sprites.other["official-artwork"]
-                              .front_default
-                          : pokemon.sprites.other.home.front_default
-                          ? pokemon.sprites.other.home.front_default
-                          : "pokenull.png"
+                        getPokemonSprite({
+                          pokemon,
+                          context: SPRITE_CONTEXT.GENERAL,
+                        })
                       }
                       types={pokemon.types}
                       height={pokemon.height}

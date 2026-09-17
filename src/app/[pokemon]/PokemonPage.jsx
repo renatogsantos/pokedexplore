@@ -24,6 +24,7 @@ import {
 import { useEffect, useState } from "react";
 import { Col, Container, Row } from "react-bootstrap";
 import { useDispatch, useSelector } from "react-redux";
+import { getPokemonSprite, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
 
 const HELD_ITEMS = [
   { id: "oran", name: "Berry Oran", description: "Recupera 20% do HP automaticamente quando o HP cai para 50% ou menos." },
@@ -284,13 +285,10 @@ export default function PokemonPage({ pokemon }) {
                 loading="lazy"
                 draggable={false}
                 width="100%"
-                src={
-                  pokemon.sprites.other["official-artwork"].front_default
-                    ? pokemon.sprites.other["official-artwork"].front_default
-                    : pokemon.sprites.other.home.front_default
-                    ? pokemon.sprites.other.home.front_default
-                    : "pokenull.png"
-                }
+                src={getPokemonSprite({
+                  pokemon,
+                  context: SPRITE_CONTEXT.GENERAL,
+                })}
                 alt={pokemon.name}
               />
             </Col>

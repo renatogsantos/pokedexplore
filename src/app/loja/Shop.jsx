@@ -32,14 +32,13 @@ import { celebratePokemonPurchase } from "@/lib/celebration";
 import ItemSprite from "@/components/ItemSprite/ItemSprite";
 import { preloadItemVisuals } from "@/lib/items/visuals";
 import { getCustomPokemon } from "@/lib/pokemon/customCatalog";
+import { getPokemonSprite, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
 
 const PAGE_SIZE = 12;
-const artwork = (pokemon) =>
-  pokemon?.artwork ||
-  pokemon?.image ||
-  pokemon?.sprites?.other?.["official-artwork"]?.front_default ||
-  pokemon?.sprites?.front_default ||
-  "/pokenull.png";
+const artwork = (pokemon) => getPokemonSprite({
+  pokemon,
+  context: SPRITE_CONTEXT.GENERAL,
+});
 const typesOf = (pokemon) =>
   pokemon?.types?.map((item) => item.type?.name || item.name).filter(Boolean) ||
   [];

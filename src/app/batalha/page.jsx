@@ -41,6 +41,7 @@ import { getBadgeCpuTeam } from "@/lib/badges/cpu";
 import { BADGE_REQUIRED_WINS, BADGE_TEAM_SIZE, getBadgeConfig } from "@/lib/badges/config";
 import { acceptBadgeChallenge, getBadgeChallenge, getCompetitiveStatus, hasBadgeServiceConfig, markBadgeChallengeStarted, recordBadgeBattleResult, recordCompetitiveBattleActivity, registerCompetitivePlayer, subscribeBadgeChallenge, subscribeBadges } from "@/lib/badges/service";
 import { getBadgeTeamErrorMessage, validateBadgeTeam } from "@/lib/badges/rules";
+import { preloadBattlePokemonSprites } from "@/lib/pokemon/sprites";
 import "./style.scss";
 
 const makeCode = () => `PKDX-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -224,6 +225,7 @@ export default function BattlePage() {
         }
       }
       isStartingBattle.current = true;
+      void preloadBattlePokemonSprites([...hostTeam, ...guestTeam]);
       if (badgeChallenge?.challenge_kind === "PVP_TAKEOVER") {
         try {
           const startedChallenge = await markBadgeChallengeStarted({ challengeId: badgeChallenge.id, playerId: profile?.playerId });

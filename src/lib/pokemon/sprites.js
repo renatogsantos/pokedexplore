@@ -28,3 +28,26 @@ export function getPokemonSprite({ pokemon, context = SPRITE_CONTEXT.GENERAL }) 
   // Both large arena sides are presentation elements: always official artwork.
   return shiny ? prefer([visuals.official.shiny, visuals.official.default, visuals.home.shiny, visuals.home.default]) : prefer([visuals.official.default, visuals.home.default]);
 }
+
+export function preloadBattlePokemonSprites(pokemon = []) {
+  if (typeof window === "undefined") return Promise.resolve([]);
+
+  const urls = [...new Set(
+    pokemon
+      .slice(0, 6)
+      .flatMap((entry) => [
+        getPokemonSprite({ pokemon: entry, context: SPRITE_CONTEXT.BATTLE_ACTIVE }),
+        getPokemonSprite({ pokemon: entry, context: SPRITE_CONTEXT.BATTLE_THUMBNAIL }),
+      ])
+      .filter(Boolean),
+  )];
+
+  return Promise.allSettled(
+    urls.map((src) => new Promise((resolve) => {
+      const image = new window.Image();
+      image.onload = () => resolve(src);
+      image.onerror = () => resolve(src);
+      image.src = src;
+    })),
+  );
+}
