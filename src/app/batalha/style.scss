@@ -1964,7 +1964,6 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 4px;
   margin-top: 7px;
 }
 
@@ -1991,8 +1990,7 @@
 .battle-collection-type {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  padding: 3px 6px;
+  padding: 3px;
   border-radius: 999px;
   background: #06101fb8;
   color: #eaf3ff;
@@ -2002,8 +2000,8 @@
 }
 
 .battle-collection-type img {
-  width: 13px;
-  height: 13px;
+  width: 24px;
+  height: 24px;
 }
 
 .battle-collection-card .selection-order {
@@ -4129,7 +4127,7 @@
 }
 .deck-item-grid button {
   gap: 7px;
-  min-height: 108px;
+  min-height: 48px;
   padding: 8px;
 }
 .deck-item-grid button svg {
