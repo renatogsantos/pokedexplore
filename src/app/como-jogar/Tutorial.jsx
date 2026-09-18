@@ -19,10 +19,8 @@ import {
   Trophy,
 } from "@phosphor-icons/react";
 import {
-  BATTLE_BAG,
   calculateDamage,
   getTypeEffectiveness,
-  MAX_POTIONS,
   MAX_SPECIAL_ATTACK_USES,
   MOVES,
   POTION_HEAL_PERCENTAGE,
@@ -43,6 +41,7 @@ import PokemonTypeIcon from "@/components/PokemonTypeIcon";
 import PokemonAura from "@/components/PokemonAura/PokemonAura";
 
 const percent = Math.round(POTION_HEAL_PERCENTAGE * 100);
+const TUTORIAL_POTIONS = 2;
 const levelBonus = Math.round(STAT_BONUS_PER_LEVEL * 100);
 const typeStrike = MOVES.find((move) => move.id === "type-strike");
 const tutorialPikachu = {
@@ -287,21 +286,21 @@ function SwitchDemo() {
 
 function PotionDemo() {
   const [hp, setHp] = useState(30);
-  const [potions, setPotions] = useState(BATTLE_BAG.potion.quantity);
+  const [potions, setPotions] = useState(TUTORIAL_POTIONS);
   const healing = Math.min(Math.ceil(100 * POTION_HEAL_PERCENTAGE), 100 - hp);
   const canUse = hp < 100 && potions > 0;
   return (
     <div className="tutorial-potion-demo">
       <Pokemon name="pikachu" type="electric" />
-      <div><Hp value={hp} /><button type="button" disabled={!canUse} onClick={() => { setHp((value) => Math.min(100, value + healing)); setPotions((value) => value - 1); }}><FirstAid size={20} weight="fill" aria-hidden="true" /> Usar Poção ×{potions}</button><strong aria-live="polite">{canUse ? `Recupera ${percent}% do HP máximo` : hp === 100 ? "HP cheio!" : "Poções esgotadas"}</strong>{(hp !== 30 || potions !== BATTLE_BAG.potion.quantity) && <ResetButton onClick={() => { setHp(30); setPotions(BATTLE_BAG.potion.quantity); }} />}</div>
+      <div><Hp value={hp} /><button type="button" disabled={!canUse} onClick={() => { setHp((value) => Math.min(100, value + healing)); setPotions((value) => value - 1); }}><FirstAid size={20} weight="fill" aria-hidden="true" /> Usar Poção Vital ×{potions}</button><strong aria-live="polite">{canUse ? `Recupera ${percent}% do HP máximo` : hp === 100 ? "HP cheio!" : "Poções esgotadas"}</strong>{(hp !== 30 || potions !== TUTORIAL_POTIONS) && <ResetButton onClick={() => { setHp(30); setPotions(TUTORIAL_POTIONS); }} />}</div>
     </div>
   );
 }
 
 function HeldItemDemo() {
   const [hp, setHp] = useState(45);
-  const [heldItem, setHeldItem] = useState("oran");
-  const activateBerry = () => {
+  const [heldItem, setHeldItem] = useState("fruit-vital");
+  const activateHeldItem = () => {
     setHp((value) => Math.min(100, value + 20));
     setHeldItem(null);
   };
@@ -310,13 +309,13 @@ function HeldItemDemo() {
       <Pokemon name="pikachu" type="electric" />
       <div>
         <span className="tutorial-held-item-demo__eyebrow">ITEM EQUIPADO</span>
-        <strong>{heldItem ? "Berry Oran · PRONTA" : "Sem item equipado"}</strong>
+        <strong>{heldItem ? "Fruto Vital · PRONTO" : "Sem item equipado"}</strong>
         <Hp value={hp} />
-        <button type="button" disabled={!heldItem} onClick={activateBerry}>
-          <Heart size={19} weight="fill" aria-hidden="true" /> {heldItem ? "Simular ativação" : "Berry consumida"}
+        <button type="button" disabled={!heldItem} onClick={activateHeldItem}>
+          <Heart size={19} weight="fill" aria-hidden="true" /> {heldItem ? "Simular ativação" : "Fruto consumido"}
         </button>
-        <small aria-live="polite">{heldItem ? "Com 50% de HP ou menos, recupera 20% automaticamente." : "+20 HP · equipamento removido e 1 Berry consumida."}</small>
-        {!heldItem && <ResetButton onClick={() => { setHp(45); setHeldItem("oran"); }} />}
+        <small aria-live="polite">{heldItem ? "Com 50% de HP ou menos após receber dano, recupera 20% automaticamente." : "+20 HP · equipamento removido e 1 Fruto consumido."}</small>
+        {!heldItem && <ResetButton onClick={() => { setHp(45); setHeldItem("fruit-vital"); }} />}
       </div>
     </div>
   );
@@ -593,15 +592,15 @@ export default function Tutorial() {
           <Step
             number="10"
             eyebrow="RECUPERE SUA EQUIPE"
-            title={`Você começa com ${MAX_POTIONS} poções`}
+            title="Sua Mochila usa o inventário real"
           >
             <PotionDemo />
             <div className="tutorial-item-rules" aria-label="Regras da Mochila">
               <span><Backpack size={18} weight="fill" aria-hidden="true" /> Mochila: escolha o alvo e confirme o uso.</span>
-              <span><FirstAid size={18} weight="fill" aria-hidden="true" /> Poção e Purificação gastam turno e uma unidade.</span>
+              <span><FirstAid size={18} weight="fill" aria-hidden="true" /> Poções, Elixir e itens táticos gastam turno e uma unidade em usos válidos.</span>
               <span><Shield size={18} weight="fill" aria-hidden="true" /> ×0 deixa o item indisponível até comprar mais.</span>
             </div>
-            <p className="tutorial-note">Uma Poção recupera até {percent}% do HP máximo e consome seu turno. Ela não revive Pokémon desmaiado nem funciona com HP cheio.</p>
+            <p className="tutorial-note">Uma Poção Vital recupera até {percent}% do HP máximo e consome seu turno. Ela não revive Pokémon desmaiado nem funciona com HP cheio.</p>
           </Step>
           <Step
             number="11"
@@ -612,7 +611,7 @@ export default function Tutorial() {
               <div className="your-turn">
                 <Lightning size={25} weight="fill" aria-hidden="true" />
                 <strong>SUA VEZ!</strong>
-                <span>Ataque, use poção ou troque.</span>
+                <span>Ataque, use a Mochila ou troque.</span>
               </div>
               <ArrowRight aria-hidden="true" />
               <div className="waiting-turn">
@@ -666,15 +665,16 @@ export default function Tutorial() {
         <section className="tutorial-progression-guide" aria-labelledby="tutorial-progression-title">
           <div><span className="tutorial-eyebrow">PREPARE SUA EQUIPE</span><h2 id="tutorial-progression-title">Mais escolhas, sem complicação</h2><p>Cada Pokémon entra na Arena com movimentos próprios. O especial continua limitado a {MAX_SPECIAL_ATTACK_USES} usos; TMs permitem montar até 4 golpes e você sempre escolhe qual esquecer.</p></div>
           <div className="tutorial-progression-guide__cards">
-            <article><strong>Itens segurados</strong><small>Equipe uma Berry para sobreviver ou um amplificador de tipo para causar +10% de dano.</small></article>
-            <article><strong>Bolsa e estados</strong><small>Poção recupera HP; Purificação remove queimadura, veneno, paralisia ou sono. Ambos gastam o turno.</small></article>
+            <article><strong>Itens equipados</strong><small>Equipe um Fruto Vital para sobreviver ou um Núcleo Elemental para fortalecer golpes do tipo principal.</small></article>
+            <article><strong>Mochila e estados</strong><small>Poções recuperam HP; o Elixir Purificador remove queimadura, veneno, paralisia ou sono. Um uso válido gasta o turno.</small></article>
             <article><strong>Habilidades</strong><small>Algumas habilidades ativam em condições específicas, como Blaze com HP baixo.</small></article>
             <article><strong>Jornada</strong><small>Vença rotas, enfrente ginásios e adicione insígnias à sua coleção.</small></article>
           </div>
           <div className="tutorial-item-explainer">
-            <div><Backpack size={24} weight="fill" aria-hidden="true" /><strong>Mochila na Arena</strong><span>Use Poção para HP e Purificação para queimadura, veneno, paralisia ou sono. O contador diminui assim que a ação é válida.</span></div>
-            <div><Heart size={24} weight="fill" aria-hidden="true" /><strong>Equipamento no Pokémon</strong><span>Berry Oran ativa com 50% de HP ou menos e recupera 20%; Sitrus recupera 30%. A berry some do equipamento e do inventário após ativar.</span></div>
-            <div><Lightning size={24} weight="fill" aria-hidden="true" /><strong>Amplificador de tipo</strong><span>Fica equipado e aumenta em 10% os golpes do tipo principal. Ele não é consumido durante a batalha.</span></div>
+            <div><Backpack size={24} weight="fill" aria-hidden="true" /><strong>Mochila na Arena</strong><span>Use Poção Vital para HP e Elixir Purificador para queimadura, veneno, paralisia ou sono. O contador só diminui quando a ação é válida.</span></div>
+            <div><Heart size={24} weight="fill" aria-hidden="true" /><strong>Item equipado</strong><span>Você escolhe antes da batalha. Ele ativa automaticamente ou oferece um efeito passivo. Consumíveis só desaparecem quando o efeito realmente ativa.</span></div>
+            <div><FirstAid size={24} weight="fill" aria-hidden="true" /><strong>Mochila</strong><span>Você decide quando usar durante a batalha. Um uso válido consome o item e normalmente também sua ação.</span></div>
+            <div><Lightning size={24} weight="fill" aria-hidden="true" /><strong>Núcleo Elemental</strong><span>Fica equipado e aumenta em 12% os golpes do tipo principal. Ele não é consumido durante a batalha.</span></div>
           </div>
           <HeldItemDemo />
           <div className="tutorial-progression-guide__actions"><Link href="/pokedex">Preparar Pokémon</Link><Link href="/jornada">Abrir Jornada</Link></div>
@@ -751,7 +751,7 @@ export default function Tutorial() {
               {MAX_SPECIAL_ATTACK_USES} usos por Pokémon.
             </li>
             <li>
-              <FirstAid aria-hidden="true" /> Você tem {MAX_POTIONS} poções.
+              <FirstAid aria-hidden="true" /> Sua Mochila mostra apenas as quantidades realmente possuídas.
             </li>
             <li>
               <Sparkle aria-hidden="true" /> “Vantagem” indica uma boa escolha.

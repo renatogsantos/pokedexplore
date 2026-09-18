@@ -1,7 +1,9 @@
 // Dev-only balancing probe. Run `npm run balance:battle`; never imported by the app.
 import { readFile } from "node:fs/promises";
 
-const source = await readFile(new URL("./engine.js", import.meta.url), "utf8");
+const catalogSource = await readFile(new URL("../items/catalog.js", import.meta.url), "utf8");
+globalThis.__itemCatalog = await import(`data:text/javascript;base64,${Buffer.from(catalogSource).toString("base64")}`);
+const source = (await readFile(new URL("./engine.js", import.meta.url), "utf8")).replace('import { BAG_ITEM_CATALOG, getItemDefinition, migrateLegacyItemId } from "@/lib/items/catalog";', "const { BAG_ITEM_CATALOG, getItemDefinition, migrateLegacyItemId } = globalThis.__itemCatalog;");
 const { calculateDamage } = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
 const fighter = (name, type, hp, stats, level = 5) => ({ name, type, types: [type], maxHp: hp, hp, level, stats });
 const cases = [

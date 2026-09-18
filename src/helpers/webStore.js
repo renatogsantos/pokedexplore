@@ -5,6 +5,7 @@ import { getHeldItemInventoryId, planHeldItemChange } from "@/lib/economy/heldIt
 import { getAchievement } from "@/lib/journey/achievements";
 import { normalizePlayerStats, recordCompletedBattle } from "@/lib/profile/progression";
 import { DEFAULT_PLAYER_AVATAR_ID, normalizePlayerAvatarId } from "@/lib/profile/avatars";
+import { ITEM_SYSTEM_VERSION, migrateItemInventory } from "@/lib/items/catalog";
 
 const DATABASE_NAME = "PokedExploreDB";
 const DATABASE_VERSION = 3;
@@ -14,7 +15,7 @@ const CACHE_STORE = "pokeapi-cache";
 const ECONOMY_KEY = "economy";
 const TRAINER_PROFILE_KEY = "trainer-profile";
 const DECKS_KEY = "pokemon-decks";
-const EMPTY_ECONOMY = { key: ECONOMY_KEY, coins: 0, rewardedMatchIds: [], secretRewards: {}, inventory: {}, ownedTms: [], consumedItemActionIds: [] };
+const EMPTY_ECONOMY = { key: ECONOMY_KEY, coins: 0, rewardedMatchIds: [], secretRewards: {}, inventory: {}, ownedTms: [], consumedItemActionIds: [], itemSystemVersion: ITEM_SYSTEM_VERSION };
 const EMPTY_PROGRESS = { achievements: {}, streak: 0, bestStreak: 0, wins: 0, totalBattles: 0, processedOutcomeMatchIds: [], journeyCompleted: [], badges: [], trainerXp: 0, playerStats: null };
 const normalizeEconomy = (economy) => {
   const savedProgress = economy?.progress || {};
@@ -25,7 +26,9 @@ const normalizeEconomy = (economy) => {
     achievements: { ...EMPTY_PROGRESS.achievements, ...(savedProgress.achievements || {}) },
     playerStats: normalizePlayerStats(savedProgress.playerStats, { legacyWins: savedProgress.wins, legacyBattles: savedProgress.totalBattles }),
   };
-  return { ...EMPTY_ECONOMY, ...(economy || {}), secretRewards: { ...EMPTY_ECONOMY.secretRewards, ...(economy?.secretRewards || {}) }, inventory: Object.fromEntries(Object.entries(economy?.inventory || {}).filter(([, quantity]) => Number(quantity) > 0).map(([id, quantity]) => [id, Math.floor(Number(quantity))])), ownedTms: [...new Set(economy?.ownedTms || [])], progress };
+  const legacy = Number(economy?.itemSystemVersion || 1) < ITEM_SYSTEM_VERSION;
+  const rawInventory = Object.fromEntries(Object.entries(economy?.inventory || {}).filter(([, quantity]) => Number(quantity) > 0).map(([id, quantity]) => [id, Math.floor(Number(quantity))]));
+  return { ...EMPTY_ECONOMY, ...(economy || {}), itemSystemVersion: ITEM_SYSTEM_VERSION, secretRewards: { ...EMPTY_ECONOMY.secretRewards, ...(economy?.secretRewards || {}) }, inventory: legacy ? migrateItemInventory(rawInventory) : rawInventory, ownedTms: [...new Set(economy?.ownedTms || [])], progress };
 };
 
 function openDatabase() {
@@ -217,7 +220,7 @@ export const webStore = {
         const request = store.get(ECONOMY_KEY);
         request.onsuccess = () => {
           const economy = normalizeEconomy(request.result);
-          if (!request.result) store.put(economy);
+          if (!request.result || Number(request.result.itemSystemVersion || 1) < ITEM_SYSTEM_VERSION) store.put(economy);
           transaction.result = economy;
         };
         transaction.oncomplete = () => resolve(transaction.result);

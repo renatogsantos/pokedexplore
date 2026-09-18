@@ -26,6 +26,7 @@ import { getPokemonSprite, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
 import { getTypeLabel } from "@/lib/localization/ptBR";
 import { getBadgePokemonRestriction, getBadgeTeamErrorMessage, validateBadgeTeam } from "@/lib/badges/rules";
 import ConfirmationDialog from "@/components/ConfirmationDialog";
+import { getItemDefinition } from "@/lib/items/catalog";
 
 function TypeBadge({ type }) {
   return (
@@ -38,7 +39,7 @@ function TypeBadge({ type }) {
 
 function HeldItemBadge({ item, compact = false }) {
   if (!item) return compact ? null : <span className="battle-held-item empty">SEM ITEM</span>;
-  const label = item === "oran" ? "Berry Oran" : item === "sitrus" ? "Berry Sitrus" : "Amplificador";
+  const label = getItemDefinition(item)?.name || "Item";
   return <span className={`battle-held-item ${compact ? "compact" : ""}`}><ItemSprite item={item} alt="" className="battle-held-item-sprite" />{!compact && `${label} · EQUIPADO`}</span>;
 }
 

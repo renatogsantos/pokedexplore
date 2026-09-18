@@ -33,6 +33,7 @@ import ItemSprite from "@/components/ItemSprite/ItemSprite";
 import { preloadItemVisuals } from "@/lib/items/visuals";
 import { getCustomPokemon } from "@/lib/pokemon/customCatalog";
 import { getPokemonSprite, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
+import { getRarityLabel, getRoleLabel, getUsageLabel } from "@/lib/items/catalog";
 
 const PAGE_SIZE = 12;
 const artwork = (pokemon) => getPokemonSprite({
@@ -215,26 +216,23 @@ function Pagination({ page, pages, disabled, onChange }) {
   );
 }
 
-function UpgradeCard({ upgrade, economy, balance, onBuy }) {
+function UpgradeCard({ upgrade, economy, balance, onBuy, onDetail, purchasing }) {
   const isTm = upgrade.category === "tm";
   const quantity = isTm
     ? Number((economy.ownedTms || []).includes(upgrade.id))
     : economy.inventory?.[upgrade.id] || 0;
   return (
-    <article className={`shop-upgrade shop-upgrade--${upgrade.category}`}>
+    <article className={`shop-upgrade shop-upgrade--${isTm ? "tm" : upgrade.rarity?.toLowerCase()}`}>
       <div className="shop-upgrade-icon">
-        <ItemSprite item={upgrade.id} alt="" />
+        <ItemSprite item={upgrade.id} alt={upgrade.name} />
       </div>
       <div className="shop-upgrade-content">
         <span>
-          {isTm
-            ? "TM"
-            : upgrade.category === "battle"
-              ? "MOCHILA"
-              : "ITEM SEGURADO"}
+          {isTm ? "TM" : `${getRarityLabel(upgrade.rarity)} · ${getUsageLabel(upgrade.usageType)}`}
         </span>
         <h2>{upgrade.name}</h2>
-        <p>{upgrade.description}</p>
+        <p>{upgrade.shortDescription || upgrade.description}</p>
+        {!isTm && <button type="button" className="shop-item-detail-trigger" onClick={() => onDetail(upgrade)}>Ver detalhes</button>}
       </div>
       <div className="shop-upgrade-footer">
         <strong>
@@ -245,14 +243,14 @@ function UpgradeCard({ upgrade, economy, balance, onBuy }) {
             ? quantity
               ? "Adquirida"
               : "Ainda não adquirida"
-            : `${quantity} ${upgrade.quantityLabel}`}
+            : `Possui: ${quantity}`}
         </small>
         <button
           type="button"
-          disabled={balance < upgrade.price || (isTm && Boolean(quantity))}
-          onClick={() => onBuy(upgrade)}
+          disabled={purchasing || balance < upgrade.price || (isTm && Boolean(quantity))}
+          onClick={(event) => { event.stopPropagation(); onBuy(upgrade); }}
         >
-          {isTm && quantity
+          {purchasing ? "Comprando..." : isTm && quantity
             ? "Adquirida"
             : balance < upgrade.price
               ? "Sem moedas"
@@ -280,6 +278,9 @@ export default function Shop() {
   const [shopTab, setShopTab] = useState("pokemon");
   const [upgradeCategory, setUpgradeCategory] = useState("all");
   const [economy, setEconomy] = useState({ inventory: {}, ownedTms: [] });
+  const [itemDetail, setItemDetail] = useState(null);
+  const [purchasingId, setPurchasingId] = useState(null);
+  const upgradePurchaseLock = useRef(false);
   const cache = useRef(new Map());
   const results = useRef(null);
   const searching = Boolean(query.trim());
@@ -415,7 +416,12 @@ export default function Shop() {
     setPurchase(null);
   }
   async function buyUpgrade(upgrade) {
+    if (upgradePurchaseLock.current) return;
+    upgradePurchaseLock.current = true;
+    setPurchasingId(upgrade.id);
     const result = await webStore.purchaseUpgrade(upgrade.id);
+    upgradePurchaseLock.current = false;
+    setPurchasingId(null);
     if (!result.ok) {
       setFeedback(
         result.reason === "owned"
@@ -428,12 +434,18 @@ export default function Shop() {
     setEconomy(result.economy);
     dispatch(actCoins(result.coins));
     setFeedback(
-      `${upgrade.name.toUpperCase()} foi adicionado${upgrade.category === "tm" ? " à coleção de TMs" : " ao inventário"}!`,
+      upgrade.category === "tm"
+        ? `${upgrade.name.toUpperCase()} foi adicionada à coleção de TMs!`
+        : `ITEM ADQUIRIDO! ${upgrade.name.toUpperCase()} · agora você possui ${result.economy.inventory?.[upgrade.id] || 0}.`,
     );
   }
   const upgrades = SHOP_UPGRADES.filter(
     (upgrade) =>
-      upgradeCategory === "all" || upgrade.category === upgradeCategory,
+      upgradeCategory === "all"
+        ? upgrade.category !== "tm"
+        : upgradeCategory === "tm"
+          ? upgrade.category === "tm"
+          : upgrade.category !== "tm" && (upgrade.role === upgradeCategory || (upgradeCategory === "artifact" && upgrade.category === "ARTIFACT")),
   );
   const pokemonContent = (
     <>
@@ -556,10 +568,10 @@ export default function Shop() {
     <section id="shop-results" className="shop-upgrades">
       <div className="shop-catalog-heading">
         <div>
-          <span>INVENTÁRIO E TREINAMENTO</span>
-          <strong>Prepare sua próxima batalha</strong>
+          <span>ECOSSISTEMA DE ITENS</span>
+          <strong>Monte sua estratégia</strong>
         </div>
-        <small>Itens são usados na Arena. TMs ficam na sua coleção.</small>
+        <small>Toque em um item para ver todos os detalhes.</small>
       </div>
       <div
         className="shop-upgrade-filters"
@@ -575,25 +587,28 @@ export default function Shop() {
         </button>
         <button
           type="button"
-          className={upgradeCategory === "battle" ? "selected" : ""}
-          onClick={() => setUpgradeCategory("battle")}
+          className={upgradeCategory === "healing" ? "selected" : ""}
+          onClick={() => setUpgradeCategory("healing")}
         >
-          Mochila
+          Cura
         </button>
         <button
           type="button"
-          className={upgradeCategory === "held" ? "selected" : ""}
-          onClick={() => setUpgradeCategory("held")}
+          className={upgradeCategory === "attack" ? "selected" : ""}
+          onClick={() => setUpgradeCategory("attack")}
         >
-          Segurados
+          Poder
         </button>
         <button
           type="button"
-          className={upgradeCategory === "tm" ? "selected" : ""}
-          onClick={() => setUpgradeCategory("tm")}
+          className={upgradeCategory === "defense" ? "selected" : ""}
+          onClick={() => setUpgradeCategory("defense")}
         >
-          TMs
+          Defesa
         </button>
+        <button type="button" className={upgradeCategory === "tactical" ? "selected" : ""} onClick={() => setUpgradeCategory("tactical")}>Táticos</button>
+        <button type="button" className={upgradeCategory === "artifact" ? "selected" : ""} onClick={() => setUpgradeCategory("artifact")}>Artefatos</button>
+        <button type="button" className={upgradeCategory === "tm" ? "selected" : ""} onClick={() => setUpgradeCategory("tm")}>TMs</button>
       </div>
       <div className="shop-upgrade-grid">
         {upgrades.map((upgrade) => (
@@ -603,6 +618,8 @@ export default function Shop() {
             economy={economy}
             balance={balance}
             onBuy={buyUpgrade}
+            onDetail={setItemDetail}
+            purchasing={purchasingId === upgrade.id}
           />
         ))}
       </div>
@@ -619,6 +636,7 @@ export default function Shop() {
         </Link>
         <div>
           <Link href="/como-jogar">Como jogar</Link>
+          <Link href="/inventario">Inventário</Link>
           <CoinBalance />
         </div>
       </header>
@@ -656,13 +674,26 @@ export default function Shop() {
               className={shopTab === "upgrades" ? "selected" : ""}
               onClick={() => setShopTab("upgrades")}
             >
-              Itens e TMs
+              Itens
             </button>
           </div>
           {shopTab === "pokemon" ? pokemonContent : upgradeContent}
         </section>
       </div>
       <AnimatePresence>
+        {itemDetail && <motion.div className="shop-modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={(event) => event.target === event.currentTarget && setItemDetail(null)}>
+          <motion.section className={`shop-modal item-detail rarity-${itemDetail.rarity?.toLowerCase()}`} role="dialog" aria-modal="true" aria-labelledby="item-detail-title" initial={{ y: 18, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 12, opacity: 0 }}>
+            <button type="button" className="shop-modal-close" onClick={() => setItemDetail(null)} aria-label="Fechar detalhes"><X size={20} /></button>
+            <ItemSprite item={itemDetail.id} alt={itemDetail.name} />
+            <span>{getRarityLabel(itemDetail.rarity)} · {getUsageLabel(itemDetail.usageType)}</span>
+            <h2 id="item-detail-title">{itemDetail.name}</h2>
+            <p>{itemDetail.description}</p>
+            <p><strong>IDEAL PARA</strong><br />{getRoleLabel(itemDetail.role)}</p>
+            <small>Possui: {economy.inventory?.[itemDetail.id] || 0}</small>
+            <strong><Coin /> {formatCoins(itemDetail.price)}</strong>
+            <div><button type="button" onClick={() => setItemDetail(null)}>Voltar</button><button type="button" disabled={purchasingId === itemDetail.id || balance < itemDetail.price} onClick={() => void buyUpgrade(itemDetail)}>{purchasingId === itemDetail.id ? "COMPRANDO..." : balance < itemDetail.price ? "SEM MOEDAS" : "COMPRAR"}</button></div>
+          </motion.section>
+        </motion.div>}
         {purchase && (
           <QuantityModal
             purchase={purchase}

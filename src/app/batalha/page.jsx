@@ -43,6 +43,7 @@ import { acceptBadgeChallenge, getBadgeChallenge, getCompetitiveStatus, hasBadge
 import { getBadgeTeamErrorMessage, validateBadgeTeam } from "@/lib/badges/rules";
 import { preloadBattlePokemonSprites } from "@/lib/pokemon/sprites";
 import { validateHeldItemAssignments } from "@/lib/economy/heldItems";
+import { BAG_ITEM_CATALOG } from "@/lib/items/catalog";
 import "./style.scss";
 
 const makeCode = () => `PKDX-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -193,14 +194,14 @@ export default function BattlePage() {
   const persistBattleConsumables = useCallback((state, localRole) => {
     const effect = state?.effect;
     if (!effect || !state?.matchId) return;
-    const actionItem = effect.kind === "potion" ? "potion" : effect.kind === "item" ? effect.itemId : null;
+    const actionItem = effect.kind === "item" ? effect.itemId : null;
     if (actionItem && effect.actor === localRole)
       void webStore.consumeInventory({ [actionItem]: 1 }, `${state.matchId}:${state.revision}:bag:${localRole}:${actionItem}`).then((result) => {
         if (result.ok) setInventory(result.economy.inventory || {});
       });
-    const heldItem = effect.heldItem;
-    if (heldItem?.consumed && heldItem.owner === localRole)
-      void webStore.consumeHeldItem(heldItem.targetPokemonId, heldItem.itemId, `${state.matchId}:${state.revision}:held:${localRole}:${heldItem.targetPokemonId}:${heldItem.itemId}:${heldItem.eventId}`).then((result) => {
+    const heldItems = (effect.itemEvents || (effect.heldItem ? [effect.heldItem] : [])).filter((item) => item?.consumed && item.owner === localRole);
+    heldItems.forEach((heldItem) =>
+      void webStore.consumeHeldItem(heldItem.pokemonId || heldItem.targetPokemonId, heldItem.itemId, `${state.matchId}:${state.revision}:held:${localRole}:${heldItem.pokemonId || heldItem.targetPokemonId}:${heldItem.itemId}:${heldItem.eventId}`).then((result) => {
         if (result.ok) {
           setInventory(result.economy.inventory || {});
           if (result.pokemon) {
@@ -208,7 +209,7 @@ export default function BattlePage() {
             setSelected((current) => current.map((pokemon) => String(pokemon.id) === String(result.pokemon.id) ? result.pokemon : pokemon));
           }
         }
-      });
+      }));
   }, []);
   const startState = useCallback(
     async (hostTeam, guestTeam, host, guest) => {
@@ -241,7 +242,7 @@ export default function BattlePage() {
       }
       const backgrounds = await loadArenaBackgrounds();
       const next = createBattleState(
-        { ...host, inventory: { potion: inventory.potion || 0, "full-heal": inventory["full-heal"] || 0 }, team: hostTeam.map(toBattlePokemon) },
+        { ...host, inventory: Object.fromEntries(BAG_ITEM_CATALOG.map((item) => [item.id, inventory[item.id] || 0])), team: hostTeam.map(toBattlePokemon) },
         { ...guest, team: guestTeam.map(toBattlePokemon) },
       );
       next.matchId = makeMatchId();
@@ -600,7 +601,7 @@ export default function BattlePage() {
       return;
     }
     const currentInventory = currentEconomy.inventory || {};
-    const payload = { player: { ...player, inventory: { potion: currentInventory.potion || 0, "full-heal": currentInventory["full-heal"] || 0 } }, team: currentTeam.map(toBattlePokemon) };
+    const payload = { player: { ...player, inventory: Object.fromEntries(BAG_ITEM_CATALOG.map((item) => [item.id, currentInventory[item.id] || 0])) }, team: currentTeam.map(toBattlePokemon) };
     try {
       await realtime.current
       .updatePresence({ ready: true, team: payload.team })

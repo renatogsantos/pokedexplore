@@ -41,6 +41,7 @@ import ItemSprite from "@/components/ItemSprite/ItemSprite";
 import PokemonAura from "@/components/PokemonAura/PokemonAura";
 import BadgeArtwork from "@/components/Badges/BadgeArtwork";
 import { BADGE_REQUIRED_WINS } from "@/lib/badges/config";
+import { BAG_ITEM_CATALOG, getItemDefinition } from "@/lib/items/catalog";
 
 function HpBar({ pokemon }) {
   const percent = Math.max(0, (pokemon.hp / pokemon.maxHp) * 100);
@@ -215,7 +216,7 @@ function BattleNotification({ state, role, opponentName }) {
   const [notification, setNotification] = useState(null);
   useEffect(() => {
     if (state.effect?.kind === "attack") playBattleSound("dano", 0.5);
-    if (state.effect?.kind === "potion")
+    if (state.effect?.kind === "item" && state.effect?.healing)
       playBattleSound("healing-pokemon-sound", 0.5);
     if (state.status === "finished")
       playBattleSound(state.winner === role ? "win" : "lost", 0.62);
@@ -229,14 +230,24 @@ function BattleNotification({ state, role, opponentName }) {
       });
     else if (state.effect?.heldItem) {
       const item = state.effect.heldItem;
-      const itemName = getItemLabel(item.itemId).toUpperCase();
+      const definition = getItemDefinition(item.itemId);
+      const itemName = (definition?.name || getItemLabel(item.itemId)).toUpperCase();
       setNotification({
         title: `${itemName} ATIVADA!`,
         detail:
           item.effect?.type === "heal_hp"
             ? `+${item.effect.amount} HP · item consumido`
             : "Item consumido",
-        tone: "healing",
+        tone: definition?.rarity === "LEGENDARY" ? "strong" : "healing",
+        itemId: item.itemId,
+      });
+    } else if (state.effect?.itemEvents?.length) {
+      const item = state.effect.itemEvents[0];
+      const definition = getItemDefinition(item.itemId);
+      setNotification({
+        title: (definition?.name || getItemLabel(item.itemId)).toUpperCase(),
+        detail: item.effect?.amount ? `+${item.effect.amount} HP` : item.effect?.status ? getStatusLabel(item.effect.status) : definition?.shortDescription || "Efeito ativado",
+        tone: "turn",
         itemId: item.itemId,
       });
     } else if (state.effect?.ability)
@@ -251,18 +262,11 @@ function BattleNotification({ state, role, opponentName }) {
         detail: state.effect.effective ? "SUPER EFETIVO!" : state.log,
         tone: state.effect.effective ? "strong" : "damage",
       });
-    else if (state.effect?.kind === "potion")
-      setNotification({
-        title: `+${state.effect.healing} HP`,
-        detail: `POÇÃO USADA · ×${state[state.effect.actor]?.bag?.potion ?? 0} restante${(state[state.effect.actor]?.bag?.potion ?? 0) === 1 ? "" : "s"}`,
-        tone: "healing",
-      });
     else if (state.effect?.kind === "item")
       setNotification({
-        title:
-          state.effect.itemId === "full-heal" ? "PURIFICAÇÃO!" : "ITEM USADO!",
+        title: state.effect.itemName?.toUpperCase() || "ITEM USADO!",
         detail: `${state.effect.curedStatus ? `${getStatusLabel(state.effect.curedStatus)} removido · ` : ""}×${state.effect.remaining} restante${state.effect.remaining === 1 ? "" : "s"}`,
-        tone: "healing",
+        tone: state.effect.healing ? "healing" : "strong",
       });
     else if (state.effect?.kind === "switch")
       setNotification({ title: "TROCA!", detail: state.log, tone: "turn" });
@@ -589,7 +593,7 @@ export default function BattleArena({
   const effect = state.effect;
   const active = me.team[me.active];
   const enemy = opponent.team[opponent.active];
-  const bag = me.bag || { potion: me.potionsRemaining || 0, "full-heal": 0 };
+  const bag = me.bag || {};
   const itemCount = Object.values(bag).reduce(
     (total, amount) => total + amount,
     0,
@@ -649,7 +653,7 @@ export default function BattleArena({
             isHit={effect?.kind === "attack" && effect?.target === opponentRole}
             isAttacking={effect?.actor === opponentRole}
             isHealing={
-              effect?.kind === "potion" &&
+              effect?.kind === "item" && effect?.healing > 0 &&
               effect?.target === opponentRole &&
               effect?.targetPokemonId === opponent.team[opponent.active].id
             }
@@ -663,7 +667,7 @@ export default function BattleArena({
             isHit={effect?.kind === "attack" && effect?.target === role}
             isAttacking={effect?.actor === role}
             isHealing={
-              effect?.kind === "potion" &&
+              effect?.kind === "item" && effect?.healing > 0 &&
               effect?.target === role &&
               effect?.targetPokemonId === me.team[me.active].id
             }
@@ -754,6 +758,7 @@ export default function BattleArena({
                   : weak
                     ? "▼ FRACO"
                     : "● NORMAL";
+                const strategistDetail = active.heldItem === "strategist-eye" ? ` · ×${multiplier(attackType, enemy).toFixed(2)}` : "";
                 return (
                   <button
                     type="button"
@@ -766,7 +771,7 @@ export default function BattleArena({
                       );
                       onAction({ type: "attack", moveId: move.id });
                     }}
-                    aria-label={`${move.name}. ${move.special ? (exhausted ? "Especial esgotado" : `Especial, ${uses} de 2 usos`) : `${move.power} de poder, ${effectiveness}`} `}
+                    aria-label={`${move.name}. ${move.special ? (exhausted ? "Especial esgotado" : `Especial, ${uses} de 2 usos`) : `${move.power} de poder, ${effectiveness}${strategistDetail}`} `}
                   >
                     <span className="attack-icon">
                       <PokemonTypeIcon type={attackType} size={25} decorative />
@@ -787,7 +792,7 @@ export default function BattleArena({
                         ) : (
                           <>
                             <span>{move.power}</span>
-                            <span>{effectiveness}</span>
+                            <span>{effectiveness}{strategistDetail}</span>
                           </>
                         )}
                       </small>
@@ -813,29 +818,20 @@ export default function BattleArena({
                   </div>
                   <div className="deck-target-list">
                     {me.team.map((pokemon, index) => {
-                      const unavailable =
-                        pokemon.hp <= 0 ||
-                        (selectedItem === "potion"
-                          ? pokemon.hp >= pokemon.maxHp
-                          : !pokemon.status);
+                      const definition = getItemDefinition(selectedItem);
+                      const activeTarget = index === me.active;
+                      const unavailable = pokemon.hp <= 0 ||
+                        (definition.effectType === "BAG_HEAL" && (pokemon.hp >= pokemon.maxHp || pokemon.healsUsed >= MAX_HEALS_PER_POKEMON)) ||
+                        (definition.effectType === "BAG_CURE" && !pokemon.status) ||
+                        (["BAG_BARRIER", "BAG_STIMULANT"].includes(definition.effectType) && (!activeTarget || pokemon.temporaryEffects?.[definition.effectType === "BAG_BARRIER" ? "barrier" : "stimulant"])) ||
+                        (definition.effectType === "BAG_RECHARGE" && (pokemon.specialAttackUsesRemaining >= 2 || pokemon.rechargeUsed));
                       return (
                         <button
                           type="button"
                           key={`${pokemon.id}-${index}`}
                           disabled={!myTurn || unavailable}
                           onClick={() => {
-                            onAction(
-                              selectedItem === "potion"
-                                ? {
-                                    type: "potion",
-                                    targetPokemonId: pokemon.id,
-                                  }
-                                : {
-                                    type: "item",
-                                    itemId: selectedItem,
-                                    targetPokemonId: pokemon.id,
-                                  },
-                            );
+                            onAction({ type: "item", itemId: selectedItem, targetPokemonId: pokemon.id });
                             setSelectedItem(null);
                             setActionMode("moves");
                           }}
@@ -846,13 +842,11 @@ export default function BattleArena({
                             <small>
                               {pokemon.hp <= 0
                                 ? "Desmaiado"
-                                : selectedItem === "potion"
-                                  ? pokemon.hp >= pokemon.maxHp
-                                    ? "HP cheio"
-                                    : `${pokemon.hp}/${pokemon.maxHp} HP`
-                                  : pokemon.status
-                                    ? `Curar ${getStatusLabel(pokemon.status.id)}`
-                                    : "Sem efeito de status"}
+                                : definition.effectType === "BAG_HEAL"
+                                  ? pokemon.hp >= pokemon.maxHp ? "HP já está cheio" : pokemon.healsUsed >= MAX_HEALS_PER_POKEMON ? "Limite de curas atingido" : `${pokemon.hp}/${pokemon.maxHp} HP`
+                                  : definition.effectType === "BAG_CURE" ? pokemon.status ? `Curar ${getStatusLabel(pokemon.status.id)}` : "Nenhum status para remover"
+                                  : definition.effectType === "BAG_RECHARGE" ? pokemon.rechargeUsed ? "Recarga já usada neste Pokémon" : pokemon.specialAttackUsesRemaining >= 2 ? "Golpe Especial já está carregado" : `${pokemon.specialAttackUsesRemaining}/2 usos Especiais`
+                                  : !activeTarget ? "Escolha o Pokémon ativo" : unavailable ? "Efeito já preparado" : "Pronto para usar"}
                             </small>
                           </span>
                         </button>
@@ -862,34 +856,17 @@ export default function BattleArena({
                 </>
               ) : (
                 <div className="deck-item-grid">
-                  <button
+                  {BAG_ITEM_CATALOG.map((item) => <button
                     type="button"
-                    disabled={!myTurn || !bag.potion}
-                    onClick={() => setSelectedItem("potion")}
+                    key={item.id}
+                    disabled={!myTurn || !bag[item.id]}
+                    onClick={() => setSelectedItem(item.id)}
+                    aria-label={`${item.name}. ${bag[item.id] ? `${bag[item.id]} disponíveis` : "Esgotado"}`}
                   >
-                    <ItemSprite item="potion" alt="" />
-                    <span>
-                      <strong>Poção {active.healsUsed || 0}/{MAX_HEALS_PER_POKEMON}</strong>
-                      <small>
-                        {bag.potion ? "Recupera 40% do HP" : "Esgotado"}
-                      </small>
-                    </span>
-                    <b>×{bag.potion || 0}</b>
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!myTurn || !bag["full-heal"]}
-                    onClick={() => setSelectedItem("full-heal")}
-                  >
-                    <ItemSprite item="full-heal" alt="" />
-                    <span>
-                      <strong>Purificação</strong>
-                      <small>
-                        {bag["full-heal"] ? "Remove condições" : "Esgotado"}
-                      </small>
-                    </span>
-                    <b>×{bag["full-heal"] || 0}</b>
-                  </button>
+                    <ItemSprite item={item.id} alt={item.name} />
+                    <span><strong>{item.name}</strong><small>{bag[item.id] ? item.shortDescription : "ESGOTADO"}</small></span>
+                    <b>×{bag[item.id] || 0}</b>
+                  </button>)}
                 </div>
               )}
             </div>
