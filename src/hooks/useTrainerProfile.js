@@ -9,6 +9,7 @@ import {
   subscribeBadges,
 } from "@/lib/badges/service";
 import { selectBadgeProfile, selectLocalTrainerProfile } from "@/lib/profile/selectors";
+import { isValidPlayerAvatarId } from "@/lib/profile/avatars";
 
 export default function useTrainerProfile() {
   const [local, setLocal] = useState(null);
@@ -16,7 +17,7 @@ export default function useTrainerProfile() {
   const [localLoading, setLocalLoading] = useState(true);
   const [competitiveLoading, setCompetitiveLoading] = useState(true);
   const [competitiveError, setCompetitiveError] = useState("");
-  const [savingName, setSavingName] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
 
   const loadLocal = useCallback(async () => {
     setLocalLoading(true);
@@ -75,14 +76,16 @@ export default function useTrainerProfile() {
     if (local?.identity) void loadCompetitive(local.identity);
   }, [loadCompetitive, local?.identity]);
 
-  const saveName = useCallback(async (name) => {
-    const displayName = String(name || "").trim().slice(0, 18);
+  const saveProfile = useCallback(async ({ displayName: requestedName, avatarId }) => {
+    const displayName = String(requestedName || "").trim().slice(0, 18);
     if (!displayName) throw new Error("Digite um nome para o treinador.");
-    setSavingName(true);
+    if (!isValidPlayerAvatarId(avatarId)) throw new Error("Escolha um avatar válido.");
+    setSavingProfile(true);
     try {
-      const identity = await webStore.setLocalPlayerProfile({ ...local.identity, displayName });
+      const previousName = local?.identity?.displayName;
+      const identity = await webStore.setLocalPlayerProfile({ ...local.identity, displayName, avatarId });
       setLocal((current) => ({ ...current, identity }));
-      if (hasBadgeServiceConfig()) {
+      if (hasBadgeServiceConfig() && displayName !== previousName) {
         try {
           await registerCompetitivePlayer(identity);
           await loadCompetitive(identity);
@@ -92,7 +95,7 @@ export default function useTrainerProfile() {
       }
       return identity;
     } finally {
-      setSavingName(false);
+      setSavingProfile(false);
     }
   }, [loadCompetitive, local?.identity]);
 
@@ -102,8 +105,8 @@ export default function useTrainerProfile() {
     localLoading,
     competitiveLoading,
     competitiveError,
-    savingName,
+    savingProfile,
     retryCompetitive,
-    saveName,
+    saveProfile,
   };
 }

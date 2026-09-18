@@ -19,9 +19,11 @@ import {
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import BadgeArtwork from "@/components/Badges/BadgeArtwork";
+import PlayerAvatar from "@/components/PlayerAvatar";
 import useTrainerProfile from "@/hooks/useTrainerProfile";
 import { BADGE_CONFIG } from "@/lib/badges/config";
 import { formatCoins } from "@/lib/economy";
+import { PLAYER_AVATARS } from "@/lib/profile/avatars";
 import "./style.scss";
 
 const modeLabels = {
@@ -65,31 +67,81 @@ export default function TrainerProfilePage() {
     localLoading,
     competitiveLoading,
     competitiveError,
-    savingName,
+    savingProfile,
     retryCompetitive,
-    saveName,
+    saveProfile,
   } = useTrainerProfile();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
+  const [avatarId, setAvatarId] = useState(PLAYER_AVATARS[0].id);
   const [nameError, setNameError] = useState("");
   const [saved, setSaved] = useState(false);
-  const inputRef = useRef(null);
+  const editButtonRef = useRef(null);
+  const dialogRef = useRef(null);
 
   useEffect(() => {
-    if (local?.identity?.displayName && !editing)
+    if (local?.identity?.displayName && !editing) {
       setName(local.identity.displayName);
-  }, [editing, local?.identity?.displayName]);
+      setAvatarId(local.identity.avatarId);
+    }
+  }, [editing, local?.identity?.avatarId, local?.identity?.displayName]);
+
   useEffect(() => {
-    if (editing) inputRef.current?.focus();
+    if (!editing) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    dialogRef.current?.focus();
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeProfileEditor();
+        return;
+      }
+      if (event.key !== "Tab" || !dialogRef.current) return;
+      const focusable = [...dialogRef.current.querySelectorAll("button:not(:disabled), input:not(:disabled)")];
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
   }, [editing]);
 
-  async function submitName(event) {
+  function openProfileEditor() {
+    setName(local.identity.displayName);
+    setAvatarId(local.identity.avatarId);
+    setNameError("");
+    setEditing(true);
+  }
+
+  function closeProfileEditor() {
+    setEditing(false);
+    setName(local?.identity?.displayName || "");
+    setAvatarId(local?.identity?.avatarId || PLAYER_AVATARS[0].id);
+    setNameError("");
+    window.requestAnimationFrame(() => editButtonRef.current?.focus());
+  }
+
+  async function submitProfile(event) {
     event.preventDefault();
     setNameError("");
     try {
-      await saveName(name);
+      await saveProfile({ displayName: name, avatarId });
       setEditing(false);
       setSaved(true);
+      window.requestAnimationFrame(() => editButtonRef.current?.focus());
       window.setTimeout(() => setSaved(false), 3000);
     } catch (error) {
       setNameError(error.message);
@@ -117,10 +169,7 @@ export default function TrainerProfilePage() {
 
         <section className="trainer-card" aria-labelledby="trainer-name">
           <div className="trainer-card__shine" aria-hidden="true" />
-          <div className="trainer-card__art" aria-hidden="true">
-            <span>POKÉDEXPLORE</span>
-            <img src="/pokemons/pk-trainer-man.png" alt="" />
-          </div>
+          <span className="trainer-card__brand">POKÉDEXPLORE</span>
           <div className="trainer-card__content">
             <span className="trainer-eyebrow">CARTÃO DE TREINADOR</span>
             {localLoading ? (
@@ -129,67 +178,30 @@ export default function TrainerProfilePage() {
                 <Skeleton className="is-line" />
               </>
             ) : (
-              <>
-                <div className="trainer-card__identity">
-                  <div>
-                    <h1 id="trainer-name">{local.identity.displayName}</h1>
-                    <p>Treinador Nv. {progression.level}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditing(true);
-                      setNameError("");
-                    }}
-                    aria-label="Editar nome do treinador"
-                  >
-                    <PencilSimple size={20} aria-hidden="true" />
-                  </button>
-                </div>
-                <span className="trainer-card__id">ID {local.trainerId}</span>
-              </>
-            )}
-            {editing && (
-              <form className="trainer-name-form" onSubmit={submitName}>
-                <label htmlFor="trainer-display-name">Nome do treinador</label>
-                <input
-                  ref={inputRef}
-                  id="trainer-display-name"
-                  value={name}
-                  onChange={(event) => setName(event.target.value.slice(0, 18))}
-                  maxLength={18}
-                  autoComplete="nickname"
-                  aria-describedby={
-                    nameError ? "trainer-name-error" : "trainer-name-help"
-                  }
+              <div className="trainer-card__identity-layout">
+                <PlayerAvatar
+                  avatarId={local.identity.avatarId}
+                  className="trainer-card__avatar"
+                  eager
                 />
-                <small id="trainer-name-help">Até 18 caracteres.</small>
-                {nameError && (
-                  <p id="trainer-name-error" role="alert">
-                    {nameError}
-                  </p>
-                )}
-                <div>
+                <div className="trainer-card__identity">
+                  <h1 id="trainer-name">{local.identity.displayName}</h1>
+                  <p>Treinador Nv. {progression.level}</p>
+                  <span className="trainer-card__id">ID {local.trainerId}</span>
                   <button
+                    ref={editButtonRef}
                     type="button"
-                    onClick={() => {
-                      setEditing(false);
-                      setName(local.identity.displayName);
-                    }}
-                    disabled={savingName}
+                    onClick={openProfileEditor}
+                    aria-label="Editar perfil"
                   >
-                    <X size={18} aria-hidden="true" /> Cancelar
-                  </button>
-                  <button type="submit" disabled={savingName}>
-                    <Check size={18} aria-hidden="true" />{" "}
-                    {savingName ? "Salvando..." : "Salvar"}
+                    <PencilSimple size={18} aria-hidden="true" /> Editar perfil
                   </button>
                 </div>
-              </form>
+              </div>
             )}
             {saved && (
               <p className="trainer-card__saved" role="status">
-                <Check size={17} weight="bold" aria-hidden="true" /> Nome salvo.
+                <Check size={17} weight="bold" aria-hidden="true" /> Perfil atualizado.
               </p>
             )}
             <div className="trainer-card__progress">
@@ -216,25 +228,104 @@ export default function TrainerProfilePage() {
             </div>
             <div className="trainer-card__mini-stats">
               <span>
-                <Coins weight="fill" aria-hidden="true" />{" "}
-                {localLoading ? "—" : formatCoins(local.coins)} moedas
+                <Coins weight="fill" aria-hidden="true" />
+                <strong>{localLoading ? "—" : formatCoins(local.coins)}</strong>
+                <small>Moedas</small>
               </span>
               <span>
-                <GameController weight="fill" aria-hidden="true" />{" "}
-                {localLoading ? "—" : collection.total} Pokémon
+                <GameController weight="fill" aria-hidden="true" />
+                <strong>{localLoading ? "—" : collection.total}</strong>
+                <small>Pokémon</small>
               </span>
               <span>
-                <Medal weight="fill" aria-hidden="true" />{" "}
-                {competitiveLoading
-                  ? "—"
-                  : competitive
-                    ? currentBadges
-                    : "Indisponível"}{" "}
-                Insígnias atuais
+                <Medal weight="fill" aria-hidden="true" />
+                <strong>{competitiveLoading ? "—" : competitive ? currentBadges : "—"}</strong>
+                <small>Insígnias</small>
               </span>
             </div>
           </div>
         </section>
+
+        {editing && (
+          <div
+            className="trainer-profile-editor-backdrop"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) closeProfileEditor();
+            }}
+          >
+            <section
+              ref={dialogRef}
+              className="trainer-profile-editor"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="trainer-profile-editor-title"
+              tabIndex={-1}
+            >
+              <header>
+                <div>
+                  <span className="trainer-eyebrow">IDENTIDADE DO JOGADOR</span>
+                  <h2 id="trainer-profile-editor-title">Editar perfil</h2>
+                </div>
+                <button type="button" onClick={closeProfileEditor} aria-label="Fechar edição do perfil">
+                  <X size={22} aria-hidden="true" />
+                </button>
+              </header>
+
+              <div className="trainer-profile-editor__preview" aria-live="polite">
+                <PlayerAvatar avatarId={avatarId} className="trainer-profile-editor__avatar" eager />
+                <div>
+                  <strong>{name.trim() || "Treinador"}</strong>
+                  <span>Treinador Nv. {progression.level}</span>
+                </div>
+              </div>
+
+              <form onSubmit={submitProfile}>
+                <fieldset>
+                  <legend>Escolha seu avatar</legend>
+                  <div className="trainer-avatar-grid">
+                    {PLAYER_AVATARS.map((avatar) => {
+                      const selected = avatar.id === avatarId;
+                      return (
+                        <button
+                          key={avatar.id}
+                          type="button"
+                          className={selected ? "is-selected" : ""}
+                          aria-label={avatar.label}
+                          aria-pressed={selected}
+                          onClick={() => setAvatarId(avatar.id)}
+                        >
+                          <PlayerAvatar avatarId={avatar.id} />
+                          {selected && <Check size={18} weight="bold" aria-hidden="true" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+
+                <label htmlFor="trainer-display-name">Nome do treinador</label>
+                <input
+                  id="trainer-display-name"
+                  value={name}
+                  onChange={(event) => setName(event.target.value.slice(0, 18))}
+                  maxLength={18}
+                  autoComplete="nickname"
+                  aria-describedby={nameError ? "trainer-name-error" : "trainer-name-help"}
+                />
+                <small id="trainer-name-help">Até 18 caracteres.</small>
+                {nameError && <p id="trainer-name-error" role="alert">{nameError}</p>}
+
+                <div className="trainer-profile-editor__actions">
+                  <button type="button" onClick={closeProfileEditor} disabled={savingProfile}>
+                    Cancelar
+                  </button>
+                  <button type="submit" disabled={savingProfile}>
+                    <Check size={18} aria-hidden="true" /> {savingProfile ? "Salvando..." : "Salvar"}
+                  </button>
+                </div>
+              </form>
+            </section>
+          </div>
+        )}
 
         <section
           className="trainer-quick-stats"

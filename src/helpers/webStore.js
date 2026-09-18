@@ -4,6 +4,7 @@ import { getShopUpgrade } from "@/lib/economy/gameItems";
 import { getHeldItemInventoryId, planHeldItemChange } from "@/lib/economy/heldItems";
 import { getAchievement } from "@/lib/journey/achievements";
 import { normalizePlayerStats, recordCompletedBattle } from "@/lib/profile/progression";
+import { DEFAULT_PLAYER_AVATAR_ID, normalizePlayerAvatarId } from "@/lib/profile/avatars";
 
 const DATABASE_NAME = "PokedExploreDB";
 const DATABASE_VERSION = 3;
@@ -91,6 +92,7 @@ export const webStore = {
           resolve({
             playerId: saved.playerId || `player_${crypto.randomUUID()}`,
             displayName: String(saved.name || "").trim() || "Treinador",
+            avatarId: normalizePlayerAvatarId(saved.avatarId),
             createdAt: saved.createdAt || Date.now(),
           });
         };
@@ -101,13 +103,14 @@ export const webStore = {
       });
     } catch (error) {
       console.error("Erro ao recuperar perfil local:", error);
-      return { playerId: `player_${crypto.randomUUID()}`, displayName: "Treinador", createdAt: Date.now() };
+      return { playerId: `player_${crypto.randomUUID()}`, displayName: "Treinador", avatarId: DEFAULT_PLAYER_AVATAR_ID, createdAt: Date.now() };
     }
   },
   async setLocalPlayerProfile(profile) {
     const displayName = String(profile?.displayName || profile?.name || "").trim().slice(0, 18) || "Treinador";
     const playerId = String(profile?.playerId || `player_${crypto.randomUUID()}`);
-    const record = { key: TRAINER_PROFILE_KEY, name: displayName, playerId, createdAt: profile?.createdAt || Date.now(), updatedAt: Date.now() };
+    const avatarId = normalizePlayerAvatarId(profile?.avatarId);
+    const record = { key: TRAINER_PROFILE_KEY, name: displayName, playerId, avatarId, createdAt: profile?.createdAt || Date.now(), updatedAt: Date.now() };
     try {
       await withDatabase((database) => new Promise((resolve, reject) => {
         const transaction = database.transaction(PLAYER_STORE, "readwrite");
@@ -116,13 +119,14 @@ export const webStore = {
         transaction.onerror = () => reject(transaction.error);
       }));
     } catch (error) { console.error("Erro ao salvar perfil local:", error); }
-    return { playerId, displayName, createdAt: record.createdAt };
+    return { playerId, displayName, avatarId, createdAt: record.createdAt };
   },
   async resetLocalPlayerIdentity() {
     const current = await this.getLocalPlayerProfile();
     return this.setLocalPlayerProfile({
       playerId: `player_${crypto.randomUUID()}`,
       displayName: current.displayName,
+      avatarId: current.avatarId,
       createdAt: Date.now(),
     });
   },
