@@ -13,7 +13,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import BadgeArtwork from "@/components/Badges/BadgeArtwork";
 import ConfirmationDialog from "@/components/ConfirmationDialog";
@@ -139,6 +139,7 @@ function BadgeDetail({ badge, history, profile, busy, exitBusy, exitDialogOpen, 
 
 export default function CompetitiveBadgesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [badges, setBadges] = useState(null);
   const [profile, setProfile] = useState(null);
   const [filter, setFilter] = useState("all");
@@ -150,6 +151,7 @@ export default function CompetitiveBadgesPage() {
   const [exitBusy, setExitBusy] = useState(false);
   const [exitError, setExitError] = useState("");
   const [feedback, setFeedback] = useState("");
+  const requestedBadgeHandled = useRef("");
 
   const refresh = useCallback(async () => {
     try { setError(""); setBadges(await listBadges()); }
@@ -171,6 +173,16 @@ export default function CompetitiveBadgesPage() {
     const current = badges?.find((badge) => badge.id === selected.id);
     if (current) setSelected(current);
   }, [badges, selected?.id]);
+
+  useEffect(() => {
+    const requestedCode = searchParams.get("badge");
+    if (!requestedCode || !badges?.length || selected || requestedBadgeHandled.current === requestedCode) return;
+    const requestedBadge = badges.find((badge) => badge.code === requestedCode);
+    if (requestedBadge) {
+      requestedBadgeHandled.current = requestedCode;
+      void openBadge(requestedBadge);
+    }
+  }, [badges, searchParams, selected]);
 
   const summary = useMemo(() => ({
     available: badges?.filter((badge) => badge.status === "AVAILABLE").length || 0,

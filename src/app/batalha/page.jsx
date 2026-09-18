@@ -289,6 +289,7 @@ export default function BattlePage() {
         const won = next.winner === localRole;
         void webStore.recordBattleOutcome(next.matchId, {
           won,
+          mode,
           durationMs: performance.endedAt - performance.startedAt,
           usedOnlyOnePokemon: !performance.players?.[localRole]?.hasSwitched,
         }).then((result) => {
@@ -296,6 +297,9 @@ export default function BattlePage() {
           if (result.unlocked?.length) setNotice("CONQUISTA DESBLOQUEADA: " + result.unlocked.join(", ").toUpperCase() + (result.rewardCoins ? ` +${result.rewardCoins} moedas` : ""));
         });
         if (journeyNode && won) void webStore.completeJourneyNode(journeyNode).then((result) => { if (result.completed) setNotice(journeyNode.badge ? "INSÍGNIA CONQUISTADA: " + journeyNode.badge : "ROTA CONCLUÍDA! +" + journeyNode.reward + " moedas"); });
+      }
+      if (justFinished && (mode === "tournament" || String(mode).startsWith("badge"))) {
+        void webStore.recordPlayerBattleResult(next.matchId, { won: next.winner === localRole, mode });
       }
       if (justFinished && String(mode).startsWith("badge") && badgeChallenge) {
         setBadgeResolving(true);

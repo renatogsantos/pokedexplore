@@ -64,13 +64,14 @@ export async function listBadges() {
   const db = client();
   await releaseExpiredBadgeState();
   const [{ data: badges, error: badgeError }, { data: challenges, error: challengeError }] = await Promise.all([
-    db.from("badges").select("*, owner:competitive_players!badges_owner_player_id_fkey(last_battle_at)").order("sort_order"),
+    db.from("badges").select("*, owner:competitive_players!badges_owner_player_id_fkey(display_name,last_battle_at)").order("sort_order"),
     db.from("badge_challenges").select("*").in("status", ["PENDING_ACCEPTANCE", "ACTIVE"]),
   ]);
   if (badgeError || challengeError) throw friendlyError(badgeError || challengeError, "Não foi possível carregar as Insígnias.");
   const activeByBadge = new Map((challenges || []).map((challenge) => [challenge.badge_id, challenge]));
   return (badges || []).map((badge) => ({
     ...badge,
+    owner_display_name: badge.owner?.display_name || badge.owner_display_name,
     config: getBadgeConfig(badge.code),
     activeChallenge: activeByBadge.get(badge.id) || null,
     ownerLastBattleAt: badge.owner?.last_battle_at || null,
@@ -177,11 +178,40 @@ export async function getCompetitiveStatus(playerId) {
   return { badgeCount: count || 0, isChampion: (count || 0) > 0 };
 }
 
+export async function getPlayerBadgeProfile(playerId) {
+  if (!playerId) return { badges: [], history: [], player: null, activeChallenge: null };
+  const db = client();
+  await releaseExpiredBadgeState();
+  const [badgeResult, historyResult, playerResult, challengeResult] = await Promise.all([
+    db.from("badges").select("*, owner:competitive_players!badges_owner_player_id_fkey(display_name,last_battle_at)").order("sort_order"),
+    db.from("badge_history").select("badge_id,event_type,new_owner_player_id,created_at").eq("new_owner_player_id", playerId).in("event_type", ["INITIAL_CLAIM", "TRANSFER", "DEFENSE"]).order("created_at", { ascending: false }),
+    db.from("competitive_players").select("player_id,display_name,last_battle_at").eq("player_id", playerId).maybeSingle(),
+    db.from("badge_challenges").select("*, badge:badges(*)").in("status", ["PENDING_ACCEPTANCE", "ACTIVE"]).or(`challenger_player_id.eq.${playerId},defender_player_id.eq.${playerId}`).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+  ]);
+  const error = badgeResult.error || historyResult.error || playerResult.error || challengeResult.error;
+  if (error) throw friendlyError(error, "Não foi possível carregar as informações competitivas.");
+  return {
+    badges: (badgeResult.data || []).map((badge) => ({
+      ...badge,
+      owner_display_name: badge.owner?.display_name || badge.owner_display_name,
+      config: getBadgeConfig(badge.code),
+      ownerLastBattleAt: badge.owner?.last_battle_at || null,
+    })),
+    history: historyResult.data || [],
+    player: playerResult.data || null,
+    activeChallenge: challengeResult.data ? {
+      ...challengeResult.data,
+      badge: { ...challengeResult.data.badge, config: getBadgeConfig(challengeResult.data.badge?.code) },
+    } : null,
+  };
+}
+
 export function subscribeBadges(onChange) {
   const db = client();
   const channel = db.channel("competitive-badges")
     .on("postgres_changes", { event: "*", schema: "public", table: "badges" }, onChange)
     .on("postgres_changes", { event: "*", schema: "public", table: "badge_challenges" }, onChange)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "badge_history" }, onChange)
     .subscribe();
   return () => { void db.removeChannel(channel); };
 }

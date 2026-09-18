@@ -3,6 +3,7 @@ import { enrichPokemonRarity, hasResolvedPokemonRarity } from "@/lib/pokemon/rar
 import { getShopUpgrade } from "@/lib/economy/gameItems";
 import { getHeldItemInventoryId, planHeldItemChange } from "@/lib/economy/heldItems";
 import { getAchievement } from "@/lib/journey/achievements";
+import { normalizePlayerStats, recordCompletedBattle } from "@/lib/profile/progression";
 
 const DATABASE_NAME = "PokedExploreDB";
 const DATABASE_VERSION = 3;
@@ -13,8 +14,18 @@ const ECONOMY_KEY = "economy";
 const TRAINER_PROFILE_KEY = "trainer-profile";
 const DECKS_KEY = "pokemon-decks";
 const EMPTY_ECONOMY = { key: ECONOMY_KEY, coins: 0, rewardedMatchIds: [], secretRewards: {}, inventory: {}, ownedTms: [], consumedItemActionIds: [] };
-const EMPTY_PROGRESS = { achievements: {}, streak: 0, bestStreak: 0, wins: 0, totalBattles: 0, processedOutcomeMatchIds: [], journeyCompleted: [], badges: [] };
-const normalizeEconomy = (economy) => ({ ...EMPTY_ECONOMY, ...(economy || {}), secretRewards: { ...EMPTY_ECONOMY.secretRewards, ...(economy?.secretRewards || {}) }, inventory: Object.fromEntries(Object.entries(economy?.inventory || {}).filter(([, quantity]) => Number(quantity) > 0).map(([id, quantity]) => [id, Math.floor(Number(quantity))])), ownedTms: [...new Set(economy?.ownedTms || [])], progress: { ...EMPTY_PROGRESS, ...(economy?.progress || {}), achievements: { ...EMPTY_PROGRESS.achievements, ...(economy?.progress?.achievements || {}) } } });
+const EMPTY_PROGRESS = { achievements: {}, streak: 0, bestStreak: 0, wins: 0, totalBattles: 0, processedOutcomeMatchIds: [], journeyCompleted: [], badges: [], trainerXp: 0, playerStats: null };
+const normalizeEconomy = (economy) => {
+  const savedProgress = economy?.progress || {};
+  const progress = {
+    ...EMPTY_PROGRESS,
+    ...savedProgress,
+    trainerXp: Math.max(0, Math.floor(Number(savedProgress.trainerXp) || 0)),
+    achievements: { ...EMPTY_PROGRESS.achievements, ...(savedProgress.achievements || {}) },
+    playerStats: normalizePlayerStats(savedProgress.playerStats, { legacyWins: savedProgress.wins, legacyBattles: savedProgress.totalBattles }),
+  };
+  return { ...EMPTY_ECONOMY, ...(economy || {}), secretRewards: { ...EMPTY_ECONOMY.secretRewards, ...(economy?.secretRewards || {}) }, inventory: Object.fromEntries(Object.entries(economy?.inventory || {}).filter(([, quantity]) => Number(quantity) > 0).map(([id, quantity]) => [id, Math.floor(Number(quantity))])), ownedTms: [...new Set(economy?.ownedTms || [])], progress };
+};
 
 function openDatabase() {
   return new Promise((resolve, reject) => {
@@ -317,6 +328,19 @@ export const webStore = {
       transaction.oncomplete = () => resolve(transaction.result); transaction.onerror = () => reject(transaction.error); request.onerror = () => reject(request.error);
     })); } catch (error) { console.error("Erro ao capturar Pokémon:", error); return null; }
   },
+  async getCollectionSnapshot() {
+    try {
+      const records = await withDatabase((database) => new Promise((resolve, reject) => {
+        const request = database.transaction(POKEDEX_STORE, "readonly").objectStore(POKEDEX_STORE).getAll();
+        request.onsuccess = () => resolve(request.result || []);
+        request.onerror = () => reject(request.error);
+      }));
+      return records.map(normalizeCapturedPokemon);
+    } catch (error) {
+      console.error("Erro ao recuperar resumo da coleção:", error);
+      return [];
+    }
+  },
   async purchaseUpgrade(upgradeId, quantity = 1) {
     const upgrade = getShopUpgrade(upgradeId);
     if (!upgrade) return { ok: false, reason: "not-found" };
@@ -385,7 +409,7 @@ export const webStore = {
       }));
     } catch (error) { console.error("Erro ao consumir item equipado:", error); return { ok: false, reason: "persistence" }; }
   },
-  async recordBattleOutcome(matchId, { won, durationMs, usedOnlyOnePokemon }) {
+  async recordBattleOutcome(matchId, { won, durationMs, usedOnlyOnePokemon, mode = "cpu" }) {
     if (!matchId) return { recorded: false, progress: EMPTY_PROGRESS, unlocked: [] };
     try { return await withDatabase((database) => new Promise((resolve, reject) => {
       const transaction = database.transaction(PLAYER_STORE, "readwrite"); const store = transaction.objectStore(PLAYER_STORE); const request = store.get(ECONOMY_KEY);
@@ -399,11 +423,35 @@ export const webStore = {
         if (won && usedOnlyOnePokemon) unlock("exercito-de-um");
         if (won && nextStreak >= 5) unlock("imparavel");
         const rewardCoins = unlocked.reduce((total, id) => total + (getAchievement(id)?.reward || 0), 0);
-        const nextProgress = { ...progress, streak: nextStreak, bestStreak: Math.max(progress.bestStreak || 0, nextStreak), wins: (progress.wins || 0) + Number(won), totalBattles: (progress.totalBattles || 0) + 1, achievements: nextAchievements, processedOutcomeMatchIds: [...processed, matchId].slice(-100) };
+        const profileResult = recordCompletedBattle(progress.playerStats, { matchId, won, mode });
+        const nextProgress = { ...progress, streak: nextStreak, bestStreak: Math.max(progress.bestStreak || 0, nextStreak), wins: (progress.wins || 0) + Number(won), totalBattles: (progress.totalBattles || 0) + 1, achievements: nextAchievements, processedOutcomeMatchIds: [...processed, matchId].slice(-100), playerStats: profileResult.stats, trainerXp: progress.trainerXp + profileResult.earnedXp };
         const next = { ...economy, coins: economy.coins + rewardCoins, progress: nextProgress }; store.put(next); transaction.result = { recorded: true, progress: nextProgress, unlocked, rewardCoins, coins: next.coins };
       };
       transaction.oncomplete = () => resolve(transaction.result); transaction.onerror = () => reject(transaction.error); request.onerror = () => reject(request.error);
     })); } catch (error) { console.error("Erro ao salvar progresso de batalha:", error); return { recorded: false, progress: EMPTY_PROGRESS, unlocked: [] }; }
+  },
+  async recordPlayerBattleResult(matchId, { won, mode }) {
+    if (!matchId) return { recorded: false, stats: normalizePlayerStats(), earnedXp: 0, trainerXp: 0 };
+    try {
+      return await withDatabase((database) => new Promise((resolve, reject) => {
+        const transaction = database.transaction(PLAYER_STORE, "readwrite");
+        const store = transaction.objectStore(PLAYER_STORE);
+        const request = store.get(ECONOMY_KEY);
+        request.onsuccess = () => {
+          const economy = normalizeEconomy(request.result);
+          const result = recordCompletedBattle(economy.progress.playerStats, { matchId, won, mode });
+          const trainerXp = economy.progress.trainerXp + result.earnedXp;
+          if (result.recorded) store.put({ ...economy, progress: { ...economy.progress, playerStats: result.stats, trainerXp } });
+          transaction.result = { ...result, trainerXp };
+        };
+        transaction.oncomplete = () => resolve(transaction.result);
+        transaction.onerror = () => reject(transaction.error);
+        request.onerror = () => reject(request.error);
+      }));
+    } catch (error) {
+      console.error("Erro ao salvar estatísticas do treinador:", error);
+      return { recorded: false, stats: normalizePlayerStats(), earnedXp: 0, trainerXp: 0 };
+    }
   },
   async completeJourneyNode(node) {
     try { return await withDatabase((database) => new Promise((resolve, reject) => {

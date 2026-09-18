@@ -1,12 +1,12 @@
 "use client";
 
-import { BookOpen, House, MapTrifold, Question, Sword } from "@phosphor-icons/react";
+import { BookOpen, House, MapTrifold, Sword, UserCircle } from "@phosphor-icons/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const navigationItems = [
   { href: "/", label: "Início", Icon: House, exact: true },
-  { href: "/como-jogar", label: "Como jogar", Icon: Question },
+  { href: "/perfil", label: "Perfil", Icon: UserCircle },
   { href: "/batalha", label: "Batalhar", Icon: Sword, battle: true },
   { href: "/jornada", label: "Jornada", Icon: MapTrifold },
   { href: "/pokedex", label: "Pokédex", Icon: BookOpen },
