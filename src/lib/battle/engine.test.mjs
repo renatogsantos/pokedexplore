@@ -5,8 +5,12 @@ import { readFile } from "node:fs/promises";
 const catalogSource = await readFile(new URL("../items/catalog.js", import.meta.url), "utf8");
 const catalog = await import(`data:text/javascript;base64,${Buffer.from(catalogSource).toString("base64")}`);
 globalThis.__itemCatalog = catalog;
-const engineSource = (await readFile(new URL("./engine.js", import.meta.url), "utf8")).replace('import { BAG_ITEM_CATALOG, getItemDefinition, migrateLegacyItemId } from "@/lib/items/catalog";', "const { BAG_ITEM_CATALOG, getItemDefinition, migrateLegacyItemId } = globalThis.__itemCatalog;");
-const { MAX_HEALS_PER_POKEMON, MAX_SPECIAL_ATTACK_USES, calculateDamage, createBattleState, resolveAction, resolvePostDamageHeldItem } = await import(`data:text/javascript;base64,${Buffer.from(engineSource).toString("base64")}`);
+const statusesSource = await readFile(new URL("./statuses.js", import.meta.url), "utf8");
+globalThis.__battleStatuses = await import(`data:text/javascript;base64,${Buffer.from(statusesSource).toString("base64")}`);
+const engineSource = (await readFile(new URL("./engine.js", import.meta.url), "utf8"))
+  .replace('import { BAG_ITEM_CATALOG, getItemDefinition, migrateLegacyItemId } from "@/lib/items/catalog";', "const { BAG_ITEM_CATALOG, getItemDefinition, migrateLegacyItemId } = globalThis.__itemCatalog;")
+  .replace('import { isSupportedStatus, normalizeStatusEffect } from "@/lib/battle/statuses";', "const { isSupportedStatus, normalizeStatusEffect } = globalThis.__battleStatuses;");
+const { MAX_HEALS_PER_POKEMON, MAX_SPECIAL_ATTACK_USES, calculateDamage, createBattleState, getBattleMoves, resolveAction, resolvePostDamageHeldItem } = await import(`data:text/javascript;base64,${Buffer.from(engineSource).toString("base64")}`);
 
 const pokemon = (id, heldItem = null, hp = 100, level = 5, type = "normal") => ({ id, name: `P${id}`, level, type, types: [type], heldItem, maxHp: 100, hp, stats: { attack: 50, defense: 50, specialAttack: 50, specialDefense: 50, speed: 50 }, moveset: [{ id: "hit", name: "Hit", type, power: 40, accuracy: 100, damageClass: "physical", special: false }, { id: "special", name: "Special", type, power: 70, accuracy: 100, damageClass: "special", special: true }] });
 const inventory = { "vital-potion": 4, "supreme-potion": 2, "purifying-elixir": 2, "instant-barrier": 2, stimulant: 2, "recharge-crystal": 2 };
@@ -78,4 +82,61 @@ test("special uses stay at two and Special Fragment is selective", () => {
 
 test("invalid actions preserve the original state reference", () => {
   const state = makeState(); assert.strictEqual(resolveAction(state, "guest", { type: "item", itemId: "vital-potion", targetPokemonId: 4 }), state); assert.strictEqual(resolveAction(state, "host", { type: "item", itemId: "instant-barrier", targetPokemonId: 2 }), state);
+});
+
+test("status metadata is normalized per move and never inferred from elemental type", () => {
+  const electric = getBattleMoves({ type: "electric" });
+  const poison = getBattleMoves({ type: "poison" });
+  assert.deepEqual(electric.find((entry) => entry.name === "Spark").statusEffect, { id: "paralysis", chance: .3 });
+  assert.deepEqual(poison.find((entry) => entry.name === "Acid").statusEffect, null);
+  assert.equal(getBattleMoves({ type: "grass" }).every((entry) => !entry.statusEffect), true);
+  assert.equal(getBattleMoves({ type: "ice" }).every((entry) => !entry.statusEffect), true);
+});
+
+test("successful status application keeps authoritative cause and source metadata", () => {
+  const state = makeState();
+  const hit = state.host.team[0].moves.find((entry) => entry.id === "hit");
+  hit.statusEffect = { id: "paralysis", chance: 1 };
+  const next = resolveAction(state, "host", { type: "attack", moveId: "hit", actionId: "status-source" });
+  assert.equal(next.guest.team[0].status.sourceMoveName, "Hit");
+  assert.equal(next.guest.team[0].status.sourcePokemonId, 1);
+  assert.deepEqual(next.effect.statusEvents.find((event) => event.type === "STATUS_APPLIED"), {
+    type: "STATUS_APPLIED", status: "paralysis", successful: true, eventId: "status-source", targetPokemonId: 4, targetPokemonName: "P4", targetRole: "guest", sourcePokemonId: 1, sourcePokemonName: "P1", sourceRole: "host", sourceKind: "move", moveId: "hit", moveName: "Hit", itemId: null, abilityId: null, chance: 1, appliedTurn: 1,
+  });
+});
+
+test("paralysis reports a prevented action without launching an attack", () => {
+  const state = makeState(); state.host.team[0].status = { id: "paralysis" }; state.rng = 0;
+  const next = resolveAction(state, "host", { type: "attack", moveId: "hit" });
+  assert.equal(next.effect.kind, "status");
+  assert.equal(next.effect.statusEvent.type, "STATUS_TRIGGERED");
+  assert.equal(next.effect.statusEvent.preventedAction, true);
+  assert.equal(next.guest.team[0].hp, state.guest.team[0].hp);
+});
+
+test("sleep reports blocked turns and a visible expiration event", () => {
+  let state = makeState(); state.host.team[0].status = { id: "sleep", turns: 2, sourceMoveName: "Sleep Powder" };
+  state = resolveAction(state, "host", { type: "attack", moveId: "hit" });
+  assert.equal(state.host.team[0].status.turns, 1); assert.equal(state.effect.statusEvents[0].type, "STATUS_TRIGGERED");
+  state.turn = "host"; state = resolveAction(state, "host", { type: "attack", moveId: "hit" });
+  assert.equal(state.host.team[0].status, null); assert.equal(state.effect.statusEvents.some((event) => event.type === "STATUS_EXPIRED"), true);
+});
+
+test("periodic status damage is applied once and exposed as a structured event", () => {
+  const state = makeState(); state.host.team[0].status = { id: "burn", sourceMoveName: "Ember" };
+  const next = resolveAction(state, "host", { type: "attack", moveId: "hit" });
+  assert.equal(next.host.team[0].hp, 92);
+  const event = next.effect.statusEvents.find((entry) => entry.type === "STATUS_DAMAGE");
+  assert.equal(event.status, "burn"); assert.equal(event.damage, 8); assert.equal(event.targetPokemonId, 1);
+});
+
+test("manual and automatic cures emit one traceable cure event", () => {
+  const manual = makeState(); manual.host.team[0].status = { id: "poison" };
+  const cured = resolveAction(manual, "host", { type: "item", itemId: "purifying-elixir", targetPokemonId: 1 });
+  assert.equal(cured.effect.statusEvents.filter((event) => event.type === "STATUS_CURED").length, 1);
+  const automatic = makeState(null, "purifier");
+  automatic.host.team[0].moves.find((entry) => entry.id === "hit").statusEffect = { id: "burn", chance: 1 };
+  const purified = resolveAction(automatic, "host", { type: "attack", moveId: "hit", actionId: "purifier" });
+  assert.equal(purified.guest.team[0].status, null); assert.equal(purified.guest.team[0].heldItem, null);
+  assert.equal(purified.effect.statusEvents.filter((event) => event.type === "STATUS_CURED").length, 1);
 });

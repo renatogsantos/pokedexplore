@@ -4705,3 +4705,114 @@
 @media (max-width: 520px) { .badge-intro-hero { grid-template-columns: 100px minmax(0, 1fr); }.badge-intro-hero .competitive-badge-artwork { width: 100px; }.badge-intro-rules ul { grid-template-columns: 1fr; }.badge-intro-versus { gap: 7px; padding-inline: 8px; }.badge-intro-versus strong { font-size: .8rem; } }
 @media (max-width: 350px) { .badge-intro-hero { grid-template-columns: 1fr; justify-items: center; text-align: center; }.badge-intro-actions { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) { .badge-series-result i.won { box-shadow: none; } }
+
+/* Status UX: persistent, inspectable and event-driven without adding modal friction. */
+.battle-status {
+  position: relative;
+  align-items: center;
+  gap: 4px;
+  min-height: 30px;
+  margin-top: 4px;
+  padding: 4px 8px;
+  border: 1px solid currentColor;
+  background: #071526e8;
+  font: inherit;
+  font-size: .57rem;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.battle-status::before { content: ""; position: absolute; inset: -7px -4px; }
+.battle-status:hover, .battle-status:focus-visible { background: #142c46; box-shadow: 0 0 0 3px #f8fbff26; outline: none; }
+.battle-status span { white-space: nowrap; }
+.battle-status.is-burn { color: #ffb084; }
+.battle-status.is-poison { color: #e3a5ff; }
+.battle-status.is-paralysis { color: #ffe06a; }
+.battle-status.is-sleep { color: #c3c8ff; }
+
+.status-detail-sheet {
+  --status-accent: #ffe06a;
+  position: absolute;
+  z-index: 24;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  gap: 9px;
+  width: min(calc(100% - 24px), 360px);
+  max-height: calc(100% - 28px);
+  overflow-y: auto;
+  padding: 15px 52px 15px 15px;
+  border: 1px solid color-mix(in srgb, var(--status-accent) 70%, #fff 8%);
+  border-radius: 16px;
+  background: linear-gradient(145deg, #10243af5, #071322fa);
+  color: #f8fbff;
+  box-shadow: 0 18px 40px #000a, 0 0 24px color-mix(in srgb, var(--status-accent) 18%, transparent);
+  transform: translate(-50%, -50%);
+}
+.status-detail-sheet.is-burn { --status-accent: #ff8a52; }
+.status-detail-sheet.is-poison { --status-accent: #ca75f2; }
+.status-detail-sheet.is-sleep { --status-accent: #9da8ff; }
+.status-detail-heading { display: flex; align-items: center; gap: 10px; color: var(--status-accent); }
+.status-detail-heading > div { display: grid; gap: 2px; }
+.status-detail-heading small, .status-detail-source span, .status-detail-response span { color: #9db1c9; font-size: .55rem; font-weight: 900; letter-spacing: .12em; }
+.status-detail-heading strong { font-size: 1rem; text-transform: uppercase; }
+.status-detail-sheet p { margin: 0; color: #d8e4f2; font-size: .75rem; line-height: 1.45; }
+.status-detail-source, .status-detail-response { display: grid; gap: 3px; padding-top: 8px; border-top: 1px solid #ffffff17; }
+.status-detail-source strong { color: var(--status-accent); font-size: .78rem; }
+.status-detail-close { position: absolute; top: 6px; right: 6px; display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 11px; background: transparent; color: #e7f0fb; cursor: pointer; }
+.status-detail-close:hover, .status-detail-close:focus-visible { background: #ffffff12; outline: 2px solid var(--status-accent); outline-offset: -3px; }
+
+.battle-notification.move { border-color: #86b8e7; background: #0a2037f2; }
+.battle-notification.status { gap: 4px; border-color: currentColor; }
+.battle-notification.status.is-paralysis { color: #ffe06a; }
+.battle-notification.status.is-sleep { color: #c3c8ff; }
+.battle-notification.status.is-burn { color: #ffb084; }
+.battle-notification.status.is-poison { color: #e3a5ff; }
+.battle-notification.status span { color: #f4f8fd; }
+
+.status-vfx {
+  --status-vfx-color: #ffe06a;
+  position: absolute;
+  z-index: 8;
+  inset: 10%;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--status-vfx-color);
+  border-radius: 50%;
+  color: var(--status-vfx-color);
+  filter: drop-shadow(0 0 10px var(--status-vfx-color));
+  pointer-events: none;
+  animation: status-event-burst .7s ease-out both;
+}
+.status-vfx.is-burn { --status-vfx-color: #ff7048; }
+.status-vfx.is-poison { --status-vfx-color: #bf62e7; }
+.status-vfx.is-sleep { --status-vfx-color: #929fff; }
+.status-vfx.is-status_cured, .status-vfx.is-status_prevented, .status-vfx.is-status_expired { --status-vfx-color: #75e8ba; }
+.status-vfx i { position: absolute; width: 6px; height: 6px; border-radius: 50%; background: var(--status-vfx-color); box-shadow: 0 0 8px var(--status-vfx-color); }
+.status-vfx i:nth-of-type(1) { top: 8%; left: 24%; }
+.status-vfx i:nth-of-type(2) { right: 8%; top: 44%; }
+.status-vfx i:nth-of-type(3) { bottom: 7%; left: 39%; }
+@keyframes status-event-burst { 0% { opacity: 0; transform: scale(.55); } 28% { opacity: 1; } 100% { opacity: 0; transform: scale(1.15); } }
+
+.move-status-hint, .switch-status { display: inline-flex; align-items: center; gap: 3px; color: #ffe06a !important; font-size: .48rem !important; font-weight: 850; white-space: nowrap; }
+.move-status-hint.is-burn, .switch-status.is-burn { color: #ffb084 !important; }
+.move-status-hint.is-poison, .switch-status.is-poison { color: #e3a5ff !important; }
+.move-status-hint.is-sleep, .switch-status.is-sleep { color: #c3c8ff !important; }
+.deck-switch-list .switch-status { margin-top: 2px; }
+.team-slot.has-status small svg { display: block; }
+
+@media (max-width: 600px) {
+  .battle-page:has(.battle-arena) .battle-status { min-height: 28px; padding: 3px 6px; font-size: .48rem; }
+  .status-detail-sheet { width: min(calc(100% - 16px), 340px); padding: 13px 48px 13px 13px; }
+  .battle-page:has(.battle-arena) .battle-notification.status strong { font-size: .92rem; }
+  .battle-page:has(.battle-arena) .battle-notification.status span { max-width: 250px; font-size: .58rem; line-height: 1.3; text-align: center; }
+  .move-status-hint { font-size: .42rem !important; }
+}
+@media (max-width: 600px) and (max-height: 680px) {
+  .battle-page:has(.battle-arena) .battle-status { display: inline-flex !important; min-height: 24px; margin-top: 1px; padding: 2px 5px; font-size: .43rem; }
+  .battle-page:has(.battle-arena) .battle-status svg { width: 10px; height: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .status-vfx { display: none; animation: none; }
+  .battle-status, .status-detail-sheet { transition: none; }
+}

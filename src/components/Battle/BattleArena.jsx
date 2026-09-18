@@ -8,6 +8,7 @@ import {
   Sword,
   Trophy,
   WarningCircle,
+  X,
 } from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
@@ -42,6 +43,8 @@ import PokemonAura from "@/components/PokemonAura/PokemonAura";
 import BadgeArtwork from "@/components/Badges/BadgeArtwork";
 import { BADGE_REQUIRED_WINS } from "@/lib/badges/config";
 import { BAG_ITEM_CATALOG, getItemDefinition } from "@/lib/items/catalog";
+import { getStatusDefinition } from "@/lib/battle/statuses";
+import StatusIcon from "@/components/Battle/StatusIcon";
 
 function HpBar({ pokemon }) {
   const percent = Math.max(0, (pokemon.hp / pokemon.maxHp) * 100);
@@ -74,7 +77,23 @@ function useBattleElapsed(startedAt, active) {
   return startedAt ? Math.max(0, now - startedAt) : 0;
 }
 
-function Fighter({ side, player, isHit, isAttacking, isHealing, matchup }) {
+function StatusBadge({ pokemon, onOpen }) {
+  const definition = getStatusDefinition(pokemon.status);
+  if (!definition) return null;
+  return (
+    <button
+      type="button"
+      className={`battle-status is-${definition.id}`}
+      onClick={() => onOpen?.({ pokemon, status: pokemon.status })}
+      aria-label={`${pokemon.name} está ${definition.displayName.toLowerCase()}. Toque para entender a condição.`}
+    >
+      <StatusIcon status={definition.id} size={13} />
+      <span>{definition.displayName}</span>
+    </button>
+  );
+}
+
+function Fighter({ side, player, isHit, isAttacking, isHealing, matchup, statusEvent, onStatusOpen }) {
   const pokemon = player.team[player.active];
   const ability = getSupportedAbility(pokemon.ability);
   const weaknesses = side === "opponent" ? getOpponentWeaknesses(pokemon) : [];
@@ -130,11 +149,7 @@ function Fighter({ side, player, isHit, isAttacking, isHealing, matchup }) {
             {getItemLabel(pokemon.heldItem)} <b>PRONTO</b>
           </span>
         )}
-        {pokemon.status && (
-          <span className={`battle-status is-${pokemon.status.id}`}>
-            {getStatusLabel(pokemon.status.id)}
-          </span>
-        )}
+        {pokemon.status && <StatusBadge pokemon={pokemon} onOpen={onStatusOpen} />}
         {side === "player" && matchup === "disadvantage" && (
           <small className="matchup-warning">⚠ Desvantagem</small>
         )}
@@ -157,6 +172,12 @@ function Fighter({ side, player, isHit, isAttacking, isHealing, matchup }) {
       </div>
       <div className="fighter-art">
         <span className="fighter-shadow" aria-hidden="true" />
+        {statusEvent && (
+          <span className={`status-vfx is-${statusEvent.status} is-${statusEvent.type.toLowerCase()}`} aria-hidden="true">
+            <StatusIcon status={statusEvent.status} size={28} />
+            <i /><i /><i />
+          </span>
+        )}
         <PokemonAura
           pokemon={pokemon}
           variant="battle"
@@ -202,7 +223,7 @@ function TeamStrip({ player, label }) {
               {pokemon.hp <= 0
                 ? "KO"
                 : pokemon.status
-                  ? getStatusLabel(pokemon.status.id).slice(0, 2)
+                  ? <StatusIcon status={pokemon.status.id} size={9} />
                   : ""}
             </small>
           </div>
@@ -212,96 +233,115 @@ function TeamStrip({ player, label }) {
   );
 }
 
+function getCureTitle(status) {
+  if (status === "paralysis") return "PARALISIA REMOVIDA!";
+  if (status === "burn") return "QUEIMADURA REMOVIDA!";
+  if (status === "poison") return "VENENO REMOVIDO!";
+  return "SONO REMOVIDO!";
+}
+
+function statusNotification(event) {
+  if (!event || event.type === "STATUS_ATTEMPTED" || !event.successful && event.type !== "STATUS_PREVENTED") return null;
+  const definition = getStatusDefinition(event.status);
+  if (!definition) return null;
+  if (event.type === "STATUS_APPLIED") return {
+    title: `${definition.eventName.toUpperCase()}!`,
+    detail: event.moveName
+      ? `${event.moveName} também deixou ${event.targetPokemonName} ${definition.displayName.toLowerCase()}.`
+      : event.sourceKind === "ability"
+        ? `Uma habilidade deixou ${event.targetPokemonName} ${definition.displayName.toLowerCase()}.`
+        : `${event.targetPokemonName} recebeu a condição.`,
+    tone: `status is-${definition.id}`,
+    status: definition.id,
+    duration: 1200,
+  };
+  if (event.type === "STATUS_TRIGGERED") return {
+    title: definition.eventName.toUpperCase(),
+    detail: event.status === "sleep" ? `${event.targetPokemonName} continua dormindo e não pode atacar neste turno.` : `${event.targetPokemonName} não conseguiu se mover!`,
+    tone: `status is-${definition.id}`,
+    status: definition.id,
+    duration: 1250,
+  };
+  if (event.type === "STATUS_DAMAGE") return {
+    title: definition.eventName.toUpperCase(),
+    detail: `-${event.damage} HP em ${event.targetPokemonName}.`,
+    tone: `status is-${definition.id}`,
+    status: definition.id,
+    duration: 950,
+  };
+  if (event.type === "STATUS_CURED") return {
+    title: getCureTitle(event.status),
+    detail: `${getItemLabel(event.itemId) || "O item"} curou ${event.targetPokemonName}.`,
+    tone: "healing",
+    itemId: event.itemId,
+    duration: 1100,
+  };
+  if (event.type === "STATUS_EXPIRED") return {
+    title: "ACORDOU!",
+    detail: `${event.targetPokemonName} pode agir novamente.`,
+    tone: "healing",
+    duration: 1050,
+  };
+  if (event.type === "STATUS_PREVENTED") return {
+    title: "STATUS EVITADO!",
+    detail: `${getItemLabel(event.itemId)} protegeu ${event.targetPokemonName}.`,
+    tone: "healing",
+    itemId: event.itemId,
+    duration: 1050,
+  };
+  return null;
+}
+
+function buildBattleNotifications(state, role, opponentName) {
+  if (state.status === "countdown") return [{ title: "3 · 2 · 1", detail: "BATALHA!", tone: "turn", duration: 1450 }];
+  if (state.status === "finished") return [{ title: "BATALHA ENCERRADA", detail: state.log, tone: "result", duration: 1400 }];
+  const effect = state.effect;
+  if (!effect) return [state.turn === role
+    ? { title: "SUA VEZ!", detail: "Escolha um ataque", tone: "turn", duration: 1050 }
+    : { title: `VEZ DE ${opponentName.toUpperCase()}`, detail: "Aguardando adversário...", tone: "waiting", duration: 1050 }];
+  const queue = [];
+  if (["attack", "miss"].includes(effect.kind) && effect.moveName) queue.push({ title: `${effect.sourcePokemonName?.toUpperCase() || "POKÉMON"} USOU ${effect.moveName.toUpperCase()}!`, detail: effect.kind === "miss" ? "O golpe não acertou." : "Golpe em execução", tone: "move", duration: 800 });
+  if (effect.kind === "attack" && effect.damage > 0) queue.push({ title: `-${effect.damage} HP`, detail: effect.effective ? "SUPER EFETIVO!" : `${effect.targetPokemonName} recebeu o golpe.`, tone: effect.effective ? "strong" : "damage", duration: 850 });
+  for (const event of effect.statusEvents || []) {
+    const notification = statusNotification(event);
+    if (notification) queue.push(notification);
+  }
+  const cureHandled = (effect.statusEvents || []).some((event) => ["STATUS_CURED", "STATUS_PREVENTED"].includes(event.type));
+  if (effect.heldItem && !cureHandled) {
+    const definition = getItemDefinition(effect.heldItem.itemId);
+    queue.push({ title: `${(definition?.name || getItemLabel(effect.heldItem.itemId)).toUpperCase()} ATIVADO!`, detail: effect.heldItem.effect?.amount ? `+${effect.heldItem.effect.amount} HP · item consumido` : "Item consumido", tone: definition?.rarity === "LEGENDARY" ? "strong" : "healing", itemId: effect.heldItem.itemId, duration: 900 });
+  } else if (effect.itemEvents?.length && !cureHandled) {
+    const item = effect.itemEvents[0]; const definition = getItemDefinition(item.itemId);
+    queue.push({ title: (definition?.name || getItemLabel(item.itemId)).toUpperCase(), detail: item.effect?.amount ? `+${item.effect.amount} HP` : definition?.shortDescription || "Efeito ativado", tone: "turn", itemId: item.itemId, duration: 900 });
+  }
+  if (effect.ability && !queue.some((entry) => entry.status)) queue.push({ title: `${effect.ability.toUpperCase()}!`, detail: "Habilidade ativada", tone: "strong", duration: 900 });
+  if (effect.kind === "item" && !cureHandled) queue.push({ title: effect.itemName?.toUpperCase() || "ITEM USADO!", detail: `×${effect.remaining} restante${effect.remaining === 1 ? "" : "s"}`, tone: effect.healing ? "healing" : "strong", itemId: effect.itemId, duration: 1050 });
+  if (effect.kind === "switch") queue.push({ title: "TROCA!", detail: state.log, tone: "turn", duration: 1050 });
+  return queue.length ? queue : [{ title: state.turn === role ? "SUA VEZ!" : `VEZ DE ${opponentName.toUpperCase()}`, detail: state.log, tone: "turn", duration: 1050 }];
+}
+
 function BattleNotification({ state, role, opponentName }) {
   const [notification, setNotification] = useState(null);
   useEffect(() => {
     if (state.effect?.kind === "attack") playBattleSound("dano", 0.5);
-    if (state.effect?.kind === "item" && state.effect?.healing)
-      playBattleSound("healing-pokemon-sound", 0.5);
-    if (state.status === "finished")
-      playBattleSound(state.winner === role ? "win" : "lost", 0.62);
-    if (state.status === "countdown")
-      setNotification({ title: "3 · 2 · 1", detail: "BATALHA!", tone: "turn" });
-    else if (state.status === "finished")
-      setNotification({
-        title: "BATALHA ENCERRADA",
-        detail: state.log,
-        tone: "result",
-      });
-    else if (state.effect?.heldItem) {
-      const item = state.effect.heldItem;
-      const definition = getItemDefinition(item.itemId);
-      const itemName = (definition?.name || getItemLabel(item.itemId)).toUpperCase();
-      setNotification({
-        title: `${itemName} ATIVADA!`,
-        detail:
-          item.effect?.type === "heal_hp"
-            ? `+${item.effect.amount} HP · item consumido`
-            : "Item consumido",
-        tone: definition?.rarity === "LEGENDARY" ? "strong" : "healing",
-        itemId: item.itemId,
-      });
-    } else if (state.effect?.itemEvents?.length) {
-      const item = state.effect.itemEvents[0];
-      const definition = getItemDefinition(item.itemId);
-      setNotification({
-        title: (definition?.name || getItemLabel(item.itemId)).toUpperCase(),
-        detail: item.effect?.amount ? `+${item.effect.amount} HP` : item.effect?.status ? getStatusLabel(item.effect.status) : definition?.shortDescription || "Efeito ativado",
-        tone: "turn",
-        itemId: item.itemId,
-      });
-    } else if (state.effect?.ability)
-      setNotification({
-        title: state.effect.ability.toUpperCase() + "!",
-        detail: "Habilidade ativada",
-        tone: "strong",
-      });
-    else if (state.effect?.kind === "attack")
-      setNotification({
-        title: `-${state.effect.damage}`,
-        detail: state.effect.effective ? "SUPER EFETIVO!" : state.log,
-        tone: state.effect.effective ? "strong" : "damage",
-      });
-    else if (state.effect?.kind === "item")
-      setNotification({
-        title: state.effect.itemName?.toUpperCase() || "ITEM USADO!",
-        detail: `${state.effect.curedStatus ? `${getStatusLabel(state.effect.curedStatus)} removido · ` : ""}×${state.effect.remaining} restante${state.effect.remaining === 1 ? "" : "s"}`,
-        tone: state.effect.healing ? "healing" : "strong",
-      });
-    else if (state.effect?.kind === "switch")
-      setNotification({ title: "TROCA!", detail: state.log, tone: "turn" });
-    else if (state.turn === role)
-      setNotification({
-        title: "SUA VEZ!",
-        detail: "Escolha um ataque",
-        tone: "turn",
-      });
-    else
-      setNotification({
-        title: `VEZ DE ${opponentName.toUpperCase()}`,
-        detail: "Aguardando adversário...",
-        tone: "waiting",
-      });
-    const timer = setTimeout(
-      () => setNotification(null),
-      state.status === "countdown" ? 1450 : state.effect?.heldItem ? 850 : 1050,
-    );
-    return () => clearTimeout(timer);
-  }, [
-    state.revision,
-    state.status,
-    state.effect?.kind,
-    state.turn,
-    state.log,
-    role,
-    opponentName,
-  ]);
+    if (state.effect?.kind === "item" && state.effect?.healing) playBattleSound("healing-pokemon-sound", 0.5);
+    if (state.status === "finished") playBattleSound(state.winner === role ? "win" : "lost", 0.62);
+    const queue = buildBattleNotifications(state, role, opponentName);
+    const timers = [];
+    let elapsed = 0;
+    queue.forEach((entry, index) => {
+      timers.push(window.setTimeout(() => setNotification({ ...entry, index }), elapsed));
+      elapsed += entry.duration || 1050;
+    });
+    timers.push(window.setTimeout(() => setNotification(null), elapsed));
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [state.revision, state.status, role, opponentName]);
   return (
     <AnimatePresence mode="wait">
       {notification && (
         <div className="battle-notification-anchor">
           <motion.div
-            key={`${state.revision}-${notification.title}-${state.status}`}
+            key={`${state.revision}-${notification.index}-${notification.title}-${state.status}`}
             className={`battle-notification ${notification.tone}`}
             initial={{ opacity: 0, scale: 0.72, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -317,6 +357,7 @@ function BattleNotification({ state, role, opponentName }) {
                 className="battle-notification-item"
               />
             )}
+            {notification.status && <StatusIcon status={notification.status} size={24} />}
             <strong>{notification.title}</strong>
             <span>{notification.detail}</span>
           </motion.div>
@@ -392,6 +433,36 @@ function BadgeBattleResultModal({ won, badgeContext, onRematch }) {
       <div className="result-modal__actions"><button ref={actionRef} type="button" className="rematch-button" onClick={onRematch} disabled={!canContinue}>{resolving ? "Confirmando..." : active ? "Preparar próxima batalha" : "Voltar às Insígnias"}</button></div>
     </motion.section>
   </motion.div>;
+}
+
+function StatusDetails({ selection, onClose }) {
+  if (!selection) return null;
+  const definition = getStatusDefinition(selection.status);
+  if (!definition) return null;
+  const source = selection.status.sourceMoveName ||
+    (selection.status.sourceItemId ? getItemLabel(selection.status.sourceItemId) : null) ||
+    (selection.status.sourceAbilityId ? `Habilidade ${selection.status.sourceAbilityId}` : null) ||
+    selection.status.sourcePokemonName;
+  return (
+    <motion.section
+      className={`status-detail-sheet is-${definition.id}`}
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="status-detail-title"
+      initial={{ opacity: 0, y: 10, scale: .97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 6, scale: .98 }}
+    >
+      <button type="button" className="status-detail-close" onClick={onClose} aria-label="Fechar explicação do status"><X size={18} weight="bold" aria-hidden="true" /></button>
+      <div className="status-detail-heading">
+        <StatusIcon status={definition.id} size={24} />
+        <div><small>CONDIÇÃO ATUAL</small><strong id="status-detail-title">{definition.displayName}</strong></div>
+      </div>
+      <p>{definition.battleDescription}</p>
+      {source && <div className="status-detail-source"><span>CAUSADO POR</span><strong>{source}</strong></div>}
+      <div className="status-detail-response"><span>COMO RESPONDER</span><p>{definition.strategicHint}</p></div>
+    </motion.section>
+  );
 }
 
 function BattleResultModal({ won, reward, coins, mode, onRematch, tournamentContext }) {
@@ -585,12 +656,14 @@ export default function BattleArena({
 }) {
   const [actionMode, setActionMode] = useState("moves");
   const [selectedItem, setSelectedItem] = useState(null);
+  const [selectedStatus, setSelectedStatus] = useState(null);
   const coins = useSelector((store) => store.economy.coins);
   const me = state[role];
   const opponentRole = role === "host" ? "guest" : "host";
   const opponent = state[opponentRole];
   const myTurn = state.turn === role && state.status === "playing";
   const effect = state.effect;
+  const latestStatusEvent = [...(effect?.statusEvents || [])].reverse().find((event) => event.type !== "STATUS_ATTEMPTED") || null;
   const active = me.team[me.active];
   const enemy = opponent.team[opponent.active];
   const bag = me.bag || {};
@@ -617,6 +690,11 @@ export default function BattleArena({
   const arenaRef = useBattleParallax(
     state.status === "playing" || state.status === "countdown",
   );
+  useEffect(() => {
+    if (!selectedStatus) return;
+    const current = [...me.team, ...opponent.team].find((pokemon) => String(pokemon.id) === String(selectedStatus.pokemon.id));
+    if (!current?.status || current.status.id !== selectedStatus.status.id) setSelectedStatus(null);
+  }, [state.revision, selectedStatus, me.team, opponent.team]);
   return (
     <>
       <section
@@ -652,6 +730,8 @@ export default function BattleArena({
             player={opponent}
             isHit={effect?.kind === "attack" && effect?.target === opponentRole}
             isAttacking={effect?.actor === opponentRole}
+            statusEvent={latestStatusEvent?.targetPokemonId === opponent.team[opponent.active].id ? latestStatusEvent : null}
+            onStatusOpen={setSelectedStatus}
             isHealing={
               effect?.kind === "item" && effect?.healing > 0 &&
               effect?.target === opponentRole &&
@@ -666,6 +746,8 @@ export default function BattleArena({
             player={me}
             isHit={effect?.kind === "attack" && effect?.target === role}
             isAttacking={effect?.actor === role}
+            statusEvent={latestStatusEvent?.targetPokemonId === me.team[me.active].id ? latestStatusEvent : null}
+            onStatusOpen={setSelectedStatus}
             isHealing={
               effect?.kind === "item" && effect?.healing > 0 &&
               effect?.target === role &&
@@ -679,6 +761,9 @@ export default function BattleArena({
           role={role}
           opponentName={opponent.name}
         />
+        <AnimatePresence>
+          {selectedStatus && <StatusDetails selection={selectedStatus} onClose={() => setSelectedStatus(null)} />}
+        </AnimatePresence>
       </section>
       <section className={`battle-controls ${myTurn ? "is-active" : ""}`}>
         <div
@@ -759,6 +844,8 @@ export default function BattleArena({
                     ? "▼ FRACO"
                     : "● NORMAL";
                 const strategistDetail = active.heldItem === "strategist-eye" ? ` · ×${multiplier(attackType, enemy).toFixed(2)}` : "";
+                const moveStatus = getStatusDefinition(move.statusEffect);
+                const moveStatusChance = move.statusEffect ? Math.round(move.statusEffect.chance * 100) : null;
                 return (
                   <button
                     type="button"
@@ -771,7 +858,7 @@ export default function BattleArena({
                       );
                       onAction({ type: "attack", moveId: move.id });
                     }}
-                    aria-label={`${move.name}. ${move.special ? (exhausted ? "Especial esgotado" : `Especial, ${uses} de 2 usos`) : `${move.power} de poder, ${effectiveness}${strategistDetail}`} `}
+                    aria-label={`${move.name}. ${move.special ? (exhausted ? "Especial esgotado" : `Especial, ${uses} de 2 usos`) : `${move.power} de poder, ${effectiveness}${strategistDetail}`}${moveStatus ? `. ${moveStatusChance}% de chance de causar ${moveStatus.eventName}` : ""}.`}
                   >
                     <span className="attack-icon">
                       <PokemonTypeIcon type={attackType} size={25} decorative />
@@ -796,6 +883,7 @@ export default function BattleArena({
                           </>
                         )}
                       </small>
+                      {moveStatus && <small className={`move-status-hint is-${moveStatus.id}`}><StatusIcon status={moveStatus.id} size={11} /> {moveStatusChance}% {moveStatus.eventName}</small>}
                     </span>
                   </button>
                 );
@@ -856,7 +944,7 @@ export default function BattleArena({
                 </>
               ) : (
                 <div className="deck-item-grid">
-                  {BAG_ITEM_CATALOG.map((item) => <button
+                  {BAG_ITEM_CATALOG.map((item) => { const activeStatus = getStatusDefinition(active.status); const contextualDescription = item.effectType === "BAG_CURE" && activeStatus ? `Remove ${activeStatus.eventName}` : item.shortDescription; return <button
                     type="button"
                     key={item.id}
                     disabled={!myTurn || !bag[item.id]}
@@ -864,9 +952,9 @@ export default function BattleArena({
                     aria-label={`${item.name}. ${bag[item.id] ? `${bag[item.id]} disponíveis` : "Esgotado"}`}
                   >
                     <ItemSprite item={item.id} alt={item.name} />
-                    <span><strong>{item.name}</strong><small>{bag[item.id] ? item.shortDescription : "ESGOTADO"}</small></span>
+                    <span><strong>{item.name}</strong><small>{bag[item.id] ? contextualDescription : "ESGOTADO"}</small></span>
                     <b>×{bag[item.id] || 0}</b>
-                  </button>)}
+                  </button>; })}
                 </div>
               )}
             </div>
@@ -903,6 +991,7 @@ export default function BattleArena({
                             ? "Desmaiado"
                             : `${pokemon.hp}/${pokemon.maxHp} HP`}
                       </small>
+                      {pokemon.status && <small className={`switch-status is-${pokemon.status.id}`}><StatusIcon status={pokemon.status.id} size={12} /> {getStatusLabel(pokemon.status.id)}</small>}
                     </span>
                     {!activeSlot && !fainted && (
                       <em>

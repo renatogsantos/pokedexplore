@@ -20,10 +20,13 @@ import {
 } from "@phosphor-icons/react";
 import {
   calculateDamage,
+  getBattleMoves,
   getTypeEffectiveness,
   MAX_SPECIAL_ATTACK_USES,
   MOVES,
+  PARALYSIS_ACTION_BLOCK_CHANCE,
   POTION_HEAL_PERCENTAGE,
+  STATUS_DAMAGE_PERCENTAGE,
 } from "@/lib/battle/engine";
 import {
   MAX_POKEMON_LEVEL,
@@ -39,11 +42,24 @@ import {
 } from "@/lib/battle/rewards";
 import PokemonTypeIcon from "@/components/PokemonTypeIcon";
 import PokemonAura from "@/components/PokemonAura/PokemonAura";
+import StatusIcon from "@/components/Battle/StatusIcon";
+import ItemSprite from "@/components/ItemSprite/ItemSprite";
+import { STATUS_DEFINITIONS } from "@/lib/battle/statuses";
 
 const percent = Math.round(POTION_HEAL_PERCENTAGE * 100);
+const statusDamagePercent = Math.round(STATUS_DAMAGE_PERCENTAGE * 100);
+const paralysisBlockPercent = Math.round(PARALYSIS_ACTION_BLOCK_CHANCE * 100);
 const TUTORIAL_POTIONS = 2;
 const levelBonus = Math.round(STAT_BONUS_PER_LEVEL * 100);
 const typeStrike = MOVES.find((move) => move.id === "type-strike");
+const statusDemoMove = getBattleMoves({ type: "electric" }).find((move) => move.name === "Spark");
+const tutorialStatuses = Object.values(STATUS_DEFINITIONS);
+const STATUS_CAUSES = Object.freeze({
+  paralysis: "Thunder Shock, Spark e Thunderbolt podem causar Paralisia.",
+  sleep: "Só aparece quando um golpe normalizado traz Sono em seus próprios dados.",
+  burn: "Ember, Fire Fang e Flamethrower podem causar Queimadura.",
+  poison: "Poison Sting e Sludge Bomb podem causar Veneno.",
+});
 const tutorialPikachu = {
   type: "electric",
   types: ["electric"],
@@ -293,6 +309,39 @@ function PotionDemo() {
     <div className="tutorial-potion-demo">
       <Pokemon name="pikachu" type="electric" />
       <div><Hp value={hp} /><button type="button" disabled={!canUse} onClick={() => { setHp((value) => Math.min(100, value + healing)); setPotions((value) => value - 1); }}><FirstAid size={20} weight="fill" aria-hidden="true" /> Usar Poção Vital ×{potions}</button><strong aria-live="polite">{canUse ? `Recupera ${percent}% do HP máximo` : hp === 100 ? "HP cheio!" : "Poções esgotadas"}</strong>{(hp !== 30 || potions !== TUTORIAL_POTIONS) && <ResetButton onClick={() => { setHp(30); setPotions(TUTORIAL_POTIONS); }} />}</div>
+    </div>
+  );
+}
+
+function StatusDemo() {
+  const [phase, setPhase] = useState("ready");
+  const hasStatus = ["applied", "blocked", "bag"].includes(phase);
+  const chance = Math.round((statusDemoMove?.statusEffect?.chance || 0) * 100);
+  const advance = () => setPhase((current) => current === "ready" ? "applied" : current === "applied" ? "blocked" : current === "blocked" ? "bag" : "cured");
+  return (
+    <div className="tutorial-status-demo" aria-label="Demonstração de paralisia e cura">
+      <div className="tutorial-status-stage">
+        <div><span>ADVERSÁRIO</span><Pokemon name="pikachu" type="electric" level={3} /></div>
+        <ArrowRight aria-hidden="true" />
+        <div className={hasStatus ? "has-status" : ""}>
+          <span>SEU POKÉMON</span>
+          <Pokemon name="squirtle" type="water" level={2} />
+          {hasStatus && <span className="tutorial-status-badge"><StatusIcon status="paralysis" size={14} /> PARALISADO</span>}
+        </div>
+      </div>
+      <div className="tutorial-status-event" role="status" aria-live="polite">
+        {phase === "ready" && <><strong>{statusDemoMove?.name || "Spark"}</strong><p>Este golpe tem {chance}% de chance de causar Paralisia. A demonstração mostra o resultado positivo de propósito.</p></>}
+        {phase === "applied" && <><strong><StatusIcon status="paralysis" size={19} /> PARALISIA!</strong><p>{statusDemoMove?.name || "Spark"} também paralisou Squirtle.</p></>}
+        {phase === "blocked" && <><strong><StatusIcon status="paralysis" size={19} /> NÃO CONSEGUIU AGIR</strong><p>A condição ativou neste turno; por isso nenhum golpe foi lançado.</p></>}
+        {phase === "bag" && <><strong>MOCHILA</strong><div className="tutorial-elixir"><ItemSprite item="purifying-elixir" alt="" /><span><b>Elixir Purificador</b><small>Remove Paralisia</small></span></div></>}
+        {phase === "cured" && <><strong>PARALISIA REMOVIDA!</strong><p>O Elixir foi usado uma vez e Squirtle pode agir novamente.</p></>}
+      </div>
+      {phase !== "cured" ? (
+        <button type="button" className="tutorial-status-action" onClick={advance}>
+          {phase === "ready" ? `Ver ${statusDemoMove?.name || "Spark"}` : phase === "applied" ? "Próximo turno" : phase === "blocked" ? "Abrir Mochila" : "Usar Elixir"}
+        </button>
+      ) : <ResetButton onClick={() => setPhase("ready")} />}
+      <small className="tutorial-sandbox-note">Demonstração local: não usa seu inventário, moedas, XP ou progresso.</small>
     </div>
   );
 }
@@ -604,6 +653,32 @@ export default function Tutorial() {
           </Step>
           <Step
             number="11"
+            eyebrow="ENTENDA A CAUSA"
+            title="Condições de batalha continuam depois do golpe"
+            className="status-step"
+          >
+            <p>Condições não aparecem pelo tipo do Pokémon. Elas só podem ocorrer quando o próprio golpe, habilidade ou item traz esse efeito. Alguns efeitos são garantidos; outros dependem de uma chance resolvida pela batalha.</p>
+            <div className="tutorial-status-flow" aria-label="Fluxo de uma condição de batalha">
+              <span>GOLPE</span><ArrowRight aria-hidden="true" /><span>DANO</span><ArrowRight aria-hidden="true" /><span>EFEITO ADICIONAL</span><ArrowRight aria-hidden="true" /><strong><StatusIcon status="paralysis" size={16} /> PARALISIA</strong>
+            </div>
+            <div className="tutorial-status-cards">
+              {tutorialStatuses.map((status) => (
+                <article key={status.id} className={`is-${status.id}`}>
+                  <div><StatusIcon status={status.id} size={23} /><strong>{status.eventName}</strong></div>
+                  <p>{STATUS_CAUSES[status.id]}</p>
+                  <dl><div><dt>CONSEQUÊNCIA</dt><dd>{status.shortDescription}</dd></div><div><dt>O QUE POSSO FAZER?</dt><dd>{status.strategicHint}</dd></div></dl>
+                </article>
+              ))}
+            </div>
+            <StatusDemo />
+            <div className="tutorial-status-items">
+              <article><ItemSprite item="purifier" alt="" /><div><span>ITEM EQUIPADO</span><strong>Purificador</strong><p>Ativa automaticamente quando um estado negativo é aplicado e é consumido ao remover a condição.</p></div></article>
+              <article><ItemSprite item="purifying-elixir" alt="" /><div><span>MOCHILA</span><strong>Elixir Purificador</strong><p>Você escolhe o Pokémon afetado e o momento de remover a condição.</p></div></article>
+            </div>
+            <p className="tutorial-note">Queimadura e Veneno retiram {statusDamagePercent}% do HP máximo ao fim da ação do Pokémon afetado. Sono impede ações durante sua duração. Paralisia tem {paralysisBlockPercent}% de chance de impedir cada ação. Congelamento ainda não faz parte das regras do PokédExplore.</p>
+          </Step>
+          <Step
+            number="12"
             eyebrow="UMA AÇÃO POR VEZ"
             title="Quando é sua vez, escolha uma ação"
           >
@@ -628,7 +703,7 @@ export default function Tutorial() {
             <p className="tutorial-note">A Arena organiza suas escolhas nesse baralho de ações. Cada ação válida encerra seu turno.</p>
           </Step>
           <Step
-            number="12"
+            number="13"
             eyebrow="O OBJETIVO"
             title="Derrube os 3 Pokémon adversários"
             className="win-step"

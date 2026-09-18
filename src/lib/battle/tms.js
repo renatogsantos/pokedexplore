@@ -3,8 +3,8 @@ export const MAX_BATTLE_MOVES = 4;
 // PokédExplore owns the simplified rules; these are intentionally supported,
 // deterministic TM definitions rather than a partial simulation of all PokéAPI moves.
 export const TM_CATALOG = Object.freeze([
-  { id: "tm-thunderbolt", name: "Thunderbolt", type: "electric", power: 90, accuracy: 100, damageClass: "special", price: 300 },
-  { id: "tm-flamethrower", name: "Flamethrower", type: "fire", power: 90, accuracy: 100, damageClass: "special", price: 300 },
+  { id: "tm-thunderbolt", name: "Thunderbolt", type: "electric", power: 90, accuracy: 100, damageClass: "special", statusEffect: { id: "paralysis", chance: .1 }, price: 300 },
+  { id: "tm-flamethrower", name: "Flamethrower", type: "fire", power: 90, accuracy: 100, damageClass: "special", statusEffect: { id: "burn", chance: .1 }, price: 300 },
   { id: "tm-ice-beam", name: "Ice Beam", type: "ice", power: 90, accuracy: 100, damageClass: "special", price: 300 },
   { id: "tm-psychic", name: "Psychic", type: "psychic", power: 90, accuracy: 100, damageClass: "special", price: 300 },
   { id: "tm-earthquake", name: "Earthquake", type: "ground", power: 100, accuracy: 100, damageClass: "physical", price: 360 },

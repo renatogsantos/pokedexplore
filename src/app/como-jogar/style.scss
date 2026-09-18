@@ -1572,3 +1572,63 @@
 @media (prefers-reduced-motion: reduce) {
   .tutorial-hp-track i { transition: none; }
 }
+
+/* Conditions are taught as cause -> consequence -> response, using the Arena vocabulary. */
+.status-step { --tutorial-status-accent: #ffe16b; }
+.tutorial-status-flow { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; margin: 14px 0; padding: 12px; border: 1px solid #ffffff1c; border-radius: 14px; background: #061322b3; color: #c8d8ea; font-size: .65rem; font-weight: 900; letter-spacing: .06em; }
+.tutorial-status-flow strong { display: inline-flex; align-items: center; gap: 5px; color: #ffe16b; }
+.tutorial-status-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.tutorial-status-cards article { --status-card-color: #ffe16b; display: grid; gap: 9px; min-width: 0; padding: 14px; border: 1px solid color-mix(in srgb, var(--status-card-color) 48%, #ffffff1b); border-radius: 16px; background: linear-gradient(145deg, color-mix(in srgb, var(--status-card-color) 8%, #0c2036), #081522); }
+.tutorial-status-cards article.is-burn { --status-card-color: #ff9a65; }
+.tutorial-status-cards article.is-poison { --status-card-color: #d48afa; }
+.tutorial-status-cards article.is-sleep { --status-card-color: #abb4ff; }
+.tutorial-status-cards article > div:first-child { display: flex; align-items: center; gap: 8px; color: var(--status-card-color); }
+.tutorial-status-cards article > div:first-child strong { text-transform: uppercase; }
+.tutorial-status-cards article > p { margin: 0; color: #d7e4f2; font-size: .74rem; line-height: 1.45; }
+.tutorial-status-cards dl, .tutorial-status-cards dl div { display: grid; gap: 3px; margin: 0; }
+.tutorial-status-cards dl { gap: 8px; padding-top: 9px; border-top: 1px solid #ffffff16; }
+.tutorial-status-cards dt { color: var(--status-card-color); font-size: .55rem; font-weight: 950; letter-spacing: .1em; }
+.tutorial-status-cards dd { margin: 0; color: #c6d7e9; font-size: .7rem; line-height: 1.4; }
+
+.tutorial-status-demo { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(220px, .85fr); gap: 12px; margin-top: 14px; padding: 14px; border: 1px solid #ffe16b4f; border-radius: 18px; background: radial-gradient(circle at 15% 10%, #ffe16b14, transparent 35%), #071524; }
+.tutorial-status-stage { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 8px; }
+.tutorial-status-stage > div { position: relative; display: grid; justify-items: center; gap: 5px; min-width: 0; }
+.tutorial-status-stage > div > span:first-child { color: #9fb3ca; font-size: .55rem; font-weight: 900; letter-spacing: .1em; }
+.tutorial-status-stage .has-status { filter: drop-shadow(0 0 10px #ffe16b33); }
+.tutorial-status-badge { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; padding: 4px 8px; border: 1px solid #ffe16b; border-radius: 999px; background: #201f17e8; color: #ffe16b; font-size: .55rem; font-weight: 950; white-space: nowrap; }
+.tutorial-status-event { display: grid; align-content: center; gap: 7px; min-height: 132px; padding: 14px; border: 1px solid #ffffff1d; border-radius: 14px; background: #0d2137; }
+.tutorial-status-event > strong { display: flex; align-items: center; gap: 6px; color: #ffe16b; font-size: .86rem; }
+.tutorial-status-event p { margin: 0; color: #d4e1f0; font-size: .73rem; line-height: 1.45; }
+.tutorial-elixir { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; gap: 9px; }
+.tutorial-elixir img { width: 44px; height: 44px; object-fit: contain; }
+.tutorial-elixir span { display: grid; gap: 2px; }
+.tutorial-elixir small { color: #8fe8c0; }
+.tutorial-status-action { min-height: 44px; border: 1px solid #ffea8d; border-radius: 11px; background: #ffcb05; color: #102039; font: inherit; font-size: .72rem; font-weight: 950; text-transform: uppercase; cursor: pointer; }
+.tutorial-status-action:hover, .tutorial-status-action:focus-visible { background: #ffe05c; outline: 3px solid #ffcb0538; outline-offset: 2px; }
+.tutorial-sandbox-note { align-self: center; color: #8fa3bb; font-size: .62rem; line-height: 1.35; }
+.tutorial-status-items { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin-top: 12px; }
+.tutorial-status-items article { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 10px; align-items: center; padding: 12px; border: 1px solid #75e3b743; border-radius: 14px; background: #0b2130; }
+.tutorial-status-items img { width: 52px; height: 52px; object-fit: contain; }
+.tutorial-status-items article > div { display: grid; gap: 3px; min-width: 0; }
+.tutorial-status-items span { color: #8de8bd; font-size: .53rem; font-weight: 950; letter-spacing: .1em; }
+.tutorial-status-items strong { color: #f5f9fd; font-size: .82rem; }
+.tutorial-status-items p { margin: 0; color: #bfd0e2; font-size: .69rem; line-height: 1.4; }
+
+@media (max-width: 700px) {
+  .tutorial-status-demo { grid-template-columns: 1fr; }
+  .tutorial-status-event { min-height: 108px; }
+}
+@media (max-width: 520px) {
+  .tutorial-status-cards, .tutorial-status-items { grid-template-columns: 1fr; }
+  .tutorial-status-flow { justify-content: flex-start; gap: 6px; }
+  .tutorial-status-flow > svg { width: 14px; }
+  .tutorial-status-demo { padding: 10px; }
+  .tutorial-status-stage { gap: 3px; }
+  .tutorial-status-stage .tutorial-pokemon img { width: 68px; height: 68px; }
+  .tutorial-status-stage .tutorial-type { display: none; }
+}
+@media (max-width: 340px) {
+  .tutorial-status-stage { grid-template-columns: 1fr 20px 1fr; }
+  .tutorial-status-stage .tutorial-pokemon img { width: 58px; height: 58px; }
+  .tutorial-status-badge { padding-inline: 5px; font-size: .48rem; }
+}
