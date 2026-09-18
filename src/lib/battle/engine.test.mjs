@@ -8,8 +8,8 @@ globalThis.__itemCatalog = catalog;
 const statusesSource = await readFile(new URL("./statuses.js", import.meta.url), "utf8");
 globalThis.__battleStatuses = await import(`data:text/javascript;base64,${Buffer.from(statusesSource).toString("base64")}`);
 const engineSource = (await readFile(new URL("./engine.js", import.meta.url), "utf8"))
-  .replace('import { BAG_ITEM_CATALOG, getItemDefinition, migrateLegacyItemId } from "@/lib/items/catalog";', "const { BAG_ITEM_CATALOG, getItemDefinition, migrateLegacyItemId } = globalThis.__itemCatalog;")
-  .replace('import { isSupportedStatus, normalizeStatusEffect } from "@/lib/battle/statuses";', "const { isSupportedStatus, normalizeStatusEffect } = globalThis.__battleStatuses;");
+  .replace(/import\s*\{[\s\S]*?BAG_ITEM_CATALOG[\s\S]*?\}\s*from\s*"@\/lib\/items\/catalog";/, "const { BAG_ITEM_CATALOG, getItemDefinition, migrateLegacyItemId } = globalThis.__itemCatalog;")
+  .replace(/import\s*\{[\s\S]*?isSupportedStatus[\s\S]*?\}\s*from\s*"@\/lib\/battle\/statuses";/, "const { isSupportedStatus, normalizeStatusEffect } = globalThis.__battleStatuses;");
 const { MAX_HEALS_PER_POKEMON, MAX_SPECIAL_ATTACK_USES, calculateDamage, createBattleState, getBattleMoves, resolveAction, resolvePostDamageHeldItem } = await import(`data:text/javascript;base64,${Buffer.from(engineSource).toString("base64")}`);
 
 const pokemon = (id, heldItem = null, hp = 100, level = 5, type = "normal") => ({ id, name: `P${id}`, level, type, types: [type], heldItem, maxHp: 100, hp, stats: { attack: 50, defense: 50, specialAttack: 50, specialDefense: 50, speed: 50 }, moveset: [{ id: "hit", name: "Hit", type, power: 40, accuracy: 100, damageClass: "physical", special: false }, { id: "special", name: "Special", type, power: 70, accuracy: 100, damageClass: "special", special: true }] });

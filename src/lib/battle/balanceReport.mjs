@@ -6,8 +6,8 @@ globalThis.__itemCatalog = await import(`data:text/javascript;base64,${Buffer.fr
 const statusesSource = await readFile(new URL("./statuses.js", import.meta.url), "utf8");
 globalThis.__battleStatuses = await import(`data:text/javascript;base64,${Buffer.from(statusesSource).toString("base64")}`);
 const source = (await readFile(new URL("./engine.js", import.meta.url), "utf8"))
-  .replace('import { BAG_ITEM_CATALOG, getItemDefinition, migrateLegacyItemId } from "@/lib/items/catalog";', "const { BAG_ITEM_CATALOG, getItemDefinition, migrateLegacyItemId } = globalThis.__itemCatalog;")
-  .replace('import { isSupportedStatus, normalizeStatusEffect } from "@/lib/battle/statuses";', "const { isSupportedStatus, normalizeStatusEffect } = globalThis.__battleStatuses;");
+  .replace(/import\s*\{[\s\S]*?BAG_ITEM_CATALOG[\s\S]*?\}\s*from\s*"@\/lib\/items\/catalog";/, "const { BAG_ITEM_CATALOG, getItemDefinition, migrateLegacyItemId } = globalThis.__itemCatalog;")
+  .replace(/import\s*\{[\s\S]*?isSupportedStatus[\s\S]*?\}\s*from\s*"@\/lib\/battle\/statuses";/, "const { isSupportedStatus, normalizeStatusEffect } = globalThis.__battleStatuses;");
 const { calculateDamage } = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
 const fighter = (name, type, hp, stats, level = 5) => ({ name, type, types: [type], maxHp: hp, hp, level, stats });
 const cases = [

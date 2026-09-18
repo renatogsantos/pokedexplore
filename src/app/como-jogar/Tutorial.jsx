@@ -129,9 +129,9 @@ function Hp({ value, max = 100, label = "HP" }) {
     </div>
   );
 }
-function Step({ number, eyebrow, title, children, className = "" }) {
+function Step({ number, eyebrow, title, children, className = "", id }) {
   return (
-    <section className={`tutorial-step ${className}`}>
+    <section className={`tutorial-step ${className}`} id={id}>
       <div className="tutorial-step-heading">
         <span className="tutorial-step-number">{number}</span>
         <div>
@@ -656,6 +656,7 @@ export default function Tutorial() {
             eyebrow="ENTENDA A CAUSA"
             title="Condições de batalha continuam depois do golpe"
             className="status-step"
+            id="condicoes-de-batalha"
           >
             <p>Condições não aparecem pelo tipo do Pokémon. Elas só podem ocorrer quando o próprio golpe, habilidade ou item traz esse efeito. Alguns efeitos são garantidos; outros dependem de uma chance resolvida pela batalha.</p>
             <div className="tutorial-status-flow" aria-label="Fluxo de uma condição de batalha">
