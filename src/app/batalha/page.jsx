@@ -654,6 +654,7 @@ export default function BattlePage() {
     void realtime.current?.updatePresence({ ready: false, team: null }).catch(() => {});
     broadcast(BATTLE_EVENTS.READY, { playerId: player?.id, ready: false });
     setNotice("Você voltou a selecionar o time.");
+  }
 
   function createRoom() {
     if (!hasRealtimeConfig()) {
@@ -912,7 +913,8 @@ export default function BattlePage() {
               presence={presence}
               notice={notice}
               connection={connection}
-              ready={readySent}
+              ready={myReady}
+              opponentReady={opponentReady}
               onShare={shareRoom}
             />{" "}
             <TeamSelector
@@ -920,7 +922,7 @@ export default function BattlePage() {
               selected={selected}
               onToggle={togglePokemon}
               onReady={readyTeam}
-              waiting={readySent || preparingTeam}
+              waiting={myReady || preparingTeam}
               preparing={preparingTeam}
               canReady={["cpu", "badge-cpu"].includes(mode) || connection === "CONNECTED"}
               onUseDeck={setSelected}
@@ -1059,6 +1061,7 @@ function RoomStatus({
   notice,
   connection,
   ready,
+  opponentReady,
   onShare,
 }) {
   if (["cpu", "badge-cpu"].includes(mode))
@@ -1086,7 +1089,7 @@ function RoomStatus({
           Você: {ready ? "PRONTO ✓" : `${player?.name} selecionando...`}
         </small>
         <small>
-          Adversário: {connected > 1 ? "conectado ✓" : "aguardando..."}
+          Adversário: {opponentReady ? "PRONTO ✓" : connected > 1 ? "selecionando..." : "aguardando..."}
         </small>
       </div>
       <button type="button" onClick={onShare}>
