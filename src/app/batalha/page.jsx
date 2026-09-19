@@ -80,7 +80,8 @@ export default function BattlePage() {
   const [remoteTeam, setRemoteTeam] = useState(null);
   const [battle, setBattle] = useState(null);
   const [notice, setNotice] = useState("");
-  const [readySent, setReadySent] = useState(false);
+  const [myReady, setMyReady] = useState(false);
+  const [opponentReady, setOpponentReady] = useState(false);
   const [preparingTeam, setPreparingTeam] = useState(false);
   const [connection, setConnection] = useState("CONNECTING");
   const [profile, setProfile] = useState(null);
@@ -372,7 +373,8 @@ export default function BattlePage() {
     realtime.current?.leave();
     setBattle(null);
     setRemoteTeam(null);
-    setReadySent(false);
+    setMyReady(false);
+    setOpponentReady(false);
     setTournamentMatch(null);
     setScreen("tournament");
     setNotice(tournament.cancellation_reason === "INACTIVITY" ? "Campeonato encerrado: não houve partida em andamento por 5 minutos." : "O organizador encerrou o campeonato.");
@@ -387,12 +389,15 @@ export default function BattlePage() {
             setPresence(nextPresence);
             const players = Object.values(nextPresence).flat();
             const peer = players.find((item) => item.id !== currentPlayer.id);
-            if (peer?.ready && Array.isArray(peer.team)) {
-              setRemoteTeam({
-                player: { id: peer.id, name: peer.name },
-                team: peer.team,
-              });
-              setNotice("ADVERSÁRIO PRONTO! Preparando batalha...");
+            if (peer) {
+              // Always update the team snapshot when peer publishes it
+              if (Array.isArray(peer.team)) {
+                setRemoteTeam({ player: { id: peer.id, name: peer.name }, team: peer.team });
+              }
+              // Track readiness SEPARATELY — knowing their team ≠ they pressed PRONTO
+              setOpponentReady(peer.ready === true);
+              if (peer.ready === true) setNotice("ADVERSÁRIO PRONTO!");
+              else if (peer.ready === false) setNotice("Adversário voltou a selecionar o time...");
             }
           },
           onStatus: (status) => {
@@ -414,12 +419,26 @@ export default function BattlePage() {
             );
           },
           onEvent: ({ type, payload }) => {
-            if (
-              type === BATTLE_EVENTS.TEAM &&
-              payload?.player?.id !== currentPlayer.id
-            ) {
+            // TEAM broadcast: backward-compat team snapshot. Does NOT imply opponent pressed PRONTO.
+            if (type === BATTLE_EVENTS.TEAM && payload?.player?.id !== currentPlayer.id) {
               setRemoteTeam(payload);
-              setNotice("ADVERSÁRIO PRONTO! Preparando batalha...");
+            }
+            // READY: explicit per-player readiness. This is the authoritative ready signal.
+            if (type === BATTLE_EVENTS.READY && payload?.playerId && payload.playerId !== currentPlayer.id) {
+              const isReady = payload.ready === true;
+              setOpponentReady(isReady);
+              if (isReady) {
+                if (Array.isArray(payload.team)) {
+                  setRemoteTeam((prev) =>
+                    prev
+                      ? { ...prev, team: payload.team }
+                      : { player: { id: payload.playerId, name: payload.playerName || "Adversário" }, team: payload.team }
+                  );
+                }
+                setNotice("ADVERSÁRIO PRONTO!");
+              } else {
+                setNotice("Adversário voltou a selecionar o time...");
+              }
             }
             if (type === BATTLE_EVENTS.START || type === BATTLE_EVENTS.STATE) {
               persistBattleConsumables(payload, currentRole);
@@ -444,7 +463,8 @@ export default function BattlePage() {
               setBattle(null);
               setSelected([]);
               setRemoteTeam(null);
-              setReadySent(false);
+              setMyReady(false);
+              setOpponentReady(false);
               void realtime.current?.updatePresence({ ready: false, team: null }).catch(() => {});
               setScreen("team");
               setNotice(
@@ -464,18 +484,21 @@ export default function BattlePage() {
     if (
       !["friend", "tournament", "badge-pvp"].includes(mode) ||
       role !== "host" ||
-      !readySent ||
+      !myReady ||              // host must have explicitly pressed PRONTO
+      !opponentReady ||        // guest must have ALSO explicitly pressed PRONTO
       selected.length !== 3 ||
-      !remoteTeam ||
+      !remoteTeam?.team ||
+      remoteTeam.team.length !== 3 ||
       !player ||
-      battle
+      battle ||
+      isStartingBattle.current
     )
       return;
     if (mode === "tournament" && tournamentMatch) {
       void markTournamentMatchPlaying(tournamentMatch.id).catch((error) => setNotice(error.message));
     }
     startState(selected, remoteTeam.team, player, remoteTeam.player);
-  }, [mode, role, readySent, selected, remoteTeam, player, battle, startState, tournamentMatch]);
+  }, [mode, role, myReady, opponentReady, selected, remoteTeam, player, battle, startState, tournamentMatch]);
 
   useEffect(() => {
     if (
@@ -531,7 +554,8 @@ export default function BattlePage() {
     setCpuDifficulty(difficulty);
     setSelected([]);
     setBattle(null);
-    setReadySent(false);
+    setMyReady(false);
+    setOpponentReady(false);
     setScreen(nextMode === "cpu" ? "team" : nextMode === "tournament" ? "tournament" : "friend");
   }
   function togglePokemon(pokemon) {
@@ -545,7 +569,7 @@ export default function BattlePage() {
     );
   }
   async function readyTeam() {
-    if (preparingTeam) return;
+    if (preparingTeam || myReady) return;
     setPreparingTeam(true);
     let currentCollection;
     let currentEconomy;
@@ -585,6 +609,7 @@ export default function BattlePage() {
         return;
       }
     }
+    // CPU path: no multiplayer synchronization needed
     if (["cpu", "badge-cpu"].includes(mode)) {
       const local = makePlayer(name, profile?.playerId);
       setPlayer(local);
@@ -595,22 +620,41 @@ export default function BattlePage() {
       setPreparingTeam(false);
       return;
     }
+    // Multiplayer path: publish readiness then WAIT for opponent to also confirm.
+    // HOST will start the battle only when BOTH myReady && opponentReady are true (see useEffect above).
     if (!realtime.current?.isConnected()) {
       setNotice("Ainda conectando à sala. Aguarde antes de confirmar.");
       setPreparingTeam(false);
       return;
     }
     const currentInventory = currentEconomy.inventory || {};
-    const payload = { player: { ...player, inventory: Object.fromEntries(BAG_ITEM_CATALOG.map((item) => [item.id, currentInventory[item.id] || 0])) }, team: currentTeam.map(toBattlePokemon) };
+    const battleTeam = currentTeam.map(toBattlePokemon);
+    const teamPayload = { player: { ...player, inventory: Object.fromEntries(BAG_ITEM_CATALOG.map((item) => [item.id, currentInventory[item.id] || 0])) }, team: battleTeam };
     try {
-      await realtime.current
-      .updatePresence({ ready: true, team: payload.team })
-      broadcast(BATTLE_EVENTS.TEAM, payload);
-      setReadySent(true);
+      // Update Presence so the opponent sees our ready state immediately
+      await realtime.current.updatePresence({ ready: true, team: battleTeam });
+      // Broadcast explicit READY event with team snapshot (authoritative)
+      broadcast(BATTLE_EVENTS.READY, {
+        playerId: player.id,
+        playerName: player.name,
+        ready: true,
+        team: battleTeam,
+      });
+      // Also broadcast TEAM for backward compat with older clients
+      broadcast(BATTLE_EVENTS.TEAM, teamPayload);
+      setMyReady(true);
       setNotice("PRONTO! Aguardando adversário...");
     } catch (error) { setNotice(error.message); }
     setPreparingTeam(false);
   }
+  function unreadyTeam() {
+    // Let the player cancel their PRONTO and change their team.
+    // Battle cannot start while myReady is false, so no race risk.
+    setMyReady(false);
+    void realtime.current?.updatePresence({ ready: false, team: null }).catch(() => {});
+    broadcast(BATTLE_EVENTS.READY, { playerId: player?.id, ready: false });
+    setNotice("Você voltou a selecionar o time.");
+
   function createRoom() {
     if (!hasRealtimeConfig()) {
       setNotice(
@@ -625,6 +669,8 @@ export default function BattlePage() {
     setPlayer(currentPlayer);
     setRole("host");
     setRoomCode(code);
+    setMyReady(false);
+    setOpponentReady(false);
     setScreen("team");
     connectRoom(code, currentPlayer, "host");
   }
@@ -646,6 +692,8 @@ export default function BattlePage() {
     setPlayer(currentPlayer);
     setRole("guest");
     setRoomCode(code);
+    setMyReady(false);
+    setOpponentReady(false);
     setScreen("team");
     connectRoom(code, currentPlayer, "guest");
   }
@@ -675,7 +723,8 @@ export default function BattlePage() {
       setSelected([]);
       setRemoteTeam(null);
       setBattle(null);
-      setReadySent(false);
+      setMyReady(false);
+      setOpponentReady(false);
       setBadgeResolution(null);
       setBadgeResultError("");
       if (preparedChallenge.challenge_kind === "PVP_TAKEOVER") connectRoom(preparedChallenge.battle_room_code, currentPlayer, currentRole);
@@ -739,7 +788,7 @@ export default function BattlePage() {
     if (!profile) return;
     const currentPlayer = { id: profile.playerId, name: name.trim() || profile.displayName };
     const currentRole = match.player1_id === profile.playerId ? "host" : "guest";
-    setMode("tournament"); setTournamentMatch(match); setPlayer(currentPlayer); setRole(currentRole); setRoomCode(match.battle_room_code); setSelected([]); setBattle(null); setReadySent(false); setScreen("team");
+    setMode("tournament"); setTournamentMatch(match); setPlayer(currentPlayer); setRole(currentRole); setRoomCode(match.battle_room_code); setSelected([]); setBattle(null); setMyReady(false); setOpponentReady(false); setScreen("team");
     try { connectRoom(match.battle_room_code, currentPlayer, currentRole); }
     catch (error) { setNotice(error.message); setScreen("tournament"); }
   }
@@ -782,19 +831,21 @@ export default function BattlePage() {
         setBattle(null);
         setSelected([]);
         setRemoteTeam(null);
-        setReadySent(false);
+        setMyReady(false);
+        setOpponentReady(false);
         setBadgeResolution(null);
         setBadgeResultError("");
         setScreen("team");
       }
       return;
     }
-    if (mode === "tournament") { realtime.current?.leave(); setBattle(null); setSelected([]); setRemoteTeam(null); setReadySent(false); setTournamentMatch(null); setScreen("tournament"); void getTournament(tournament?.id).then(setTournament).catch(() => {}); return; }
+    if (mode === "tournament") { realtime.current?.leave(); setBattle(null); setSelected([]); setRemoteTeam(null); setMyReady(false); setOpponentReady(false); setTournamentMatch(null); setScreen("tournament"); void getTournament(tournament?.id).then(setTournament).catch(() => {}); return; }
     if (mode === "friend") broadcast(BATTLE_EVENTS.REMATCH, {});
     setBattle(null);
     setSelected([]);
     setRemoteTeam(null);
-    setReadySent(false);
+    setMyReady(false);
+    setOpponentReady(false);
     setScreen("team");
   }
   async function shareRoom() {
