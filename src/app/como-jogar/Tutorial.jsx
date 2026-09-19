@@ -750,7 +750,7 @@ export default function Tutorial() {
             <div><Backpack size={24} weight="fill" aria-hidden="true" /><strong>Mochila na Arena</strong><span>Use Poção Vital para HP e Elixir Purificador para queimadura, veneno, paralisia ou sono. O contador só diminui quando a ação é válida.</span></div>
             <div><Heart size={24} weight="fill" aria-hidden="true" /><strong>Item equipado</strong><span>Você escolhe antes da batalha. Ele ativa automaticamente ou oferece um efeito passivo. Consumíveis só desaparecem quando o efeito realmente ativa.</span></div>
             <div><FirstAid size={24} weight="fill" aria-hidden="true" /><strong>Mochila</strong><span>Você decide quando usar durante a batalha. Um uso válido consome o item e normalmente também sua ação.</span></div>
-            <div><Lightning size={24} weight="fill" aria-hidden="true" /><strong>Núcleo Elemental</strong><span>Fica equipado e aumenta em 12% os golpes do tipo principal. Ele não é consumido durante a batalha.</span></div>
+            <div><Lightning size={24} weight="fill" aria-hidden="true" /><strong>Núcleo Elemental</strong><span>Fica equipado e aumenta em 22% os golpes do tipo principal. Ele não é consumido durante a batalha.</span></div>
           </div>
           <HeldItemDemo />
           <div className="tutorial-progression-guide__actions"><Link href="/pokedex">Preparar Pokémon</Link><Link href="/jornada">Abrir Jornada</Link></div>

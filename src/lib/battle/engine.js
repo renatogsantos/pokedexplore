@@ -94,6 +94,7 @@ export const HELD_ITEM_DEFINITIONS = Object.freeze(
     ].map((id) => [id, getItemDefinition(id)]),
   ),
 );
+const itemRules = (id) => getItemDefinition(id)?.rules || {};
 
 // The battle keeps its simplified power curve, but status metadata is normalized
 // per move from PokéAPI's structured meta.ailment/meta.ailment_chance fields.
@@ -453,59 +454,69 @@ export function calculateDamage({ attacker, defender, move, variance = 1 }) {
   let outgoing = abilityBonus(attacker, attackType);
   let incoming = 1;
   const itemTriggers = [];
-  if (activeItem(attacker, "power-claw")) outgoing *= 1.1;
+  if (activeItem(attacker, "power-claw"))
+    outgoing *= itemRules("power-claw").dealtMultiplier ?? 1.2;
   if (
     activeItem(attacker, "elemental-core") &&
     attacker.types?.[0] === attackType
   ) {
-    outgoing *= 1.12;
+    const multiplier = itemRules("elemental-core").multiplier ?? 1.22;
+    outgoing *= multiplier;
     itemTriggers.push({
       itemId: "elemental-core",
       consumed: false,
-      multiplier: 1.12,
+      multiplier,
     });
   }
   if (activeItem(attacker, "impact-crystal")) {
-    outgoing *= 1.2;
+    const multiplier = itemRules("impact-crystal").multiplier ?? 1.2;
+    outgoing *= multiplier;
     itemTriggers.push({
       itemId: "impact-crystal",
       consumed: true,
-      multiplier: 1.2,
+      multiplier,
       owner: "attacker",
     });
   }
-  if (activeItem(attacker, "unstable-charge") && hpRatio(attacker) <= 0.4)
-    outgoing *= 1.15;
+  if (
+    activeItem(attacker, "unstable-charge") &&
+    hpRatio(attacker) <= (itemRules("unstable-charge").hpRatioLTE ?? 0.4)
+  )
+    outgoing *= itemRules("unstable-charge").multiplier ?? 1.15;
   if (attacker.temporaryEffects?.impulse) {
-    outgoing *= 1.15;
+    const multiplier = itemRules("impulse-boots").multiplier ?? 1.3;
+    outgoing *= multiplier;
     itemTriggers.push({
       itemId: "impulse-boots",
       temporary: "impulse",
-      multiplier: 1.15,
+      multiplier,
     });
   }
   if (attacker.temporaryEffects?.stimulant) {
-    outgoing *= 1.2;
+    const multiplier = itemRules("stimulant").multiplier ?? 1.35;
+    outgoing *= multiplier;
     itemTriggers.push({
       itemId: "stimulant",
       temporary: "stimulant",
-      multiplier: 1.2,
+      multiplier,
     });
   }
   if (attacker.temporaryEffects?.phoenix) {
-    outgoing *= 1.15;
+    const multiplier = itemRules("phoenix-heart").multiplier ?? 1.25;
+    outgoing *= multiplier;
     itemTriggers.push({
       itemId: "phoenix-heart",
       temporary: "phoenix",
-      multiplier: 1.15,
+      multiplier,
     });
   }
   if (activeItem(attacker, "special-fragment") && special) {
-    outgoing *= 1.15;
+    const multiplier = itemRules("special-fragment").multiplier ?? 1.15;
+    outgoing *= multiplier;
     itemTriggers.push({
       itemId: "special-fragment",
       consumed: true,
-      multiplier: 1.15,
+      multiplier,
       owner: "attacker",
     });
   }
@@ -513,25 +524,38 @@ export function calculateDamage({ attacker, defender, move, variance = 1 }) {
     activeItem(attacker, "challenger-crown") &&
     (defender.level || 1) > (attacker.level || 1)
   )
-    outgoing *= 1.1;
-  if (activeItem(defender, "power-claw")) incoming *= 1.05;
+    outgoing *= itemRules("challenger-crown").dealtMultiplier ?? 1.25;
+  if (activeItem(attacker, "strategist-eye") && effectiveness > 1) {
+    const multiplier =
+      itemRules("strategist-eye").superEffectiveMultiplier ?? 1.15;
+    outgoing *= multiplier;
+    itemTriggers.push({
+      itemId: "strategist-eye",
+      consumed: false,
+      multiplier,
+    });
+  }
+  if (activeItem(defender, "power-claw"))
+    incoming *= itemRules("power-claw").receivedMultiplier ?? 1.08;
   if (activeItem(defender, "guardian-plate")) {
-    incoming *= 0.75;
+    const multiplier = itemRules("guardian-plate").multiplier ?? 0.75;
+    incoming *= multiplier;
     itemTriggers.push({
       itemId: "guardian-plate",
       consumed: true,
-      multiplier: 0.75,
+      multiplier,
       owner: "defender",
     });
   }
   if (activeItem(defender, "resistance-crystal") && effectiveness > 1)
-    incoming *= 0.85;
+    incoming *= itemRules("resistance-crystal").multiplier ?? 0.75;
   if (activeItem(defender, "void-fragment") && effectiveness > 1) {
-    incoming *= 0.6;
+    const multiplier = itemRules("void-fragment").multiplier ?? 0.3;
+    incoming *= multiplier;
     itemTriggers.push({
       itemId: "void-fragment",
       consumed: true,
-      multiplier: 0.6,
+      multiplier,
       owner: "defender",
     });
   }
@@ -539,13 +563,14 @@ export function calculateDamage({ attacker, defender, move, variance = 1 }) {
     activeItem(defender, "challenger-crown") &&
     (attacker.level || 1) > (defender.level || 1)
   )
-    incoming *= 0.9;
+    incoming *= itemRules("challenger-crown").receivedMultiplier ?? 0.8;
   if (defender.temporaryEffects?.barrier) {
-    incoming *= 0.7;
+    const multiplier = itemRules("instant-barrier").multiplier ?? 0.5;
+    incoming *= multiplier;
     itemTriggers.push({
       itemId: "instant-barrier",
       temporary: "barrier",
-      multiplier: 0.7,
+      multiplier,
     });
   }
   const basePercentage = Math.min(
@@ -671,7 +696,12 @@ function applySupportedStatus(target, statusId, context, effect, eventId) {
   const prevention = heldItemId(target.heldItem);
   if (["arcane-mirror", "celestial-clock"].includes(prevention)) {
     const recovery =
-      prevention === "celestial-clock" ? heal(target, target.maxHp * 0.1) : 0;
+      prevention === "celestial-clock"
+        ? heal(
+            target,
+            target.maxHp * (itemRules("celestial-clock").healPercent ?? 0.4),
+          )
+        : 0;
     addItemEvent(effect, {
       ...consumeHeld(target, prevention, eventId, {
         type: "prevent_status",
@@ -703,10 +733,15 @@ function applySupportedStatus(target, statusId, context, effect, eventId) {
   addStatusEvent(effect, statusEvent);
   if (activeItem(target, "purifier")) {
     target.status = null;
+    const recovery = heal(
+      target,
+      target.maxHp * (itemRules("purifier").healPercent ?? 0.25),
+    );
     addItemEvent(effect, {
       ...consumeHeld(target, "purifier", eventId, {
         type: "cure_status",
         status: statusId,
+        healing: recovery,
       }),
       owner: context.targetRole,
     });
@@ -1113,7 +1148,7 @@ export function resolveAction(state, actor, action) {
         hp: surviveHp,
         nextAttackMultiplier:
           lethalItem === "phoenix-heart"
-            ? (phoenixRules?.multiplier ?? 1.15)
+            ? (phoenixRules?.multiplier ?? 1.25)
             : null,
       }),
       owner: enemy,

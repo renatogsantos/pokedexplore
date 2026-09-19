@@ -259,7 +259,7 @@ test("Fruto Vital and Nucleo de Cura trigger only after qualifying received dama
   };
   assert.equal(resolvePostDamageHeldItem(core), null);
   core.hp = 25;
-  assert.equal(resolvePostDamageHeldItem(core).effect.amount, 35);
+  assert.equal(resolvePostDamageHeldItem(core).effect.amount, 50);
 });
 
 test("survival items intercept lethal damage authoritatively", () => {
@@ -332,6 +332,35 @@ test("passive damage items apply exactly once", () => {
     variance: 1,
   });
   assert.ok(unstable.damage > base.damage);
+  const eyeAttacker = pokemon(1, "strategist-eye", 100, 5, "water");
+  const fireDefender = pokemon(2, null, 100, 5, "fire");
+  const waterMove = { ...eyeAttacker.moveset[0], type: "water" };
+  const eye = calculateDamage({
+    attacker: eyeAttacker,
+    defender: fireDefender,
+    move: waterMove,
+    variance: 1,
+  });
+  const waterWithoutEye = calculateDamage({
+    attacker: pokemon(1, null, 100, 5, "water"),
+    defender: fireDefender,
+    move: waterMove,
+    variance: 1,
+  });
+  assert.ok(eye.damage > waterWithoutEye.damage);
+  const crown = calculateDamage({
+    attacker: pokemon(1, "challenger-crown", 100, 5),
+    defender: pokemon(2, null, 100, 10),
+    move: pokemon(1).moveset[0],
+    variance: 1,
+  });
+  const evenCrown = calculateDamage({
+    attacker: pokemon(1, "challenger-crown", 100, 5),
+    defender: pokemon(2, null, 100, 5),
+    move: pokemon(1).moveset[0],
+    variance: 1,
+  });
+  assert.ok(crown.damage > evenCrown.damage);
 });
 
 test("switch effects distinguish voluntary switch from initial spawn", () => {
