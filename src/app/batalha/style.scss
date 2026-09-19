@@ -4728,16 +4728,26 @@
 .battle-status.is-paralysis { color: #ffe06a; }
 .battle-status.is-sleep { color: #c3c8ff; }
 
+.status-detail-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 25;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(3, 10, 20, 0.55);
+  backdrop-filter: blur(4px);
+  border-radius: inherit;
+}
+
 .status-detail-sheet {
   --status-accent: #ffe06a;
-  position: absolute;
-  z-index: 24;
-  top: 50%;
-  left: 50%;
+  position: relative;
+  z-index: 2;
   display: grid;
   gap: 9px;
-  width: min(calc(100% - 24px), 360px);
-  max-height: calc(100% - 28px);
+  width: min(100%, 360px);
+  max-height: calc(100% - 24px);
   overflow-y: auto;
   padding: 15px 52px 15px 15px;
   border: 1px solid color-mix(in srgb, var(--status-accent) 70%, #fff 8%);
@@ -4745,7 +4755,6 @@
   background: linear-gradient(145deg, #10243af5, #071322fa);
   color: #f8fbff;
   box-shadow: 0 18px 40px #000a, 0 0 24px color-mix(in srgb, var(--status-accent) 18%, transparent);
-  transform: translate(-50%, -50%);
 }
 .status-detail-sheet.is-burn { --status-accent: #ff8a52; }
 .status-detail-sheet.is-poison { --status-accent: #ca75f2; }
@@ -4801,7 +4810,8 @@
 
 @media (max-width: 600px) {
   .battle-page:has(.battle-arena) .battle-status { min-height: 28px; padding: 3px 6px; font-size: .48rem; }
-  .status-detail-sheet { width: min(calc(100% - 16px), 340px); padding: 13px 48px 13px 13px; }
+  .status-detail-overlay { padding: 12px; }
+  .status-detail-sheet { width: min(100%, 340px); padding: 13px 48px 13px 13px; }
   .battle-page:has(.battle-arena) .battle-notification.status strong { font-size: .92rem; }
   .battle-page:has(.battle-arena) .battle-notification.status span { max-width: 250px; font-size: .58rem; line-height: 1.3; text-align: center; }
   .move-status-hint { font-size: .42rem !important; }

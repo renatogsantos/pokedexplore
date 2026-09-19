@@ -436,6 +436,14 @@ function BadgeBattleResultModal({ won, badgeContext, onRematch }) {
 }
 
 function StatusDetails({ selection, onClose }) {
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   if (!selection) return null;
   const definition = getStatusDefinition(selection.status);
   if (!definition) return null;
@@ -444,24 +452,35 @@ function StatusDetails({ selection, onClose }) {
     (selection.status.sourceAbilityId ? `Habilidade ${selection.status.sourceAbilityId}` : null) ||
     selection.status.sourcePokemonName;
   return (
-    <motion.section
-      className={`status-detail-sheet is-${definition.id}`}
-      role="dialog"
-      aria-modal="false"
-      aria-labelledby="status-detail-title"
-      initial={{ opacity: 0, y: 10, scale: .97 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: 6, scale: .98 }}
+    <motion.div
+      className="status-detail-overlay"
+      onClick={onClose}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15 }}
     >
-      <button type="button" className="status-detail-close" onClick={onClose} aria-label="Fechar explicação do status"><X size={18} weight="bold" aria-hidden="true" /></button>
-      <div className="status-detail-heading">
-        <StatusIcon status={definition.id} size={24} />
-        <div><small>CONDIÇÃO ATUAL</small><strong id="status-detail-title">{definition.displayName}</strong></div>
-      </div>
-      <p>{definition.battleDescription}</p>
-      {source && <div className="status-detail-source"><span>CAUSADO POR</span><strong>{source}</strong></div>}
-      <div className="status-detail-response"><span>COMO RESPONDER</span><p>{definition.strategicHint}</p></div>
-    </motion.section>
+      <motion.section
+        className={`status-detail-sheet is-${definition.id}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="status-detail-title"
+        onClick={(event) => event.stopPropagation()}
+        initial={{ opacity: 0, y: 12, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 8, scale: 0.96 }}
+        transition={{ duration: 0.2 }}
+      >
+        <button type="button" className="status-detail-close" onClick={onClose} aria-label="Fechar explicação do status"><X size={18} weight="bold" aria-hidden="true" /></button>
+        <div className="status-detail-heading">
+          <StatusIcon status={definition.id} size={24} />
+          <div><small>CONDIÇÃO ATUAL</small><strong id="status-detail-title">{definition.displayName}</strong></div>
+        </div>
+        <p>{definition.battleDescription}</p>
+        {source && <div className="status-detail-source"><span>CAUSADO POR</span><strong>{source}</strong></div>}
+        <div className="status-detail-response"><span>COMO RESPONDER</span><p>{definition.strategicHint}</p></div>
+      </motion.section>
+    </motion.div>
   );
 }
 
