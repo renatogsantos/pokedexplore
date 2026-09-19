@@ -437,7 +437,7 @@ export const ITEM_CATALOG = Object.freeze([
     effectType: "SURVIVE_AND_BUFF",
     trigger: "BEFORE_LETHAL_DAMAGE",
     consumable: true,
-    price: 1200,
+    price: 3800,
     rules: { healPercent: 0.6, multiplier: 1.25 },
   }),
   item({
