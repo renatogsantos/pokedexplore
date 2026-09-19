@@ -453,7 +453,7 @@ export const ITEM_CATALOG = Object.freeze([
     effectType: "UNDERDOG",
     trigger: "DAMAGE_CALCULATION",
     consumable: false,
-    price: 750,
+    price: 2550,
     rules: { dealtMultiplier: 1.25, receivedMultiplier: 0.8 },
   }),
   item({
@@ -468,7 +468,7 @@ export const ITEM_CATALOG = Object.freeze([
     effectType: "INCOMING_DAMAGE",
     trigger: "DAMAGE_CALCULATION",
     consumable: true,
-    price: 825,
+    price: 1825,
     rules: { multiplier: 0.3, superEffectiveOnly: true },
   }),
   item({
@@ -484,7 +484,7 @@ export const ITEM_CATALOG = Object.freeze([
     effectType: "PREVENT_STATUS_AND_HEAL",
     trigger: "BEFORE_STATUS",
     consumable: true,
-    price: 900,
+    price: 1900,
     rules: { healPercent: 0.4 },
   }),
 ]);
