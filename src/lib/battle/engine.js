@@ -1089,25 +1089,39 @@ export function resolveAction(state, actor, action) {
     }
   }
   const lethalItem = heldItemId(defender.heldItem);
+  let surviveHp = null;
   if (
     damage >= beforeHp &&
     ["survival-amulet", "phoenix-heart"].includes(lethalItem) &&
     beforeHp > 0
   ) {
-    damage = Math.max(0, beforeHp - 1);
-    if (lethalItem === "phoenix-heart")
+    const phoenixRules = HELD_ITEM_DEFINITIONS["phoenix-heart"]?.rules;
+    if (lethalItem === "phoenix-heart") {
       defender.temporaryEffects.phoenix = true;
+      surviveHp = Math.max(
+        1,
+        Math.min(
+          defender.maxHp,
+          Math.ceil(defender.maxHp * (phoenixRules?.healPercent ?? 0.6)),
+        ),
+      );
+    } else surviveHp = 1;
+    damage = Math.max(0, beforeHp - Math.min(surviveHp, beforeHp));
     addItemEvent(effect, {
       ...consumeHeld(defender, lethalItem, eventId, {
         type: "survive",
-        hp: 1,
-        nextAttackMultiplier: lethalItem === "phoenix-heart" ? 1.15 : null,
+        hp: surviveHp,
+        nextAttackMultiplier:
+          lethalItem === "phoenix-heart"
+            ? (phoenixRules?.multiplier ?? 1.15)
+            : null,
       }),
       owner: enemy,
     });
   }
   if (move.special) fighter.specialAttackUsesRemaining -= 1;
   defender.hp = Math.max(0, beforeHp - damage);
+  if (surviveHp != null) defender.hp = surviveHp;
   effect.damage = damage;
   let status = null;
   let reactiveAbility = null;
