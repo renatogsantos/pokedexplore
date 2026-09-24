@@ -28,8 +28,8 @@ export function getPokemonPrice(pokemon) {
   return roundToVictory(strengthPrice + experienceBonus);
 }
 
-export function getPurchaseLabel({ balance, price, level, maxLevel }) {
+export function getPurchaseLabel({ balance, price, level, maxLevel, infiniteCoins = false }) {
   if (maxLevel || level >= 10) return "Nível máximo";
-  if (balance < price) return `Faltam ${price - balance} moedas`;
+  if (!infiniteCoins && balance < price) return `Faltam ${price - balance} moedas`;
   return level > 0 ? "Comprar + nível" : "Comprar";
 }

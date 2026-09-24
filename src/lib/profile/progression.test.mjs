@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   createEmptyPlayerStats,
+  getTotalXpForTrainerLevel,
   getTrainerProgress,
   normalizeBattleMode,
   recordCompletedBattle,
@@ -13,6 +14,9 @@ test("trainer level uses deterministic cumulative thresholds", () => {
   assert.equal(getTrainerProgress(100).level, 2);
   assert.equal(getTrainerProgress(299).currentXp, 199);
   assert.equal(getTrainerProgress(300).level, 3);
+  assert.equal(getTotalXpForTrainerLevel(1), 0);
+  assert.equal(getTotalXpForTrainerLevel(2), 100);
+  assert.equal(getTotalXpForTrainerLevel(3), 300);
 });
 
 test("battle modes normalize into the four profile groups", () => {

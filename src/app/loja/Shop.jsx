@@ -47,7 +47,7 @@ const Coin = () => (
   <img className="coin-image" src="/coin.png" alt="" aria-hidden="true" />
 );
 
-function ShopCard({ pokemon, owned, balance, onBuy }) {
+function ShopCard({ pokemon, owned, balance, infiniteCoins, onBuy }) {
   const price = getPokemonPrice(pokemon);
   const level = owned ? getPokemonLevel(owned) : 0;
   const maxLevel = level >= MAX_POKEMON_LEVEL;
@@ -86,18 +86,18 @@ function ShopCard({ pokemon, owned, balance, onBuy }) {
         onClick={() => onBuy({ pokemon, owned, price, quantity: 1 })}
       >
         <ShoppingCart size={18} weight="fill" />{" "}
-        {getPurchaseLabel({ balance, price, level, maxLevel })}
+        {getPurchaseLabel({ balance, price, level, maxLevel, infiniteCoins })}
       </button>
     </article>
   );
 }
 
-function QuantityModal({ purchase, balance, onChange, onCancel, onConfirm }) {
+function QuantityModal({ purchase, balance, infiniteCoins, onChange, onCancel, onConfirm }) {
   const level = purchase.owned ? getPokemonLevel(purchase.owned) : 0;
   const limit = purchase.owned ? MAX_POKEMON_LEVEL - level : MAX_POKEMON_LEVEL;
   const maximum = Math.max(
     1,
-    Math.min(limit, Math.floor(balance / purchase.price)),
+    Math.min(limit, infiniteCoins ? limit : Math.floor(balance / purchase.price)),
   );
   const quantity = Math.min(purchase.quantity, maximum);
   const total = quantity * purchase.price;
@@ -158,7 +158,7 @@ function QuantityModal({ purchase, balance, onChange, onCancel, onConfirm }) {
           Até {maximum} cópias nesta compra
         </small>
         <strong className="shop-total">
-          <Coin /> {formatCoins(total)} moedas
+          <Coin /> {infiniteCoins ? "∞" : formatCoins(total)} moedas
         </strong>
         <div>
           <button type="button" onClick={onCancel}>
@@ -216,7 +216,7 @@ function Pagination({ page, pages, disabled, onChange }) {
   );
 }
 
-function UpgradeCard({ upgrade, economy, balance, onBuy, onDetail, purchasing }) {
+function UpgradeCard({ upgrade, economy, balance, infiniteCoins, onBuy, onDetail, purchasing }) {
   const isTm = upgrade.category === "tm";
   const quantity = isTm
     ? Number((economy.ownedTms || []).includes(upgrade.id))
@@ -247,12 +247,12 @@ function UpgradeCard({ upgrade, economy, balance, onBuy, onDetail, purchasing })
         </small>
         <button
           type="button"
-          disabled={purchasing || balance < upgrade.price || (isTm && Boolean(quantity))}
+          disabled={purchasing || (!infiniteCoins && balance < upgrade.price) || (isTm && Boolean(quantity))}
           onClick={(event) => { event.stopPropagation(); onBuy(upgrade); }}
         >
           {purchasing ? "Comprando..." : isTm && quantity
             ? "Adquirida"
-            : balance < upgrade.price
+            : !infiniteCoins && balance < upgrade.price
               ? "Sem moedas"
               : "Comprar"}
         </button>
@@ -265,6 +265,7 @@ export default function Shop() {
   const dispatch = useDispatch();
   const collection = useSelector((state) => state.pokemons.Pokedex) || [];
   const balance = useSelector((state) => state.economy.coins);
+  const infiniteCoins = useSelector((state) => state.economy.infiniteCoins);
   const [query, setQuery] = useState("");
   const [items, setItems] = useState([]);
   const [catalog, setCatalog] = useState([]);
@@ -304,7 +305,7 @@ export default function Shop() {
     webStore.getData("Pokedex").then((data) => dispatch(actAddPokedex(data)));
     webStore.getEconomy().then((data) => {
       setEconomy(data);
-      dispatch(actCoins(data.coins));
+      dispatch(actCoins({ coins: data.coins, infiniteCoins: data.creatorMode?.infiniteCoins }));
     });
   }, [dispatch]);
   useEffect(() => {
@@ -404,7 +405,7 @@ export default function Shop() {
       return;
     }
     playBattleSound("coin", 0.6);
-    dispatch(actCoins(result.coins));
+    dispatch(actCoins({ coins: result.coins, infiniteCoins: result.infiniteCoins }));
     dispatch(actAddPokedex(await webStore.getData("Pokedex")));
     if (!result.duplicate)
       celebratePokemonPurchase({ rarity: result.pokemon?.rarity });
@@ -432,7 +433,7 @@ export default function Shop() {
     }
     playBattleSound("coin", 0.6);
     setEconomy(result.economy);
-    dispatch(actCoins(result.coins));
+    dispatch(actCoins({ coins: result.coins, infiniteCoins: result.infiniteCoins }));
     setFeedback(
       upgrade.category === "tm"
         ? `${upgrade.name.toUpperCase()} foi adicionada à coleção de TMs!`
@@ -546,6 +547,7 @@ export default function Shop() {
               key={pokemon.id}
               pokemon={pokemon}
               balance={balance}
+              infiniteCoins={infiniteCoins}
               owned={collection.find((item) => item.id === pokemon.id)}
               onBuy={setPurchase}
             />
@@ -617,6 +619,7 @@ export default function Shop() {
             upgrade={upgrade}
             economy={economy}
             balance={balance}
+            infiniteCoins={infiniteCoins}
             onBuy={buyUpgrade}
             onDetail={setItemDetail}
             purchasing={purchasingId === upgrade.id}
@@ -652,7 +655,7 @@ export default function Shop() {
           <div className="shop-balance">
             <Coin />
             <span>SEU SALDO</span>
-            <strong>{formatCoins(balance)}</strong>
+            <strong>{infiniteCoins ? "∞" : formatCoins(balance)}</strong>
             <small>moedas</small>
           </div>
         </section>
@@ -691,13 +694,14 @@ export default function Shop() {
             <p><strong>IDEAL PARA</strong><br />{getRoleLabel(itemDetail.role)}</p>
             <small>Possui: {economy.inventory?.[itemDetail.id] || 0}</small>
             <strong><Coin /> {formatCoins(itemDetail.price)}</strong>
-            <div><button type="button" onClick={() => setItemDetail(null)}>Voltar</button><button type="button" disabled={purchasingId === itemDetail.id || balance < itemDetail.price} onClick={() => void buyUpgrade(itemDetail)}>{purchasingId === itemDetail.id ? "COMPRANDO..." : balance < itemDetail.price ? "SEM MOEDAS" : "COMPRAR"}</button></div>
+            <div><button type="button" onClick={() => setItemDetail(null)}>Voltar</button><button type="button" disabled={purchasingId === itemDetail.id || (!infiniteCoins && balance < itemDetail.price)} onClick={() => void buyUpgrade(itemDetail)}>{purchasingId === itemDetail.id ? "COMPRANDO..." : !infiniteCoins && balance < itemDetail.price ? "SEM MOEDAS" : "COMPRAR"}</button></div>
           </motion.section>
         </motion.div>}
         {purchase && (
           <QuantityModal
             purchase={purchase}
             balance={balance}
+            infiniteCoins={infiniteCoins}
             onChange={setPurchase}
             onCancel={() => setPurchase(null)}
             onConfirm={confirmPurchase}

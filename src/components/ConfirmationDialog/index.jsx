@@ -12,6 +12,8 @@ export default function ConfirmationDialog({
   cancelLabel = "Voltar",
   confirmLabel,
   busyLabel = "Confirmando...",
+  secondaryLabel = "",
+  onSecondary,
   busy = false,
   error = "",
   onCancel,
@@ -19,6 +21,7 @@ export default function ConfirmationDialog({
   id = "confirmation-dialog",
 }) {
   const cancelRef = useRef(null);
+  const secondaryRef = useRef(null);
   const confirmRef = useRef(null);
   const previousFocusRef = useRef(null);
   const interactionRef = useRef({ busy, onCancel });
@@ -35,7 +38,7 @@ export default function ConfirmationDialog({
         return;
       }
       if (event.key !== "Tab") return;
-      const controls = [cancelRef.current, confirmRef.current].filter((control) => control && !control.disabled);
+      const controls = [cancelRef.current, secondaryRef.current, confirmRef.current].filter((control) => control && !control.disabled);
       if (!controls.length) return;
       const currentIndex = controls.indexOf(document.activeElement);
       const nextIndex = event.shiftKey
@@ -64,6 +67,7 @@ export default function ConfirmationDialog({
         {error && <p className="confirmation-dialog__error" role="alert">{error}</p>}
         <div className="confirmation-dialog__actions">
           <button ref={cancelRef} type="button" onClick={onCancel} disabled={busy}>{cancelLabel}</button>
+          {secondaryLabel && <button ref={secondaryRef} type="button" className="confirmation-dialog__secondary" onClick={onSecondary} disabled={busy}>{secondaryLabel}</button>}
           <button ref={confirmRef} type="button" className="confirmation-dialog__confirm" onClick={onConfirm} disabled={busy}>{busy ? busyLabel : confirmLabel}</button>
         </div>
       </section>

@@ -13,7 +13,7 @@ const navigationItems = [
 ];
 
 export function shouldShowMobileBottomNavigation(pathname) {
-  return Boolean(pathname) && !["/batalha", "/arena", "/campeonato", "/multiplayer"].some((route) => pathname === route || pathname.startsWith(`${route}/`));
+  return Boolean(pathname) && !["/batalha", "/arena", "/campeonato", "/multiplayer", "/creator-control"].some((route) => pathname === route || pathname.startsWith(`${route}/`));
 }
 
 function isActiveRoute(pathname, item) {

@@ -34,4 +34,5 @@ test("purchase labels make normal affordability and maximum level explicit", () 
   assert.equal(getPurchaseLabel({ balance: 45, price: 60, level: 0, maxLevel: false }), "Faltam 15 moedas");
   assert.equal(getPurchaseLabel({ balance: 60, price: 60, level: 3, maxLevel: false }), "Comprar + nível");
   assert.equal(getPurchaseLabel({ balance: 999, price: 60, level: 10, maxLevel: true }), "Nível máximo");
+  assert.equal(getPurchaseLabel({ balance: 0, price: 60, level: 0, maxLevel: false, infiniteCoins: true }), "Comprar");
 });

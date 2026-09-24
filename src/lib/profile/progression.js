@@ -28,6 +28,15 @@ export function getXpRequiredForLevel(level) {
   return Math.max(1, Math.floor(Number(level) || 1)) * 100;
 }
 
+export function getTotalXpForTrainerLevel(level) {
+  const targetLevel = Math.max(1, Math.floor(Number(level) || 1));
+  let totalXp = 0;
+  for (let currentLevel = 1; currentLevel < targetLevel; currentLevel += 1) {
+    totalXp += getXpRequiredForLevel(currentLevel);
+  }
+  return totalXp;
+}
+
 export function getTrainerProgress(totalXp = 0) {
   const xp = Math.max(0, Math.floor(Number(totalXp) || 0));
   let level = 1;
