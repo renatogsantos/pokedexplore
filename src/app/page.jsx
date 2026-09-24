@@ -18,6 +18,7 @@ import {
   GithubLogo,
   House,
   LinkedinLogo,
+  LockKey,
   MagnifyingGlass,
   ShoppingCart,
   WhatsappLogo,
@@ -359,6 +360,12 @@ export default function Home() {
                 className="link"
               >
                 <WhatsappLogo size={32} weight="duotone" />
+              </Link>
+              <Link
+                href="/creator-control"
+                className="link"
+              >
+                <LockKey size={32} weight="duotone" />
               </Link>
             </div>
           </div>
