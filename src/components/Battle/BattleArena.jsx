@@ -323,7 +323,7 @@ function buildBattleNotifications(state, role, opponentName) {
 function BattleNotification({ state, role, opponentName }) {
   const [notification, setNotification] = useState(null);
   useEffect(() => {
-    if (state.effect?.kind === "attack") playBattleSound("dano", 0.5);
+    if (state.effect?.kind === "attack") playBattleSound("anime-ahh", 0.5);
     if (state.effect?.kind === "item" && state.effect?.healing) playBattleSound("healing-pokemon-sound", 0.5);
     if (state.status === "finished") playBattleSound(state.winner === role ? "win" : "lost", 0.62);
     const queue = buildBattleNotifications(state, role, opponentName);
