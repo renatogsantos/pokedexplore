@@ -56,7 +56,7 @@
 .creator-action-log time { color: #6e8aa6; font-variant-numeric: tabular-nums; }
 .creator-action-log p { margin: 12px 0 0; color: #71869e; font-size: .7rem; }
 .creator-workspace { min-width: 0; padding: clamp(18px, 3vw, 38px); }
-.creator-mobile-tabs { display: none; }
+.creator-mobile-tabs, .creator-mobile-section-select { display: none; }
 .creator-tab { display: grid; gap: 20px; animation: creator-tab-in .18s ease-out; }
 .creator-panel-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding-bottom: 18px; border-bottom: 1px solid #29445f80; }
 .creator-panel-heading h2 { margin: 3px 0 4px; color: var(--creator-text); font: 800 clamp(1.55rem, 3.2vw, 2.35rem)/1.1 "Segoe UI", system-ui, sans-serif; letter-spacing: -.025em; }
@@ -160,7 +160,7 @@
 .creator-pokemon-card__body > .creator-button:last-child { width: 100%; margin-top: auto; }
 .creator-level-controls { width: 100%; display: grid; grid-template-columns: 38px minmax(42px, 1fr) 38px auto; gap: 5px; margin-bottom: 7px; }
 .creator-level-controls .creator-button { min-height: 38px; padding: 0 8px; }
-.creator-level-controls input { min-height: 38px; padding: 0 5px; text-align: center; }
+.creator-level-controls input, .creator-level-controls select { min-height: 38px; padding: 0 5px; text-align: center; }
 .creator-pagination { display: flex; align-items: center; justify-content: center; gap: 12px; }
 .creator-pagination span { color: #a9bed2; font: 750 .72rem/1 ui-monospace, SFMono-Regular, Consolas, monospace; }
 .creator-empty { min-height: 180px; display: grid; place-items: center; align-content: center; gap: 7px; padding: 25px; border: 1px dashed #35506a; border-radius: 14px; background: #06101d9c; color: #8fa8c0; text-align: center; }
@@ -252,7 +252,8 @@
   .creator-layout { grid-template-columns: 1fr; }
   .creator-sidebar { display: none; }
   .creator-workspace { padding: 16px clamp(12px, 3vw, 24px) max(24px, env(safe-area-inset-bottom)); }
-  .creator-mobile-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-bottom: 20px; }
+  .creator-mobile-navigation { position: sticky; z-index: 20; top: 0; margin: -8px -4px 20px; padding: 8px 4px; background: linear-gradient(180deg, #07111ff5 78%, #07111f00); }
+  .creator-mobile-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
   .creator-mobile-tabs button { min-width: 0; justify-content: center; padding: 0 7px; border-color: #1f3851; background: #081525; font-size: .66rem; }
   .creator-mobile-tabs button.is-active { border-color: var(--creator-cyan); background: #0c4254; color: #effdff; }
   .creator-held-grid { grid-template-columns: 1fr 1fr; }
@@ -274,6 +275,11 @@
   .creator-storage-grid { grid-template-columns: 1fr; }
   .creator-coins-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .creator-coins-form input { grid-column: 1 / -1; }
+  .creator-page input, .creator-page select { min-height: 44px; font-size: 16px; }
+  .creator-filter-row { gap: 8px; }
+  .creator-filter-row button { min-height: 44px; }
+  .creator-item-quick { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .creator-item-quick .creator-button { min-height: 44px; }
 }
 @media (max-width: 480px) {
   .creator-topbar { min-height: 66px; padding-inline: 12px; }
@@ -281,15 +287,16 @@
   .creator-brand strong { font-size: .7rem; }
   .creator-brand small { font-size: .52rem; }
   .creator-workspace { padding-inline: 10px; }
-  .creator-mobile-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .creator-mobile-tabs button:last-child { grid-column: 1 / -1; }
+  .creator-mobile-tabs { display: none; }
+  .creator-mobile-section-select { display: grid; gap: 5px; color: #a9bed2; font: 800 .66rem/1.2 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .07em; text-transform: uppercase; }
+  .creator-mobile-section-select select { width: 100%; min-height: 46px; padding: 0 12px; border: 1px solid #57ddf76b; border-radius: 10px; background: #0b2437; color: #effdff; font: 800 16px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace; }
   .creator-metric-grid, .creator-shared-summary { grid-template-columns: 1fr; }
   .creator-card { padding: 14px; }
   .creator-card dl { grid-template-columns: 1fr; }
   .creator-pokemon-card { grid-template-columns: 84px minmax(0, 1fr); }
   .creator-pokemon-card__image { min-height: 116px; }
   .creator-pokemon-card__image img { width: 78px; height: 78px; }
-  .creator-level-controls { grid-template-columns: 38px minmax(40px, 1fr) 38px; }
+  .creator-level-controls { grid-template-columns: 44px minmax(52px, 1fr) 44px; gap: 8px; }
   .creator-level-controls .is-gold { grid-column: 1 / -1; }
   .creator-avatar-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .creator-inline-form { grid-template-columns: 1fr; }
