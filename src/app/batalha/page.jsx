@@ -24,6 +24,7 @@ import { CPU_ROSTER, CPU_TEAM, toBattlePokemon } from "@/lib/battle/pokemon";
 import { createBattleState, resolveAction } from "@/lib/battle/engine";
 import { createCpuInventory, createCpuVictoryReward, decideCpuIntent, generateCpuTeam, getCpuDifficulty } from "@/lib/battle/cpu";
 import { canStartWagerBattle, getWagerPot, normalizeWagerAmount } from "@/lib/battle/wager";
+import { completeSelection, createSelectionTiming, getSelectionTimerState } from "@/lib/battle/selectionTimer";
 import {
   BATTLE_EVENTS,
   createBattleRoom,
@@ -85,8 +86,11 @@ export default function BattlePage() {
   const [myReady, setMyReady] = useState(false);
   const [opponentReady, setOpponentReady] = useState(false);
   const [wager, setWager] = useState(null);
+  const [selectionTiming, setSelectionTiming] = useState(null);
   const wagerSnapshot = useRef(null);
   const battleSnapshot = useRef(null);
+  const selectionTimingSnapshot = useRef(null);
+  const autoSelectionSessions = useRef(new Set());
   const [preparingTeam, setPreparingTeam] = useState(false);
   const [connection, setConnection] = useState("CONNECTING");
   const [profile, setProfile] = useState(null);
@@ -112,6 +116,10 @@ export default function BattlePage() {
   useEffect(() => {
     battleSnapshot.current = battle;
   }, [battle]);
+
+  useEffect(() => {
+    selectionTimingSnapshot.current = selectionTiming;
+  }, [selectionTiming]);
 
   const loadArenaBackgrounds = useCallback(async () => {
     try {
@@ -206,6 +214,25 @@ export default function BattlePage() {
         .catch((error) => setNotice(error.message)),
     [],
   );
+  const publishFriendSelectionTiming = useCallback((nextTiming) => {
+    selectionTimingSnapshot.current = nextTiming;
+    setSelectionTiming(nextTiming);
+    if (nextTiming) {
+      void realtime.current?.updatePresence({ selectionTiming: nextTiming }).catch(() => {});
+      broadcast(BATTLE_EVENTS.SELECTION_TIMER, nextTiming);
+    }
+  }, [broadcast]);
+  const beginFriendSelectionTiming = useCallback(() => {
+    if (selectionTimingSnapshot.current) return selectionTimingSnapshot.current;
+    const nextTiming = createSelectionTiming();
+    publishFriendSelectionTiming(nextTiming);
+    return nextTiming;
+  }, [publishFriendSelectionTiming]);
+  const clearFriendSelectionTiming = useCallback(() => {
+    selectionTimingSnapshot.current = null;
+    setSelectionTiming(null);
+    autoSelectionSessions.current.clear();
+  }, []);
   const persistBattleConsumables = useCallback((state, localRole) => {
     const effect = state?.effect;
     if (!effect || !state?.matchId) return;
@@ -413,6 +440,13 @@ export default function BattlePage() {
             const peer = players.find((item) => item.id !== currentPlayer.id);
             if (peer) {
               if (peer.wager?.id) setWager(peer.wager);
+              if (peer.selectionTiming?.id) {
+                selectionTimingSnapshot.current = peer.selectionTiming;
+                setSelectionTiming(peer.selectionTiming);
+                if (currentRole === "guest") void realtime.current?.updatePresence({ selectionTiming: peer.selectionTiming }).catch(() => {});
+              }
+              const activeWager = wagerSnapshot.current;
+              if (mode === "friend" && currentRole === "host" && (!activeWager || activeWager.status === "LOCKED")) beginFriendSelectionTiming();
               // Always update the team snapshot when peer publishes it
               if (Array.isArray(peer.team)) {
                 setRemoteTeam({ player: { id: peer.id, name: peer.name }, team: peer.team });
@@ -464,11 +498,18 @@ export default function BattlePage() {
                 if (!result.ok) { broadcast(BATTLE_EVENTS.WAGER_REJECTED, { wagerId: proposed.id }); setNotice("Seu saldo não permite bloquear esta aposta."); return; }
                 dispatch(actCoins(result.coins));
                 const locked = { ...proposed, guestId: payload.playerId, status: "LOCKED" };
+                wagerSnapshot.current = locked;
                 setWager(locked); void realtime.current?.updatePresence({ wager: locked }); broadcast(BATTLE_EVENTS.WAGER_LOCKED, locked);
+                beginFriendSelectionTiming();
               });
             }
-            if (type === BATTLE_EVENTS.WAGER_LOCKED && payload?.id) { setWager(payload); setNotice("APOSTA ACEITA · moedas reservadas"); }
-            if (type === BATTLE_EVENTS.WAGER_REJECTED && payload?.wagerId) { void webStore.settleWager(payload.wagerId, { refund: true }); setWager(null); setNotice("A aposta não pôde ser bloqueada."); }
+            if (type === BATTLE_EVENTS.WAGER_LOCKED && payload?.id) { wagerSnapshot.current = payload; setWager(payload); setNotice("APOSTA ACEITA · moedas reservadas"); }
+            if (type === BATTLE_EVENTS.WAGER_REJECTED && payload?.wagerId) { void webStore.settleWager(payload.wagerId, { refund: true }); wagerSnapshot.current = null; setWager(null); setNotice("A aposta não pôde ser bloqueada."); }
+            if (type === BATTLE_EVENTS.SELECTION_TIMER && payload?.id) {
+              selectionTimingSnapshot.current = payload;
+              setSelectionTiming(payload);
+              void realtime.current?.updatePresence({ selectionTiming: payload }).catch(() => {});
+            }
             // READY: explicit per-player readiness. This is the authoritative ready signal.
             if (type === BATTLE_EVENTS.READY && payload?.playerId && payload.playerId !== currentPlayer.id) {
               const isReady = payload.ready === true;
@@ -507,12 +548,13 @@ export default function BattlePage() {
               setNotice(payload.message);
             if (type === BATTLE_EVENTS.REMATCH) {
               setWager(null);
+              clearFriendSelectionTiming();
               setBattle(null);
               setSelected([]);
               setRemoteTeam(null);
               setMyReady(false);
               setOpponentReady(false);
-              void realtime.current?.updatePresence({ ready: false, team: null }).catch(() => {});
+              void realtime.current?.updatePresence({ ready: false, team: null, selectionTiming: null }).catch(() => {});
               setScreen("team");
               setNotice(
                 String(mode).startsWith("badge") ? "A próxima batalha está pronta. Escolha sua equipe novamente." : "Seu adversário quer uma revanche. Escolha sua equipe novamente.",
@@ -524,7 +566,7 @@ export default function BattlePage() {
         setNotice("Não foi possível conectar à sala.");
       }
     },
-    [broadcast, dispatch, mode, persistBattleConsumables, rewardFinishedBattle],
+    [beginFriendSelectionTiming, broadcast, clearFriendSelectionTiming, dispatch, mode, persistBattleConsumables, rewardFinishedBattle],
   );
 
   useEffect(() => {
@@ -547,6 +589,29 @@ export default function BattlePage() {
     }
     startState(selected, remoteTeam.team, player, remoteTeam.player);
   }, [mode, role, myReady, opponentReady, selected, remoteTeam, player, battle, startState, tournamentMatch, wager]);
+
+  useEffect(() => {
+    if (mode !== "friend" || !selectionTiming?.id || myReady || battle || !player?.id) return undefined;
+    const timerState = getSelectionTimerState(selectionTiming);
+    const autoConfirm = async () => {
+      const sessionKey = `${selectionTiming.id}:${player.id}`;
+      if (autoSelectionSessions.current.has(sessionKey)) return;
+      autoSelectionSessions.current.add(sessionKey);
+      const currentCollection = await webStore.getData("Pokedex");
+      const resolvedTeam = completeSelection(currentCollection, selected);
+      if (resolvedTeam.length !== 3) {
+        setNotice("Você precisa ter pelo menos 3 Pokémon para entrar em uma batalha PvP.");
+        return;
+      }
+      setCollection(currentCollection);
+      setSelected(resolvedTeam);
+      setNotice("Tempo encerrado. Seu time foi confirmado automaticamente.");
+      await readyTeam(resolvedTeam, true);
+    };
+    const delay = timerState.phase === "expired" ? 0 : Math.max(0, selectionTiming.urgencyDeadline - Date.now());
+    const timeout = window.setTimeout(autoConfirm, delay);
+    return () => window.clearTimeout(timeout);
+  }, [battle, mode, myReady, player?.id, selected, selectionTiming]);
 
   useEffect(() => {
     if (
@@ -579,6 +644,7 @@ export default function BattlePage() {
     setBattle(null);
     setMyReady(false);
     setOpponentReady(false);
+    clearFriendSelectionTiming();
     setScreen(nextMode === "cpu" ? "team" : nextMode === "tournament" ? "tournament" : "friend");
   }
   function togglePokemon(pokemon) {
@@ -591,7 +657,7 @@ export default function BattlePage() {
           : current,
     );
   }
-  async function readyTeam() {
+  async function readyTeam(teamToConfirm = selected, automatic = false) {
     if (preparingTeam || myReady) return;
     setPreparingTeam(true);
     let currentCollection;
@@ -603,8 +669,8 @@ export default function BattlePage() {
       setPreparingTeam(false);
       return;
     }
-    const currentTeam = selected.map((selectedPokemon) => currentCollection.find((pokemon) => String(pokemon.id) === String(selectedPokemon.id))).filter(Boolean);
-    if (currentTeam.length !== selected.length || currentTeam.length !== 3) {
+    const currentTeam = teamToConfirm.map((selectedPokemon) => currentCollection.find((pokemon) => String(pokemon.id) === String(selectedPokemon.id))).filter(Boolean);
+    if (currentTeam.length !== teamToConfirm.length || currentTeam.length !== 3) {
       setNotice("Um Pokémon selecionado não foi encontrado na sua coleção. Monte a equipe novamente.");
       setCollection(currentCollection);
       setSelected(currentTeam);
@@ -667,7 +733,7 @@ export default function BattlePage() {
       // Also broadcast TEAM for backward compat with older clients
       broadcast(BATTLE_EVENTS.TEAM, teamPayload);
       setMyReady(true);
-      setNotice("PRONTO! Aguardando adversário...");
+      setNotice(automatic ? "Tempo encerrado. Seu time foi confirmado automaticamente." : "PRONTO! Aguardando adversário...");
     } catch (error) { setNotice(error.message); }
     setPreparingTeam(false);
   }
@@ -680,13 +746,26 @@ export default function BattlePage() {
     setNotice("Você voltou a selecionar o time.");
   }
 
-  function createRoom(wagerAmount = 0) {
+  async function ensureFriendEligible() {
+    try {
+      const currentCollection = await webStore.getData("Pokedex");
+      setCollection(currentCollection);
+      if (currentCollection.length >= 3) return true;
+      setNotice("Capture pelo menos 3 Pokémon antes de entrar em uma batalha PvP.");
+      return false;
+    } catch {
+      setNotice("Não foi possível validar sua coleção agora. Tente novamente.");
+      return false;
+    }
+  }
+  async function createRoom(wagerAmount = 0) {
     if (!hasRealtimeConfig()) {
       setNotice(
         "Configure as variáveis do Supabase para jogar contra um amigo.",
       );
       return;
     }
+    if (!(await ensureFriendEligible())) return;
     const currentPlayer = makePlayer(name, profile?.playerId);
     setName(currentPlayer.name);
     void webStore.setTrainerName(currentPlayer.name);
@@ -698,17 +777,20 @@ export default function BattlePage() {
     setRoomCode(code);
     setMyReady(false);
     setOpponentReady(false);
+    wagerSnapshot.current = offer;
     setWager(offer);
+    clearFriendSelectionTiming();
     setScreen("team");
     connectRoom(code, currentPlayer, "host", offer);
   }
-  function joinRoom() {
+  async function joinRoom() {
     if (!hasRealtimeConfig()) {
       setNotice(
         "Configure as variáveis do Supabase para jogar contra um amigo.",
       );
       return;
     }
+    if (!(await ensureFriendEligible())) return;
     if (joinCode.length !== 4) {
       setNotice("Digite os 4 números do código da sala.");
       return;
@@ -722,7 +804,9 @@ export default function BattlePage() {
     setRoomCode(code);
     setMyReady(false);
     setOpponentReady(false);
+    wagerSnapshot.current = null;
     setWager(null);
+    clearFriendSelectionTiming();
     setScreen("team");
     connectRoom(code, currentPlayer, "guest");
   }
@@ -881,6 +965,8 @@ export default function BattlePage() {
     if (mode === "friend") {
       broadcast(BATTLE_EVENTS.REMATCH, {});
       setWager(null);
+      clearFriendSelectionTiming();
+      void realtime.current?.updatePresence({ ready: false, team: null, selectionTiming: null }).catch(() => {});
     }
     setBattle(null);
     setSelected([]);
@@ -970,6 +1056,8 @@ export default function BattlePage() {
               preparing={preparingTeam}
               canReady={["cpu", "badge-cpu"].includes(mode) || connection === "CONNECTED"}
               onUseDeck={setSelected}
+              selectionTiming={mode === "friend" ? selectionTiming : null}
+              opponentReady={opponentReady}
               cpuDifficulty={mode === "cpu" ? getCpuDifficulty(cpuDifficulty) : null}
               badgeContext={String(mode).startsWith("badge") ? getBadgeConfig(badgeChallenge?.badge?.code) : null}
               onEquipmentChanged={(updated) => { setCollection((current) => current.map((pokemon) => String(pokemon.id) === String(updated.id) ? updated : pokemon)); setSelected((current) => current.map((pokemon) => String(pokemon.id) === String(updated.id) ? updated : pokemon)); }}

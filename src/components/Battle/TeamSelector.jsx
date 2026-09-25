@@ -1,6 +1,6 @@
 "use client";
 
-import { FloppyDisk, GameController, PencilSimple, Plus, Star, Trash } from "@phosphor-icons/react";
+import { FloppyDisk, GameController, PencilSimple, Plus, Star, Timer, Trash, Warning } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import { getPokemonLevel } from "@/lib/pokemon/progression";
 import ItemSprite from "@/components/ItemSprite/ItemSprite";
@@ -12,13 +12,14 @@ import { getPokemonSprite, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
 import { getTypeLabel } from "@/lib/localization/ptBR";
 import { getBadgeTeamErrorMessage, validateBadgeTeam } from "@/lib/badges/rules";
 import { getItemDefinition } from "@/lib/items/catalog";
+import { getSelectionTimerState } from "@/lib/battle/selectionTimer";
 
 function HeldItemBadge({ item, compact = false }) {
   if (!item) return compact ? null : <span className="battle-held-item empty">SEM ITEM</span>;
   return <span className={`battle-held-item ${compact ? "compact" : ""}`}><ItemSprite item={item} alt="" className="battle-held-item-sprite" />{!compact && `${getItemDefinition(item)?.name || "Item"} · EQUIPADO`}</span>;
 }
 
-export default function TeamSelector({ collection, selected, onToggle, onReady, waiting, preparing = false, canReady = true, onEquipmentChanged, onUseDeck, badgeContext = null, cpuDifficulty = null }) {
+export default function TeamSelector({ collection, selected, onToggle, onReady, waiting, preparing = false, canReady = true, onEquipmentChanged, onUseDeck, badgeContext = null, cpuDifficulty = null, selectionTiming = null, opponentReady = false }) {
   const [economy, setEconomy] = useState({ inventory: {} });
   const [equipmentPokemon, setEquipmentPokemon] = useState(null);
   const [activeTab, setActiveTab] = useState("pokemon");
@@ -34,12 +35,34 @@ export default function TeamSelector({ collection, selected, onToggle, onReady, 
       <strong>{cpuDifficulty.summary}</strong>
       <small>🪙 {cpuDifficulty.baseCoins} base · 🎁 {Math.round(cpuDifficulty.itemDropChance * 100)}%{cpuDifficulty.id === "hard" ? " · pode conter Lendário" : ""}</small>
     </aside>}
-    <div className="battle-collection-heading"><div><span className="eyebrow">SEUS POKÉMON</span><h2>{collection.length} na sua Pokédex</h2><p>{selected.length} / 3 selecionados. A ordem define quem entra primeiro.</p></div><span className="battle-selection-count" aria-live="polite">{selected.length} / 3</span></div>
+    <div className="battle-collection-heading"><div><span className="eyebrow">SEUS POKÉMON</span><h2>{collection.length} na sua Pokédex</h2><p>{selected.length} / 3 selecionados. A ordem define quem entra primeiro.</p></div><div className="battle-selection-meta"><SelectionTimer timing={selectionTiming} waiting={waiting} opponentReady={opponentReady} /><span className="battle-selection-count" aria-live="polite">{selected.length} / 3</span></div></div>
     {badgeContext && <BadgeRequirements badgeContext={badgeContext} selected={selected} validation={badgeValidation} />}
     {activeTab === "pokemon" && selectedEquipment.length > 0 && <section className="selected-equipment-list" aria-label="Itens equipados na equipe selecionada">{selectedEquipment.map((pokemon) => <article key={pokemon.id}><div><strong>{pokemon.name}</strong><small>Lv. {getPokemonLevel(pokemon)} · {(pokemon.types?.map((item) => item.type?.name || item.name).filter(Boolean) || []).map(getTypeLabel).join(" / ")}</small></div><span><small>ITEM EQUIPADO</small><HeldItemBadge item={pokemon.heldItem} /></span><button type="button" onClick={() => setEquipmentPokemon(pokemon)} disabled={waiting}>{pokemon.heldItem ? "TROCAR ITEM" : "EQUIPAR ITEM"}</button></article>)}</section>}
     <div className="team-selection-tabs" role="tablist" aria-label="Forma de montar o time"><button type="button" role="tab" aria-controls="team-pokemon-panel" aria-selected={activeTab === "pokemon"} className={activeTab === "pokemon" ? "selected" : ""} onClick={() => setActiveTab("pokemon")} disabled={waiting}>Pokémon</button><button type="button" role="tab" aria-controls="team-decks-panel" aria-selected={activeTab === "decks"} className={activeTab === "decks" ? "selected" : ""} onClick={() => setActiveTab("decks")} disabled={waiting}>Decks</button></div>
     {activeTab === "decks" ? <DecksPanel collection={collection} decks={decks} waiting={waiting} badgeContext={badgeContext} onDecksChange={setDecks} onUseDeck={(team) => { onUseDeck?.(team); setActiveTab("pokemon"); }} /> : <div id="team-pokemon-panel" role="tabpanel"><PokemonCollectionSelector collection={collection} selected={selected} onToggle={onToggle} disabled={waiting} badgeContext={badgeContext} renderAccessory={(pokemon) => pokemon.heldItem ? <button type="button" className="battle-held-item-trigger" onClick={() => setEquipmentPokemon(pokemon)} disabled={waiting} aria-label={`Editar item segurado de ${pokemon.name}`}><HeldItemBadge item={pokemon.heldItem} compact /></button> : <button type="button" className="battle-equipment-trigger" onClick={() => setEquipmentPokemon(pokemon)} disabled={waiting} aria-label={`Equipar item em ${pokemon.name}`}><Plus size={16} weight="bold" /></button>} /><button type="button" className="ready-button" disabled={selected.length !== 3 || waiting || !canReady || (badgeContext && !badgeValidation?.valid)} onClick={onReady}>{preparing ? "PREPARANDO EQUIPE..." : waiting ? "PRONTO! Aguardando adversário..." : canReady ? "Pronto para batalhar" : "Conectando a sala..."}</button><HeldItemDrawer pokemon={equipmentPokemon || collection[0]} economy={economy} collection={collection} heldItem={equipmentPokemon?.heldItem || null} open={Boolean(equipmentPokemon)} onClose={() => setEquipmentPokemon(null)} onEquipped={(updated, _message, result) => { if (result?.economy) setEconomy(result.economy); onEquipmentChanged?.(updated); setEquipmentPokemon(updated); }} /></div>}
   </section>;
+}
+
+function SelectionTimer({ timing, waiting, opponentReady }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!timing?.urgencyDeadline) return undefined;
+    const tick = () => setNow(Date.now());
+    tick();
+    const interval = window.setInterval(tick, 1000);
+    return () => window.clearInterval(interval);
+  }, [timing?.id, timing?.urgencyDeadline]);
+  const state = getSelectionTimerState(timing, now);
+  if (state.phase === "idle" || state.phase === "expired") return null;
+  const urgency = state.phase === "urgency";
+  const label = waiting ? (opponentReady ? "EQUIPES PRONTAS" : "AGUARDANDO ADVERSÁRIO") : urgency ? "FINALIZE SEU TIME" : "ESCOLHA SEU TIME";
+  const minutes = String(Math.floor(state.remainingSeconds / 60)).padStart(2, "0");
+  const seconds = String(state.remainingSeconds % 60).padStart(2, "0");
+  return <aside className={`selection-timer ${urgency ? "is-urgent" : ""} ${waiting ? "is-ready" : ""}`} aria-label={`${label}: ${minutes} minutos e ${seconds} segundos`}>
+    {urgency ? <Warning size={17} weight="fill" aria-hidden="true" /> : <Timer size={17} weight="bold" aria-hidden="true" />}
+    <span>{label}</span><strong>{minutes}:{seconds}</strong>
+    {urgency && !waiting && <small role="status">Faltam 15 segundos para finalizar seu time.</small>}
+  </aside>;
 }
 
 function BadgeRequirements({ badgeContext, selected, validation }) {
