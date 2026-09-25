@@ -1,7 +1,7 @@
 export const TOURNAMENT_CONFIG = Object.freeze({
   playerCount: 4,
   codePrefix: "PKC",
-  rewards: Object.freeze({ semifinal: 120, final: 500 }),
+  rewards: Object.freeze({ semifinal: 10000, final: 25000 }),
 });
 
 export const TOURNAMENT_STATUS = Object.freeze({
