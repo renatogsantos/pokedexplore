@@ -44,6 +44,7 @@ import BadgeArtwork from "@/components/Badges/BadgeArtwork";
 import { BADGE_REQUIRED_WINS } from "@/lib/badges/config";
 import { BAG_ITEM_CATALOG, getItemDefinition } from "@/lib/items/catalog";
 import { getStatusDefinition } from "@/lib/battle/statuses";
+import { getWagerResult } from "@/lib/battle/wager";
 import StatusIcon from "@/components/Battle/StatusIcon";
 
 function HpBar({ pokemon }) {
@@ -484,7 +485,7 @@ function StatusDetails({ selection, onClose }) {
   );
 }
 
-function BattleResultModal({ won, reward, coins, mode, onRematch, tournamentContext }) {
+function BattleResultModal({ won, reward, coins, mode, onRematch, tournamentContext, wagerResult }) {
   const rematchRef = useRef(null);
   const isPerfect = reward.bonuses.fastVictory > 0 && reward.bonuses.onePokemonVictory > 0;
   const rematchLabel = mode === "tournament" ? "Voltar ao campeonato" : mode === "friend" ? "Pedir revanche" : "Jogar novamente";
@@ -531,6 +532,15 @@ function BattleResultModal({ won, reward, coins, mode, onRematch, tournamentCont
             ? "Seu time venceu!"
             : "Ajuste sua estratégia e tente novamente."}
         </p>
+
+        {wagerResult && <section className={`result-modal__wager is-${wagerResult.status.toLowerCase()}`} aria-label={`Resultado da aposta: ${wagerResult.status === "WON" ? "ganhou" : wagerResult.status === "LOST" ? "perdeu" : "devolvida"}`}>
+          <img src="/coin.png" alt="" aria-hidden="true" width="30" height="30" />
+          <div>
+            <span>APOSTA · POTE {formatCoins(wagerResult.pot)}</span>
+            <strong>{wagerResult.status === "WON" ? `Você recebeu ${formatCoins(wagerResult.pot)}` : wagerResult.status === "LOST" ? `Você perdeu ${formatCoins(wagerResult.amount)}` : `Aposta devolvida: ${formatCoins(wagerResult.amount)}`}</strong>
+            {wagerResult.status !== "REFUNDED" && <small>Resultado líquido: {wagerResult.net > 0 ? "+" : ""}{formatCoins(wagerResult.net)} moedas</small>}
+          </div>
+        </section>}
 
         {won ? (
           <>
@@ -713,6 +723,7 @@ export default function BattleArena({
     baseCoins: mode === "cpu" ? state.cpuReward?.baseCoins : undefined,
   });
   const victoryReward = tournamentContext ? { base: tournamentContext.reward, bonuses: { fastVictory: 0, onePokemonVictory: 0, champion: 0 }, total: tournamentContext.reward } : { ...normalReward, itemId: mode === "cpu" ? state.cpuReward?.itemId || null : null };
+  const wagerResult = mode === "friend" ? getWagerResult(state.wager, state.winner, role) : null;
   const performanceRewardsVisible = mode === "cpu" || mode === "friend";
   const arenaRef = useBattleParallax(
     state.status === "playing" || state.status === "countdown",
@@ -1046,6 +1057,7 @@ export default function BattleArena({
             mode={mode}
             onRematch={onRematch}
             tournamentContext={tournamentContext}
+            wagerResult={wagerResult}
           />
         ))}
       </AnimatePresence>

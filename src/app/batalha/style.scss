@@ -547,6 +547,26 @@
 }
 .result-modal__balance strong { display: inline-flex; align-items: center; gap: 5px; color: #f6f9ff; font-size: .82rem; font-variant-numeric: tabular-nums; }
 .result-modal__balance img { object-fit: contain; }
+.result-modal__wager {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 13px;
+  border: 1px solid #ffe47b66;
+  border-radius: 14px;
+  background: #342b128c;
+  color: #fff5bd;
+  text-align: left;
+}
+.result-modal__wager.is-won { border-color: #8ff2ba88; background: #0a30258c; }
+.result-modal__wager.is-lost { border-color: #ffc07e77; background: #351f158c; }
+.result-modal__wager img { flex: 0 0 auto; object-fit: contain; }
+.result-modal__wager > div { display: grid; min-width: 0; gap: 2px; }
+.result-modal__wager span { color: #ffe27a; font-size: .61rem; font-weight: 950; letter-spacing: .1em; }
+.result-modal__wager strong { color: #f8fcff; font-size: .82rem; }
+.result-modal__wager small { color: #c5ddcf; font-size: .68rem; font-weight: 750; }
+.result-modal__wager.is-lost small { color: #f0c9aa; }
 .result-modal__defeat-note {
   display: inline-flex;
   align-items: center;

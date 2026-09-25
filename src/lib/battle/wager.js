@@ -12,3 +12,14 @@ export function getWagerPot(wager) {
 export function canStartWagerBattle(wager) {
   return !wager || wager.status === "LOCKED";
 }
+
+export function getWagerResult(wager, winner, role) {
+  const amount = normalizeWagerAmount(wager?.amount);
+  if (!amount || wager?.status !== "LOCKED") return null;
+
+  const pot = getWagerPot(wager);
+  if (!winner) return { amount, pot, net: 0, status: "REFUNDED" };
+
+  const won = winner === role;
+  return { amount, pot, net: won ? amount : -amount, status: won ? "WON" : "LOST" };
+}
