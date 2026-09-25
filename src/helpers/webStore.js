@@ -527,6 +527,18 @@ export const webStore = {
       }));
     } catch (error) { console.error("Erro ao consumir item equipado:", error); return { ok: false, reason: "persistence" }; }
   },
+  async settleBattleItemConsumption(event) {
+    if (!event || event.type !== "ITEM_CONSUMED" || !event.consumptionId)
+      return { ok: false, reason: "invalid-consumption" };
+    const definition = getItemDefinition(event.itemId);
+    if (!definition?.consumable || definition.usageType !== event.usageType)
+      return { ok: false, reason: "invalid-consumption" };
+    if (event.usageType === "HELD")
+      return this.consumeHeldItem(event.pokemonInstanceId, event.itemId, event.consumptionId);
+    if (event.usageType === "BAG")
+      return this.consumeInventory({ [event.itemId]: 1 }, event.consumptionId);
+    return { ok: false, reason: "invalid-consumption" };
+  },
   async recordBattleOutcome(matchId, { won, durationMs, usedOnlyOnePokemon, mode = "cpu" }) {
     if (!matchId) return { recorded: false, progress: EMPTY_PROGRESS, unlocked: [] };
     try { return await withDatabase((database) => new Promise((resolve, reject) => {

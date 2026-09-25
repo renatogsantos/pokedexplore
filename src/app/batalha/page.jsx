@@ -47,6 +47,7 @@ import { getBadgeTeamErrorMessage, validateBadgeTeam } from "@/lib/badges/rules"
 import { preloadBattlePokemonSprites } from "@/lib/pokemon/sprites";
 import { validateHeldItemAssignments } from "@/lib/economy/heldItems";
 import { BAG_ITEM_CATALOG } from "@/lib/items/catalog";
+import { getItemConsumptionEvents } from "@/lib/battle/itemConsumption";
 import "./style.scss";
 
 const makeCode = () => `PKDX-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -234,16 +235,8 @@ export default function BattlePage() {
     autoSelectionSessions.current.clear();
   }, []);
   const persistBattleConsumables = useCallback((state, localRole) => {
-    const effect = state?.effect;
-    if (!effect || !state?.matchId) return;
-    const actionItem = effect.kind === "item" ? effect.itemId : null;
-    if (actionItem && effect.actor === localRole)
-      void webStore.consumeInventory({ [actionItem]: 1 }, `${state.matchId}:${state.revision}:bag:${localRole}:${actionItem}`).then((result) => {
-        if (result.ok) setInventory(result.economy.inventory || {});
-      });
-    const heldItems = (effect.itemEvents || (effect.heldItem ? [effect.heldItem] : [])).filter((item) => item?.consumed && item.owner === localRole);
-    heldItems.forEach((heldItem) =>
-      void webStore.consumeHeldItem(heldItem.pokemonId || heldItem.targetPokemonId, heldItem.itemId, `${state.matchId}:${state.revision}:held:${localRole}:${heldItem.pokemonId || heldItem.targetPokemonId}:${heldItem.itemId}:${heldItem.eventId}`).then((result) => {
+    getItemConsumptionEvents(state, localRole).forEach((event) =>
+      void webStore.settleBattleItemConsumption(event).then((result) => {
         if (result.ok) {
           setInventory(result.economy.inventory || {});
           if (result.pokemon) {
@@ -626,11 +619,9 @@ export default function BattlePage() {
       () =>
         setBattle((current) => {
           const intent = decideCpuIntent(current, { difficulty: mode === "badge-cpu" ? "hard" : current?.cpuDifficulty || cpuDifficulty });
-          return rewardFinishedBattle(
-            current,
-            resolveAction(current, "guest", intent),
-            "host",
-          );
+          const next = resolveAction(current, "guest", intent);
+          persistBattleConsumables(next, "host");
+          return rewardFinishedBattle(current, next, "host");
         }),
       850,
     );

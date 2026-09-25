@@ -262,6 +262,19 @@ test("Fruto Vital and Nucleo de Cura trigger only after qualifying received dama
   assert.equal(resolvePostDamageHeldItem(core).effect.amount, 50);
 });
 
+test("a triggered Healing Core emits one durable ITEM_CONSUMED event", () => {
+  const state = makeState("healing-core");
+  state.host.team[0].hp = 27;
+  state.turn = "guest";
+  const next = resolveAction(state, "guest", { type: "attack", moveId: "hit", actionId: "cpu-core" });
+  const consumed = next.effect.itemEvents.find((event) => event.itemId === "healing-core");
+  assert.equal(next.host.team[0].heldItem, null);
+  assert.deepEqual(
+    { type: consumed.type, consumed: consumed.consumed, owner: consumed.owner, pokemonId: consumed.pokemonId, eventId: consumed.eventId },
+    { type: "ITEM_CONSUMED", consumed: true, owner: "host", pokemonId: 1, eventId: "cpu-core" },
+  );
+});
+
 test("survival items intercept lethal damage authoritatively", () => {
   const amulet = makeState(null, "survival-amulet");
   amulet.guest.team[0].hp = 1;

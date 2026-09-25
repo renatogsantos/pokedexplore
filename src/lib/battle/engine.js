@@ -252,7 +252,7 @@ const heal = (fighter, amount) => {
 const consumeHeld = (fighter, itemId, eventId, effect = {}, owner = null) => {
   fighter.heldItem = null;
   return {
-    type: "held-item-activated",
+    type: "ITEM_CONSUMED",
     itemId,
     pokemonId: fighter.id,
     targetPokemonId: fighter.id,
@@ -894,6 +894,7 @@ function resolveBagAction(state, next, actor, enemy, action) {
   next.log = `${definition.name} usado em ${target.name}!`;
   next.effect = {
     kind: "item",
+    type: "ITEM_CONSUMED",
     itemId,
     itemName: definition.name,
     actor,
@@ -904,6 +905,7 @@ function resolveBagAction(state, next, actor, enemy, action) {
     healing,
     curedStatus,
     remaining: next[actor].bag[itemId],
+    eventId: action.actionId || `${actor}:${state.revision + 1}:bag:${itemId}:${target.id}`,
     statusEvents: curedStatus
       ? [
           {
