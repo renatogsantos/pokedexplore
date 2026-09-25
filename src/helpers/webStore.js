@@ -382,6 +382,61 @@ export const webStore = {
       return [];
     }
   },
+  async getTrainerProfileSnapshot() {
+    try {
+      return await withDatabase((database) => new Promise((resolve, reject) => {
+        const transaction = database.transaction([POKEDEX_STORE, PLAYER_STORE], "readwrite");
+        const pokedexStore = transaction.objectStore(POKEDEX_STORE);
+        const playerStore = transaction.objectStore(PLAYER_STORE);
+        const collectionRequest = pokedexStore.getAll();
+        const profileRequest = playerStore.get(TRAINER_PROFILE_KEY);
+        const economyRequest = playerStore.get(ECONOMY_KEY);
+        const decksRequest = playerStore.get(DECKS_KEY);
+        let collection;
+        let identity;
+        let economy;
+        let decks;
+        const finish = () => {
+          if (!collection || !identity || !economy || !decks) return;
+          transaction.result = { identity, collection, economy, decks };
+        };
+        collectionRequest.onsuccess = () => { collection = (collectionRequest.result || []).map(normalizeCapturedPokemon); finish(); };
+        profileRequest.onsuccess = () => {
+          const saved = profileRequest.result || {};
+          identity = { playerId: saved.playerId || `player_${crypto.randomUUID()}`, displayName: String(saved.name || "").trim() || "Treinador", avatarId: normalizePlayerAvatarId(saved.avatarId), createdAt: saved.createdAt || Date.now() };
+          finish();
+        };
+        economyRequest.onsuccess = () => {
+          economy = normalizeEconomy(economyRequest.result);
+          if (!economyRequest.result || Number(economyRequest.result.itemSystemVersion || 1) < ITEM_SYSTEM_VERSION) playerStore.put(economy);
+          finish();
+        };
+        decksRequest.onsuccess = () => {
+          decks = Array.isArray(decksRequest.result?.decks) ? decksRequest.result.decks.filter((deck) => deck?.id && Array.isArray(deck.pokemonIds)).map((deck) => ({ id: String(deck.id), name: String(deck.name || "Time sem nome").trim() || "Time sem nome", pokemonIds: deck.pokemonIds.map(String).slice(0, 3), createdAt: deck.createdAt || Date.now(), updatedAt: deck.updatedAt || Date.now() })) : [];
+          finish();
+        };
+        transaction.oncomplete = () => resolve(transaction.result || { identity: null, collection: [], economy: normalizeEconomy(), decks: [] });
+        transaction.onerror = () => reject(transaction.error);
+        collectionRequest.onerror = () => reject(collectionRequest.error);
+        profileRequest.onerror = () => reject(profileRequest.error);
+        economyRequest.onerror = () => reject(economyRequest.error);
+        decksRequest.onerror = () => reject(decksRequest.error);
+      }));
+    } catch (error) {
+      console.error("Erro ao recuperar o perfil local:", error);
+      return {
+        identity: {
+          playerId: `player_${crypto.randomUUID()}`,
+          displayName: "Treinador",
+          avatarId: normalizePlayerAvatarId(),
+          createdAt: Date.now(),
+        },
+        collection: [],
+        economy: normalizeEconomy(),
+        decks: [],
+      };
+    }
+  },
   async purchaseUpgrade(upgradeId, quantity = 1) {
     const upgrade = getShopUpgrade(upgradeId);
     if (!upgrade) return { ok: false, reason: "not-found" };

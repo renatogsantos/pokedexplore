@@ -2,12 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { webStore } from "@/helpers/webStore";
-import {
-  getPlayerBadgeProfile,
-  hasBadgeServiceConfig,
-  registerCompetitivePlayer,
-  subscribeBadges,
-} from "@/lib/badges/service";
 import { selectBadgeProfile, selectLocalTrainerProfile } from "@/lib/profile/selectors";
 import { isValidPlayerAvatarId } from "@/lib/profile/avatars";
 
@@ -21,12 +15,7 @@ export default function useTrainerProfile() {
 
   const loadLocal = useCallback(async () => {
     setLocalLoading(true);
-    const [identity, collection, economy, decks] = await Promise.all([
-      webStore.getLocalPlayerProfile(),
-      webStore.getCollectionSnapshot(),
-      webStore.getEconomy(),
-      webStore.getDecks(),
-    ]);
+    const { identity, collection, economy, decks } = await webStore.getTrainerProfileSnapshot();
     const next = selectLocalTrainerProfile({ identity, collection, economy, decks });
     setLocal(next);
     setLocalLoading(false);
@@ -34,7 +23,8 @@ export default function useTrainerProfile() {
   }, []);
 
   const loadCompetitive = useCallback(async (identity) => {
-    if (!identity?.playerId || !hasBadgeServiceConfig()) {
+    const badgeService = await import("@/lib/badges/service");
+    if (!identity?.playerId || !badgeService.hasBadgeServiceConfig()) {
       setCompetitive(null);
       setCompetitiveError("As informações competitivas estão indisponíveis neste ambiente.");
       setCompetitiveLoading(false);
@@ -43,7 +33,7 @@ export default function useTrainerProfile() {
     setCompetitiveLoading(true);
     setCompetitiveError("");
     try {
-      const remote = await getPlayerBadgeProfile(identity.playerId);
+      const remote = await badgeService.getPlayerBadgeProfile(identity.playerId);
       setCompetitive(selectBadgeProfile(remote, identity.playerId));
     } catch (error) {
       if (process.env.NODE_ENV !== "production") console.error("[Profile] competitive data failed", error);
@@ -58,16 +48,14 @@ export default function useTrainerProfile() {
     let unsubscribe;
     void loadLocal().then((nextLocal) => {
       if (!active) return;
-      if (hasBadgeServiceConfig()) {
-        void registerCompetitivePlayer(nextLocal.identity)
+      void import("@/lib/badges/service").then((badgeService) => {
+        if (!active) return;
+        if (!badgeService.hasBadgeServiceConfig()) return loadCompetitive(nextLocal.identity);
+        void badgeService.registerCompetitivePlayer(nextLocal.identity)
           .then(() => loadCompetitive(nextLocal.identity))
           .catch(() => loadCompetitive(nextLocal.identity));
-      } else {
-        void loadCompetitive(nextLocal.identity);
-      }
-      if (hasBadgeServiceConfig()) {
-        unsubscribe = subscribeBadges(() => { void loadCompetitive(nextLocal.identity); });
-      }
+        unsubscribe = badgeService.subscribeBadges(() => { void loadCompetitive(nextLocal.identity); });
+      });
     });
     return () => { active = false; unsubscribe?.(); };
   }, [loadCompetitive, loadLocal]);
@@ -85,9 +73,10 @@ export default function useTrainerProfile() {
       const previousName = local?.identity?.displayName;
       const identity = await webStore.setLocalPlayerProfile({ ...local.identity, displayName, avatarId });
       setLocal((current) => ({ ...current, identity }));
-      if (hasBadgeServiceConfig() && displayName !== previousName) {
+      const badgeService = await import("@/lib/badges/service");
+      if (badgeService.hasBadgeServiceConfig() && displayName !== previousName) {
         try {
-          await registerCompetitivePlayer(identity);
+          await badgeService.registerCompetitivePlayer(identity);
           await loadCompetitive(identity);
         } catch {
           setCompetitiveError("O nome foi salvo neste dispositivo, mas não pôde ser sincronizado agora.");

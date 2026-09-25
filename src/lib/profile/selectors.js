@@ -11,15 +11,19 @@ export function shortenTrainerId(playerId) {
 
 export function selectCollectionStats(collection = []) {
   const normalized = Array.isArray(collection) ? collection : [];
-  const highestLevel = normalized.reduce((highest, pokemon) => Math.max(highest, getPokemonLevel(pokemon)), 0);
-  return {
-    total: normalized.length,
-    legendary: normalized.filter((pokemon) => getPokemonRarity(pokemon) === POKEMON_RARITY.LEGENDARY).length,
-    mythical: normalized.filter((pokemon) => getPokemonRarity(pokemon) === POKEMON_RARITY.MYTHICAL).length,
-    maxLevel: normalized.filter((pokemon) => getPokemonLevel(pokemon) === MAX_POKEMON_LEVEL).length,
-    highestLevel,
-    highestLevelPokemon: normalized.filter((pokemon) => highestLevel > 0 && getPokemonLevel(pokemon) === highestLevel).slice(0, 3),
-  };
+  return normalized.reduce((stats, pokemon) => {
+    const level = getPokemonLevel(pokemon);
+    const rarity = getPokemonRarity(pokemon);
+    stats.total += 1;
+    if (rarity === POKEMON_RARITY.LEGENDARY) stats.legendary += 1;
+    if (rarity === POKEMON_RARITY.MYTHICAL) stats.mythical += 1;
+    if (level === MAX_POKEMON_LEVEL) stats.maxLevel += 1;
+    if (level > stats.highestLevel) {
+      stats.highestLevel = level;
+      stats.highestLevelPokemon = [pokemon];
+    } else if (level === stats.highestLevel && stats.highestLevelPokemon.length < 3) stats.highestLevelPokemon.push(pokemon);
+    return stats;
+  }, { total: 0, legendary: 0, mythical: 0, maxLevel: 0, highestLevel: 0, highestLevelPokemon: [] });
 }
 
 export function selectBadgeProfile(remote, playerId) {
