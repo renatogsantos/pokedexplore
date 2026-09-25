@@ -52,10 +52,10 @@ function Champion({ champion, code, playerId }) {
 }
 
 function TournamentBracket({ tournament, playerId, onEnterMatch }) {
-  const matches = tournament.tournament_matches || [];
+  const matches = Array.isArray(tournament?.tournament_matches) ? tournament.tournament_matches : [];
   const semis = matches.filter((match) => match.round === ROUND.SEMIFINAL).sort((a, b) => a.round_index - b.round_index);
   const final = matches.find((match) => match.round === ROUND.FINAL);
-  const champion = tournament.tournament_players?.find((player) => player.status === "CHAMPION");
+  const champion = (Array.isArray(tournament?.tournament_players) ? tournament.tournament_players : []).find((player) => player.status === "CHAMPION");
   return <section className="tournament-arena" aria-label="Chave do campeonato">
     <Champion champion={champion} code={tournament.code} playerId={playerId} />
     <i className={`arena-link arena-link--champion ${final?.winner_id ? "is-complete" : ""}`} aria-hidden="true" />
@@ -75,10 +75,10 @@ function TournamentOptions({ canCancel, mine, status, busy, onCancel, onLeave })
   </section>;
 }
 
-export default function TournamentPanel({ tournament, profile, name, setName, code, setCode, notice, busy, onCreate, onJoin, onResetIdentity, onStart, onCancel, onLeave, onEnterMatch, onBack }) {
+export default function TournamentPanel({ tournament, profile = {}, name, setName, code, setCode, notice, busy, onCreate, onJoin, onResetIdentity, onStart, onCancel, onLeave, onEnterMatch, onBack }) {
   const [confirmingStart, setConfirmingStart] = useState(false);
   const announcedChampion = useRef(null);
-  const champion = tournament?.tournament_players?.find((player) => player.status === "CHAMPION");
+  const champion = (Array.isArray(tournament?.tournament_players) ? tournament.tournament_players : []).find((player) => player.status === "CHAMPION");
   useEffect(() => {
     if (champion?.player_id !== profile?.playerId || announcedChampion.current === champion.player_id) return;
     announcedChampion.current = champion.player_id;
@@ -92,7 +92,7 @@ export default function TournamentPanel({ tournament, profile, name, setName, co
     {process.env.NODE_ENV !== "production" && <button type="button" className="tournament-back" onClick={onResetIdentity}>Gerar nova identidade local</button>}{notice && <p className="setup-notice" role="status">{notice}</p>}<button type="button" className="tournament-back" onClick={onBack}>Voltar</button>
   </section>;
 
-  const players = tournament.tournament_players || []; const isOrganizer = tournament.created_by_player_id === profile.playerId; const mine = players.find((player) => player.player_id === profile.playerId);
+  const players = Array.isArray(tournament.tournament_players) ? tournament.tournament_players : []; const isOrganizer = tournament.created_by_player_id === profile.playerId; const mine = players.find((player) => player.player_id === profile.playerId);
   const canCancel = isOrganizer && [TOURNAMENT_STATUS.LOBBY, TOURNAMENT_STATUS.SEMIFINALS, TOURNAMENT_STATUS.FINAL].includes(tournament.status);
   const status = tournament.status === TOURNAMENT_STATUS.SEMIFINALS ? "SEMIFINAIS" : tournament.status === TOURNAMENT_STATUS.FINAL ? "FINAL" : tournament.status === TOURNAMENT_STATUS.FINISHED ? "FINALIZADO" : tournament.status === TOURNAMENT_STATUS.CANCELLED ? "CANCELADO" : "AGUARDANDO";
   return <section className="battle-panel tournament-panel tournament-lobby">

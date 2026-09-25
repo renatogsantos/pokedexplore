@@ -401,7 +401,7 @@ export default function BattlePage() {
     const refreshTournament = async () => {
       try {
         const current = await getTournament(tournament.id);
-        if (process.env.NODE_ENV !== "production") console.info("[Tournament] UI STATE AFTER EVENT", { tournamentId: tournament.id, participantCount: current?.tournament_players.length || 0, participantIds: current?.tournament_players.map((item) => item.player_id) || [] });
+        if (process.env.NODE_ENV !== "production") console.info("[Tournament] UI STATE AFTER EVENT", { tournamentId: tournament.id, participantCount: current?.tournament_players?.length || 0, participantIds: current?.tournament_players?.map((item) => item.player_id) || [] });
         setTournament(current);
       } catch (error) { if (process.env.NODE_ENV !== "production") console.error("[Tournament] POST-EVENT FETCH FAILED", error); }
     };

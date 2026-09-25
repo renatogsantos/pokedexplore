@@ -6,6 +6,7 @@ import {
   TOURNAMENT_STATUS,
 } from "./config";
 import { normalizePlayerAvatarId } from "@/lib/profile/avatars";
+import { normalizeTournamentSnapshot } from "./snapshot";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -135,10 +136,10 @@ export async function joinTournament(rawCode, profile) {
   }
   const refreshed = await getTournament(tournament.id);
   debugTournament("POST-JOIN FETCH", {
-    participantCount: refreshed?.tournament_players.length || 0,
+    participantCount: refreshed?.tournament_players?.length || 0,
     participantIds:
-      refreshed?.tournament_players.map((item) => item.player_id) || [],
-    slots: refreshed?.tournament_players.map((item) => item.slot) || [],
+      refreshed?.tournament_players?.map((item) => item.player_id) || [],
+    slots: refreshed?.tournament_players?.map((item) => item.slot) || [],
   });
   return { ...refreshed, joinOutcome: result };
 }
@@ -214,15 +215,7 @@ export async function getTournament(idOrCode) {
     : await query.eq("id", idOrCode).maybeSingle();
   if (readError) throw readError;
   if (!data) return null;
-  return {
-    ...data,
-    tournament_players: [...(data.tournament_players || [])].sort(
-      (a, b) => a.slot - b.slot,
-    ),
-    tournament_matches: [...(data.tournament_matches || [])].sort(
-      (a, b) => a.round_index - b.round_index,
-    ),
-  };
+  return normalizeTournamentSnapshot(data);
 }
 
 export async function getPlayerActiveTournament(playerId) {
