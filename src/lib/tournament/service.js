@@ -5,6 +5,7 @@ import {
   TOURNAMENT_CONFIG,
   TOURNAMENT_STATUS,
 } from "./config";
+import { normalizePlayerAvatarId } from "@/lib/profile/avatars";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -50,6 +51,7 @@ export async function createTournament(profile) {
         tournament_id: tournament.id,
         player_id: profile.playerId,
         display_name: profile.displayName,
+        avatar_id: normalizePlayerAvatarId(profile.avatarId),
         slot: 1,
       });
     if (playerError) throw playerError;
@@ -73,7 +75,7 @@ export async function joinTournament(rawCode, profile) {
     return error("Este campeonato já foi iniciado ou finalizado.");
   const { data: players, error: playersError } = await db
     .from("tournament_players")
-    .select("player_id,display_name,slot")
+    .select("player_id,display_name,avatar_id,slot")
     .eq("tournament_id", tournament.id)
     .order("slot");
   if (playersError) throw playersError;
@@ -104,6 +106,7 @@ export async function joinTournament(rawCode, profile) {
     p_tournament_id: tournament.id,
     p_player_id: profile.playerId,
     p_display_name: profile.displayName,
+    p_avatar_id: normalizePlayerAvatarId(profile.avatarId),
   });
   if (joinError) {
     debugTournament("DATABASE RESULT", {

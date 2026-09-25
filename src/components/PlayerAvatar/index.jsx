@@ -4,7 +4,7 @@ import { UserCircle } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { getPlayerAvatar } from "@/lib/profile/avatars";
 
-export default function PlayerAvatar({ avatarId, className = "", eager = false }) {
+export default function PlayerAvatar({ avatarId, className = "", eager = false, alt = null }) {
   const avatar = getPlayerAvatar(avatarId);
   const [failed, setFailed] = useState(false);
 
@@ -14,12 +14,12 @@ export default function PlayerAvatar({ avatarId, className = "", eager = false }
     <span
       className={`player-avatar ${className}`.trim()}
       data-avatar-id={avatar.id}
-      aria-hidden="true"
+      aria-hidden={alt ? undefined : "true"}
     >
       {!failed ? (
         <img
           src={avatar.image}
-          alt=""
+          alt={alt || ""}
           loading={eager ? "eager" : "lazy"}
           decoding="async"
           onError={() => setFailed(true)}
