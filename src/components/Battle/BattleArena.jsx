@@ -744,6 +744,7 @@ export default function BattleArena({
           </span>
           <span className={onePokemonAvailable ? "" : "is-lost"}>🏆 +30</span>
         </div>}
+        {mode === "friend" && state.wager?.status === "LOCKED" && <div className="battle-wager-pot" aria-label={`Pote da aposta: ${state.wager.amount * 2} moedas`}>🏆 POTE · 🪙 {state.wager.amount * 2}</div>}
         <div className="battle-status-stack" aria-label="Estado das equipes">
           <TeamStrip
             player={opponent}

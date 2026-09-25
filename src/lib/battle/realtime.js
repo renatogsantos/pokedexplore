@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 
-export const BATTLE_EVENTS = Object.freeze({ TEAM: "team_ready", READY: "player_ready", START: "battle_start", STATE: "battle_state", ACTION: "battle_action", REMATCH: "rematch_request", BADGE_ERROR: "badge_team_error" });
+export const BATTLE_EVENTS = Object.freeze({ TEAM: "team_ready", READY: "player_ready", START: "battle_start", STATE: "battle_state", ACTION: "battle_action", REMATCH: "rematch_request", BADGE_ERROR: "badge_team_error", WAGER_PROPOSAL: "wager_proposal", WAGER_ACCEPT: "wager_accept", WAGER_LOCKED: "wager_locked", WAGER_REJECTED: "wager_rejected" });
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

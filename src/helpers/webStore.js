@@ -16,7 +16,7 @@ const ECONOMY_KEY = "economy";
 const TRAINER_PROFILE_KEY = "trainer-profile";
 const DECKS_KEY = "pokemon-decks";
 const EMPTY_CREATOR_MODE = { infiniteCoins: false };
-const EMPTY_ECONOMY = { key: ECONOMY_KEY, coins: 0, rewardedMatchIds: [], secretRewards: {}, inventory: {}, ownedTms: [], consumedItemActionIds: [], itemSystemVersion: ITEM_SYSTEM_VERSION, creatorMode: EMPTY_CREATOR_MODE };
+const EMPTY_ECONOMY = { key: ECONOMY_KEY, coins: 0, wagerReservations: {}, settledWagerIds: [], rewardedMatchIds: [], secretRewards: {}, inventory: {}, ownedTms: [], consumedItemActionIds: [], itemSystemVersion: ITEM_SYSTEM_VERSION, creatorMode: EMPTY_CREATOR_MODE };
 const EMPTY_PROGRESS = { achievements: {}, streak: 0, bestStreak: 0, wins: 0, totalBattles: 0, processedOutcomeMatchIds: [], journeyCompleted: [], badges: [], trainerXp: 0, playerStats: null };
 const normalizeEconomy = (economy) => {
   const savedProgress = economy?.progress || {};
@@ -370,6 +370,23 @@ export const webStore = {
       request.onsuccess = () => { const existing = request.result ? normalizeCapturedPokemon(request.result) : null; const previousLevel = existing?.level || 0; const maxLevel = Boolean(existing && existing.level >= MAX_POKEMON_LEVEL); const next = existing ? { ...existing, level: Math.min(MAX_POKEMON_LEVEL, existing.level + 1) } : normalizeCapturedPokemon(pokemon); store.put(next); transaction.result = { pokemon: next, duplicate: Boolean(existing), previousLevel, maxLevel }; };
       transaction.oncomplete = () => resolve(transaction.result); transaction.onerror = () => reject(transaction.error); request.onerror = () => reject(request.error);
     })); } catch (error) { console.error("Erro ao capturar Pokémon:", error); return null; }
+  },
+  async reserveWager(wagerId, amount) {
+    const wager = Math.max(0, Math.floor(Number(amount) || 0));
+    if (!wagerId || !wager) return { ok: false, reason: "invalid" };
+    try { return await withDatabase((database) => new Promise((resolve, reject) => {
+      const transaction = database.transaction(PLAYER_STORE, "readwrite"); const store = transaction.objectStore(PLAYER_STORE); const request = store.get(ECONOMY_KEY);
+      request.onsuccess = () => { const economy = normalizeEconomy(request.result); const reservations = economy.wagerReservations || {}; if (reservations[wagerId]) { transaction.result = { ok: true, duplicate: true, coins: economy.coins }; return; } if (!economy.creatorMode?.infiniteCoins && economy.coins < wager) { transaction.result = { ok: false, reason: "insufficient", coins: economy.coins }; return; } const next = { ...economy, coins: economy.creatorMode?.infiniteCoins ? economy.coins : economy.coins - wager, wagerReservations: { ...reservations, [wagerId]: wager } }; store.put(next); transaction.result = { ok: true, coins: next.coins }; };
+      transaction.oncomplete = () => resolve(transaction.result); transaction.onerror = () => reject(transaction.error); request.onerror = () => reject(request.error);
+    })); } catch { return { ok: false, reason: "persistence" }; }
+  },
+  async settleWager(wagerId, { won = false, refund = false } = {}) {
+    if (!wagerId) return { settled: false };
+    try { return await withDatabase((database) => new Promise((resolve, reject) => {
+      const transaction = database.transaction(PLAYER_STORE, "readwrite"); const store = transaction.objectStore(PLAYER_STORE); const request = store.get(ECONOMY_KEY);
+      request.onsuccess = () => { const economy = normalizeEconomy(request.result); const reservations = economy.wagerReservations || {}; const amount = reservations[wagerId]; const settled = economy.settledWagerIds || []; if (!amount || settled.includes(wagerId)) { transaction.result = { settled: false, coins: economy.coins }; return; } const payout = refund ? amount : won ? amount * 2 : 0; const next = { ...economy, coins: economy.creatorMode?.infiniteCoins ? economy.coins : economy.coins + payout, wagerReservations: Object.fromEntries(Object.entries(reservations).filter(([id]) => id !== wagerId)), settledWagerIds: [...settled, wagerId].slice(-100) }; store.put(next); transaction.result = { settled: true, coins: next.coins, payout }; };
+      transaction.oncomplete = () => resolve(transaction.result); transaction.onerror = () => reject(transaction.error); request.onerror = () => reject(request.error);
+    })); } catch { return { settled: false }; }
   },
   async getCollectionSnapshot() {
     try {

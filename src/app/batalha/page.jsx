@@ -23,6 +23,7 @@ import BattleArena from "@/components/Battle/BattleArena";
 import { CPU_ROSTER, CPU_TEAM, toBattlePokemon } from "@/lib/battle/pokemon";
 import { createBattleState, resolveAction } from "@/lib/battle/engine";
 import { createCpuInventory, createCpuVictoryReward, decideCpuIntent, generateCpuTeam, getCpuDifficulty } from "@/lib/battle/cpu";
+import { canStartWagerBattle, getWagerPot, normalizeWagerAmount } from "@/lib/battle/wager";
 import {
   BATTLE_EVENTS,
   createBattleRoom,
@@ -83,6 +84,9 @@ export default function BattlePage() {
   const [notice, setNotice] = useState("");
   const [myReady, setMyReady] = useState(false);
   const [opponentReady, setOpponentReady] = useState(false);
+  const [wager, setWager] = useState(null);
+  const wagerSnapshot = useRef(null);
+  const battleSnapshot = useRef(null);
   const [preparingTeam, setPreparingTeam] = useState(false);
   const [connection, setConnection] = useState("CONNECTING");
   const [profile, setProfile] = useState(null);
@@ -100,6 +104,14 @@ export default function BattlePage() {
   const isStartingBattle = useRef(false);
   const processedBadgeBattles = useRef(new Set());
   const recentCpuTeams = useRef([]);
+
+  useEffect(() => {
+    wagerSnapshot.current = wager;
+  }, [wager]);
+
+  useEffect(() => {
+    battleSnapshot.current = battle;
+  }, [battle]);
 
   const loadArenaBackgrounds = useCallback(async () => {
     try {
@@ -249,6 +261,7 @@ export default function BattlePage() {
         { ...guest, inventory: guest.inventory || {}, team: guestTeam.map(toBattlePokemon) },
       );
       next.matchId = makeMatchId();
+      if (mode === "friend" && wager?.status === "LOCKED") next.wager = wager;
       if (cpuContext) next.cpuDifficulty = cpuContext.difficulty;
       if (badgeChallenge) {
         next.badgeChallengeId = badgeChallenge.id;
@@ -273,7 +286,7 @@ export default function BattlePage() {
         broadcast(BATTLE_EVENTS.STATE, playing);
       }, 1650);
     },
-    [badgeChallenge, broadcast, inventory, loadArenaBackgrounds, profile?.playerId],
+    [badgeChallenge, broadcast, inventory, loadArenaBackgrounds, mode, profile?.playerId, wager],
   );
   const awardVictory = useCallback(
     async (matchId, amount, itemId = null) => {
@@ -288,6 +301,9 @@ export default function BattlePage() {
       const justFinished = previous?.status !== "finished" && next?.status === "finished";
       if (justFinished && mode === "cpu" && next.winner === localRole && !next.cpuReward)
         next.cpuReward = createCpuVictoryReward(next.cpuDifficulty || cpuDifficulty);
+      if (justFinished && mode === "friend" && next.wager?.id) {
+        void webStore.settleWager(next.wager.id, { won: next.winner === localRole, refund: !next.winner }).then((result) => { if (result.settled) dispatch(actCoins(result.coins)); });
+      }
       if (justFinished && profile && hasBadgeServiceConfig() && !String(mode).startsWith("badge")) {
         void recordCompetitiveBattleActivity({ battleId: next.matchId, playerId: profile.playerId, displayName: profile.displayName, battleMode: mode }).catch(() => {});
       }
@@ -346,7 +362,7 @@ export default function BattlePage() {
       }
       return next;
     },
-    [awardVictory, badgeChallenge, cpuDifficulty, isBadgeChampion, journeyNode, mode, profile],
+    [awardVictory, badgeChallenge, cpuDifficulty, dispatch, isBadgeChampion, journeyNode, mode, profile],
   );
 
   useEffect(() => {
@@ -387,15 +403,16 @@ export default function BattlePage() {
   }, [mode, tournament?.cancellation_reason, tournament?.status]);
 
   const connectRoom = useCallback(
-    (code, currentPlayer, currentRole) => {
+    (code, currentPlayer, currentRole, initialWager = null) => {
       try {
         realtime.current?.leave();
-        realtime.current = createBattleRoom(code, currentPlayer, {
+        realtime.current = createBattleRoom(code, initialWager ? { ...currentPlayer, wager: initialWager } : currentPlayer, {
           onPresence: (nextPresence) => {
             setPresence(nextPresence);
             const players = Object.values(nextPresence).flat();
             const peer = players.find((item) => item.id !== currentPlayer.id);
             if (peer) {
+              if (peer.wager?.id) setWager(peer.wager);
               // Always update the team snapshot when peer publishes it
               if (Array.isArray(peer.team)) {
                 setRemoteTeam({ player: { id: peer.id, name: peer.name }, team: peer.team });
@@ -404,6 +421,17 @@ export default function BattlePage() {
               setOpponentReady(peer.ready === true);
               if (peer.ready === true) setNotice("ADVERSÁRIO PRONTO!");
               else if (peer.ready === false) setNotice("Adversário voltou a selecionar o time...");
+            } else {
+              setOpponentReady(false);
+              setRemoteTeam(null);
+              const activeWager = wagerSnapshot.current;
+              if (!battleSnapshot.current && activeWager?.status === "LOCKED") {
+                setWager(null);
+                void webStore.settleWager(activeWager.id, { refund: true }).then((result) => {
+                  if (result.settled) dispatch(actCoins(result.coins));
+                });
+                setNotice("Adversário desconectou. Aposta devolvida.");
+              }
             }
           },
           onStatus: (status) => {
@@ -429,6 +457,18 @@ export default function BattlePage() {
             if (type === BATTLE_EVENTS.TEAM && payload?.player?.id !== currentPlayer.id) {
               setRemoteTeam(payload);
             }
+            if (type === BATTLE_EVENTS.WAGER_PROPOSAL && payload?.hostId !== currentPlayer.id) setWager(payload);
+            if (type === BATTLE_EVENTS.WAGER_ACCEPT && currentRole === "host" && payload?.wager?.hostId === currentPlayer.id) {
+              const proposed = payload.wager;
+              void webStore.reserveWager(proposed.id, proposed.amount).then((result) => {
+                if (!result.ok) { broadcast(BATTLE_EVENTS.WAGER_REJECTED, { wagerId: proposed.id }); setNotice("Seu saldo não permite bloquear esta aposta."); return; }
+                dispatch(actCoins(result.coins));
+                const locked = { ...proposed, guestId: payload.playerId, status: "LOCKED" };
+                setWager(locked); void realtime.current?.updatePresence({ wager: locked }); broadcast(BATTLE_EVENTS.WAGER_LOCKED, locked);
+              });
+            }
+            if (type === BATTLE_EVENTS.WAGER_LOCKED && payload?.id) { setWager(payload); setNotice("APOSTA ACEITA · moedas reservadas"); }
+            if (type === BATTLE_EVENTS.WAGER_REJECTED && payload?.wagerId) { void webStore.settleWager(payload.wagerId, { refund: true }); setWager(null); setNotice("A aposta não pôde ser bloqueada."); }
             // READY: explicit per-player readiness. This is the authoritative ready signal.
             if (type === BATTLE_EVENTS.READY && payload?.playerId && payload.playerId !== currentPlayer.id) {
               const isReady = payload.ready === true;
@@ -466,6 +506,7 @@ export default function BattlePage() {
             if (type === BATTLE_EVENTS.BADGE_ERROR && payload?.message)
               setNotice(payload.message);
             if (type === BATTLE_EVENTS.REMATCH) {
+              setWager(null);
               setBattle(null);
               setSelected([]);
               setRemoteTeam(null);
@@ -483,7 +524,7 @@ export default function BattlePage() {
         setNotice("Não foi possível conectar à sala.");
       }
     },
-    [broadcast, mode, persistBattleConsumables, rewardFinishedBattle],
+    [broadcast, dispatch, mode, persistBattleConsumables, rewardFinishedBattle],
   );
 
   useEffect(() => {
@@ -492,6 +533,7 @@ export default function BattlePage() {
       role !== "host" ||
       !myReady ||              // host must have explicitly pressed PRONTO
       !opponentReady ||        // guest must have ALSO explicitly pressed PRONTO
+      !canStartWagerBattle(wager) ||
       selected.length !== 3 ||
       !remoteTeam?.team ||
       remoteTeam.team.length !== 3 ||
@@ -504,7 +546,7 @@ export default function BattlePage() {
       void markTournamentMatchPlaying(tournamentMatch.id).catch((error) => setNotice(error.message));
     }
     startState(selected, remoteTeam.team, player, remoteTeam.player);
-  }, [mode, role, myReady, opponentReady, selected, remoteTeam, player, battle, startState, tournamentMatch]);
+  }, [mode, role, myReady, opponentReady, selected, remoteTeam, player, battle, startState, tournamentMatch, wager]);
 
   useEffect(() => {
     if (
@@ -638,7 +680,7 @@ export default function BattlePage() {
     setNotice("Você voltou a selecionar o time.");
   }
 
-  function createRoom() {
+  function createRoom(wagerAmount = 0) {
     if (!hasRealtimeConfig()) {
       setNotice(
         "Configure as variáveis do Supabase para jogar contra um amigo.",
@@ -649,13 +691,16 @@ export default function BattlePage() {
     setName(currentPlayer.name);
     void webStore.setTrainerName(currentPlayer.name);
     const code = makeCode();
+    const amount = normalizeWagerAmount(wagerAmount);
+    const offer = amount ? { id: `wager:${code}`, roomCode: code, hostId: currentPlayer.id, amount, status: "PROPOSED" } : null;
     setPlayer(currentPlayer);
     setRole("host");
     setRoomCode(code);
     setMyReady(false);
     setOpponentReady(false);
+    setWager(offer);
     setScreen("team");
-    connectRoom(code, currentPlayer, "host");
+    connectRoom(code, currentPlayer, "host", offer);
   }
   function joinRoom() {
     if (!hasRealtimeConfig()) {
@@ -677,9 +722,19 @@ export default function BattlePage() {
     setRoomCode(code);
     setMyReady(false);
     setOpponentReady(false);
+    setWager(null);
     setScreen("team");
     connectRoom(code, currentPlayer, "guest");
   }
+  async function acceptWager() {
+    if (!wager || role !== "guest" || wager.status !== "PROPOSED") return;
+    const result = await webStore.reserveWager(wager.id, wager.amount);
+    if (!result.ok) { setNotice("Saldo insuficiente para aceitar a aposta."); return; }
+    dispatch(actCoins(result.coins));
+    setWager((current) => ({ ...current, status: "ACCEPTING" }));
+    broadcast(BATTLE_EVENTS.WAGER_ACCEPT, { wager, playerId: player?.id });
+  }
+  function rejectWager() { if (!wager || role !== "guest") return; broadcast(BATTLE_EVENTS.WAGER_REJECTED, { wagerId: wager.id }); setWager(null); setNotice("Você recusou a aposta. A sala continua sem aposta."); }
   async function prepareBadgeChallenge() {
     if (!badgeChallenge || !profile) return;
     if (!["ACTIVE", "PENDING_ACCEPTANCE"].includes(badgeChallenge.status)) {
@@ -823,7 +878,10 @@ export default function BattlePage() {
       return;
     }
     if (mode === "tournament") { realtime.current?.leave(); setBattle(null); setSelected([]); setRemoteTeam(null); setMyReady(false); setOpponentReady(false); setTournamentMatch(null); setScreen("tournament"); void getTournament(tournament?.id).then(setTournament).catch(() => {}); return; }
-    if (mode === "friend") broadcast(BATTLE_EVENTS.REMATCH, {});
+    if (mode === "friend") {
+      broadcast(BATTLE_EVENTS.REMATCH, {});
+      setWager(null);
+    }
     setBattle(null);
     setSelected([]);
     setRemoteTeam(null);
@@ -897,6 +955,10 @@ export default function BattlePage() {
               connection={connection}
               ready={myReady}
               opponentReady={opponentReady}
+              wager={wager}
+              role={role}
+              onAcceptWager={acceptWager}
+              onRejectWager={rejectWager}
               onShare={shareRoom}
             />{" "}
             <TeamSelector
@@ -993,6 +1055,7 @@ function FriendScreen({
   onJoin,
   notice,
 }) {
+  const [wagerAmount, setWagerAmount] = useState(0);
   return (
     <section className="battle-panel friend-panel">
       <span className="eyebrow">BATALHA ONLINE</span>
@@ -1007,7 +1070,7 @@ function FriendScreen({
         />
       </label>
       <div className="friend-actions">
-        <button type="button" onClick={onCreate}>
+        <button type="button" onClick={() => onCreate(wagerAmount)}>
           <LinkSimple size={24} /> Criar sala
         </button>
         <div>
@@ -1034,6 +1097,7 @@ function FriendScreen({
           </button>
         </div>
       </div>
+      <fieldset className="wager-picker"><legend>APOSTA OPCIONAL</legend><div>{[0, 100, 250, 500].map((amount) => <button type="button" key={amount} className={wagerAmount === amount ? "selected" : ""} onClick={() => setWagerAmount(amount)} aria-pressed={wagerAmount === amount}>{amount ? `🪙 ${amount}` : "Sem aposta"}</button>)}</div><label>Outro valor<input type="number" min="1" step="1" value={wagerAmount || ""} onChange={(event) => setWagerAmount(normalizeWagerAmount(event.target.value))} placeholder="0" /></label></fieldset>
       {notice && (
         <p className="setup-notice" role="status">
           {notice}
@@ -1052,6 +1116,10 @@ function RoomStatus({
   ready,
   opponentReady,
   onShare,
+  wager,
+  role,
+  onAcceptWager,
+  onRejectWager,
 }) {
   if (["cpu", "badge-cpu"].includes(mode))
     return (
@@ -1084,6 +1152,7 @@ function RoomStatus({
       <button type="button" onClick={onShare}>
         <Copy size={18} /> Compartilhar
       </button>
+      {wager && <section className="wager-status" aria-label="Estado da aposta"><span>{wager.status === "LOCKED" ? "⚔️ APOSTA ACEITA" : "⚔️ DESAFIO VALENDO MOEDAS"}</span><strong>🪙 {wager.amount} cada · pote 🪙 {getWagerPot(wager)}</strong>{role === "guest" && wager.status === "PROPOSED" && <div><button type="button" onClick={onRejectWager}>Recusar</button><button type="button" onClick={onAcceptWager}>Aceitar aposta</button></div>}</section>}
       {notice && <em>{notice}</em>}
     </div>
   );
