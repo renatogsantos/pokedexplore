@@ -45,6 +45,7 @@ import PokemonAura from "@/components/PokemonAura/PokemonAura";
 import StatusIcon from "@/components/Battle/StatusIcon";
 import ItemSprite from "@/components/ItemSprite/ItemSprite";
 import { STATUS_DEFINITIONS } from "@/lib/battle/statuses";
+import { getItemUsagePresentation } from "@/lib/items/catalog";
 
 const percent = Math.round(POTION_HEAL_PERCENTAGE * 100);
 const statusDamagePercent = Math.round(STATUS_DAMAGE_PERCENTAGE * 100);
@@ -363,7 +364,7 @@ function HeldItemDemo() {
         <button type="button" disabled={!heldItem} onClick={activateHeldItem}>
           <Heart size={19} weight="fill" aria-hidden="true" /> {heldItem ? "Simular ativação" : "Fruto consumido"}
         </button>
-        <small aria-live="polite">{heldItem ? "Com 50% de HP ou menos após receber dano, recupera 20% automaticamente." : "+20 HP · equipamento removido e 1 Fruto consumido."}</small>
+        <small aria-live="polite">{heldItem ? `${getItemUsagePresentation("fruit-vital").usageLabel} · ${getItemUsagePresentation("fruit-vital").persistenceLabel}. ${getItemUsagePresentation("fruit-vital").triggerLabel}` : "+20 HP · equipamento removido e 1 Fruto consumido."}</small>
         {!heldItem && <ResetButton onClick={() => { setHp(45); setHeldItem("fruit-vital"); }} />}
       </div>
     </div>

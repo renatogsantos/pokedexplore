@@ -13,6 +13,7 @@
 .list strong { font-size: .9rem; }
 .list small { color: #ffdf5d; font-size: .7rem; font-weight: 850; }
 .list p { margin: 0; color: #c4d7ed; font-size: .74rem; line-height: 1.4; }
+.list p.trigger { color: #9dc8f5; font-weight: 800; }.list p.after { color: #8ff2ba; }
 .list em { color: #f4b9b9; font-size: .68rem; font-style: normal; }
 .list button, .confirm button, .remove { min-height: 44px; padding: 0 11px; border: 1px solid #ffcb05; border-radius: 9px; background: #3a3217; color: #ffdf5d; font: inherit; font-size: .72rem; font-weight: 850; cursor: pointer; }
 .list button:disabled, .confirm button:disabled, .remove:disabled, .drawer header > button:disabled { opacity: .5; cursor: not-allowed; }

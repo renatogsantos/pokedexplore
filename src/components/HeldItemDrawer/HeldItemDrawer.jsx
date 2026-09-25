@@ -6,7 +6,7 @@ import { webStore } from "@/helpers/webStore";
 import ItemSprite from "@/components/ItemSprite/ItemSprite";
 import { HELD_ITEM_CATALOG, getHeldItemDefinition, getHeldItemStock, toStoredHeldItem } from "@/lib/economy/heldItems";
 import styles from "./HeldItemDrawer.module.scss";
-import { getRarityLabel } from "@/lib/items/catalog";
+import { getItemUsagePresentation, getRarityLabel } from "@/lib/items/catalog";
 
 const ERROR_MESSAGES = Object.freeze({
   "not-available": "Você não possui unidades disponíveis deste item.",
@@ -75,7 +75,8 @@ export default function HeldItemDrawer({ pokemon, economy, collection, heldItem,
         const stock = getHeldItemStock({ economy: snapshot.economy, collection: snapshot.collection, itemId: item.id });
         const storedItem = toStoredHeldItem(item.id, pokemon);
         const selected = heldItem === storedItem;
-        return <article key={item.id} className={selected ? styles.selected : ""}><ItemSprite item={item.id} alt={item.name} /><div><strong>{item.name}</strong><small>{getRarityLabel(item.rarity)} · {item.shortDescription}</small><small>Possui: {stock.owned} · Disponível: {stock.available}</small><p>{item.description}</p>{!selected && stock.available === 0 && <em>ESGOTADO · nenhuma unidade livre para equipar.</em>}</div><button type="button" disabled={busy || selected || stock.available === 0} onClick={() => choose(storedItem)}>{busy ? "EQUIPANDO..." : selected ? "Equipado" : stock.available === 0 ? "Esgotado" : "Equipar"}</button></article>;
+        const presentation = getItemUsagePresentation(item);
+        return <article key={item.id} className={selected ? styles.selected : ""}><ItemSprite item={item.id} alt={item.name} /><div><strong>{item.name}</strong><small>{getRarityLabel(item.rarity)} · {presentation.usageLabel} · {presentation.persistenceLabel}</small><small>Possui: {stock.owned} · Disponível: {stock.available}</small><p>{presentation.effectLabel}</p><p className={styles.trigger}>{presentation.triggerLabel}</p><p className={styles.after}>{presentation.afterUseLabel}</p>{!selected && stock.available === 0 && <em>ESGOTADO · nenhuma unidade livre para equipar.</em>}</div><button type="button" disabled={busy || selected || stock.available === 0} onClick={() => choose(storedItem)}>{busy ? "EQUIPANDO..." : selected ? "Equipado" : stock.available === 0 ? "Esgotado" : "Equipar"}</button></article>;
       })}</div>}
       {!feedback && heldItem && <button type="button" className={styles.remove} disabled={busy} onClick={() => void equip(null)}>{busy ? "REMOVENDO..." : "REMOVER ITEM"}</button>}
       {replacement && <div className={styles.confirm} role="alert"><strong>Trocar item?</strong><span>{getHeldItemDefinition(heldItem)?.name} será substituído por {getHeldItemDefinition(replacement)?.name}.</span><div><button type="button" disabled={busy} onClick={() => setReplacement(null)}>Cancelar</button><button type="button" disabled={busy} onClick={() => void equip(replacement)}>{busy ? "EQUIPANDO..." : "TROCAR ITEM"}</button></div></div>}

@@ -262,6 +262,22 @@ test("Fruto Vital and Nucleo de Cura trigger only after qualifying received dama
   assert.equal(resolvePostDamageHeldItem(core).effect.amount, 50);
 });
 
+test("item presentation keeps usage, persistence and trigger separate", () => {
+  const core = catalog.getItemUsagePresentation("healing-core");
+  const potion = catalog.getItemUsagePresentation("vital-potion");
+  const elemental = catalog.getItemUsagePresentation("elemental-core");
+  assert.deepEqual(
+    { usage: core.usageLabel, persistence: core.persistenceLabel },
+    { usage: "EQUIPÁVEL", persistence: "CONSUMÍVEL" },
+  );
+  assert.match(core.triggerLabel, /25%/);
+  assert.deepEqual(
+    { usage: potion.usageLabel, persistence: potion.persistenceLabel },
+    { usage: "MOCHILA", persistence: "CONSUMÍVEL" },
+  );
+  assert.equal(elemental.persistenceLabel, "PERMANENTE");
+});
+
 test("a triggered Healing Core emits one durable ITEM_CONSUMED event", () => {
   const state = makeState("healing-core");
   state.host.team[0].hp = 27;

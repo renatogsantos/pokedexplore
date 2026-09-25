@@ -1291,6 +1291,7 @@
 .battle-notification.turn {
   border-color: #7cb4f5aa;
 }
+.battle-notification.turn .battle-notification-item { opacity: .9; }
 .battle-notification.waiting {
   opacity: 0.86;
 }

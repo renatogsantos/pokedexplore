@@ -33,7 +33,7 @@ import ItemSprite from "@/components/ItemSprite/ItemSprite";
 import { preloadItemVisuals } from "@/lib/items/visuals";
 import { getCustomPokemon } from "@/lib/pokemon/customCatalog";
 import { getPokemonSprite, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
-import { getRarityLabel, getRoleLabel, getUsageLabel } from "@/lib/items/catalog";
+import { getItemUsagePresentation, getRarityLabel, getRoleLabel } from "@/lib/items/catalog";
 
 const PAGE_SIZE = 12;
 const artwork = (pokemon) => getPokemonSprite({
@@ -218,6 +218,7 @@ function Pagination({ page, pages, disabled, onChange }) {
 
 function UpgradeCard({ upgrade, economy, balance, infiniteCoins, onBuy, onDetail, purchasing }) {
   const isTm = upgrade.category === "tm";
+  const presentation = isTm ? null : getItemUsagePresentation(upgrade);
   const quantity = isTm
     ? Number((economy.ownedTms || []).includes(upgrade.id))
     : economy.inventory?.[upgrade.id] || 0;
@@ -228,10 +229,11 @@ function UpgradeCard({ upgrade, economy, balance, infiniteCoins, onBuy, onDetail
       </div>
       <div className="shop-upgrade-content">
         <span>
-          {isTm ? "TM" : `${getRarityLabel(upgrade.rarity)} · ${getUsageLabel(upgrade.usageType)}`}
+          {isTm ? "TM" : `${getRarityLabel(upgrade.rarity)} · ${presentation.usageLabel} · ${presentation.persistenceLabel}`}
         </span>
         <h2>{upgrade.name}</h2>
         <p>{upgrade.shortDescription || upgrade.description}</p>
+        {!isTm && <small>{presentation.triggerLabel}</small>}
         {!isTm && <button type="button" className="shop-item-detail-trigger" onClick={() => onDetail(upgrade)}>Ver detalhes</button>}
       </div>
       <div className="shop-upgrade-footer">
@@ -688,9 +690,11 @@ export default function Shop() {
           <motion.section className={`shop-modal item-detail rarity-${itemDetail.rarity?.toLowerCase()}`} role="dialog" aria-modal="true" aria-labelledby="item-detail-title" initial={{ y: 18, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 12, opacity: 0 }}>
             <button type="button" className="shop-modal-close" onClick={() => setItemDetail(null)} aria-label="Fechar detalhes"><X size={20} /></button>
             <ItemSprite item={itemDetail.id} alt={itemDetail.name} />
-            <span>{getRarityLabel(itemDetail.rarity)} · {getUsageLabel(itemDetail.usageType)}</span>
+            <span>{getRarityLabel(itemDetail.rarity)} · {getItemUsagePresentation(itemDetail).usageLabel} · {getItemUsagePresentation(itemDetail).persistenceLabel}</span>
             <h2 id="item-detail-title">{itemDetail.name}</h2>
-            <p>{itemDetail.description}</p>
+            <p>{getItemUsagePresentation(itemDetail).effectLabel}</p>
+            <p><strong>ATIVAÇÃO</strong><br />{getItemUsagePresentation(itemDetail).triggerLabel}</p>
+            <p><strong>DEPOIS</strong><br />{getItemUsagePresentation(itemDetail).afterUseLabel}</p>
             <p><strong>IDEAL PARA</strong><br />{getRoleLabel(itemDetail.role)}</p>
             <small>Possui: {economy.inventory?.[itemDetail.id] || 0}</small>
             <strong><Coin /> {formatCoins(itemDetail.price)}</strong>

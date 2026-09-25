@@ -519,6 +519,40 @@ export function getRoleLabel(role) {
   return ROLE_LABELS[role] || role || "";
 }
 
+// Player-facing copy derived from the authoritative catalog. Every item UI
+// consumes this layer instead of duplicating gameplay rules in components.
+export function getItemUsagePresentation(itemOrId) {
+  const item = typeof itemOrId === "string" ? getItemDefinition(itemOrId) : itemOrId;
+  if (!item) return null;
+  const rules = item.rules || {};
+  const percent = (value) => `${Math.round(Number(value || 0) * 100)}%`;
+  const triggerLabel = {
+    MANUAL: "Você usa manualmente durante a batalha.",
+    AFTER_DAMAGE: `Ativa automaticamente após receber dano${rules.hpRatioLTE != null ? `, quando o HP fica em ${percent(rules.hpRatioLTE)} ou menos` : ""}.`,
+    BEFORE_LETHAL_DAMAGE: "Ativa automaticamente quando um golpe seria fatal.",
+    BEFORE_STATUS: "Ativa automaticamente antes de um estado negativo ser aplicado.",
+    AFTER_STATUS: "Ativa automaticamente quando um estado negativo é aplicado.",
+    AFTER_DAMAGE_DEALT: "Ativa após causar dano direto.",
+    AFTER_SWITCH_IN: "Prepara o próximo ataque após entrar por uma troca.",
+    BEFORE_SWITCH_OUT: "Ativa ao sair voluntariamente da batalha com vida.",
+    PASSIVE: "Funciona passivamente durante a batalha.",
+    DAMAGE_CALCULATION: item.effectType === "NEXT_ATTACK" || item.effectType === "SPECIAL_DAMAGE"
+      ? "Ativa no próximo ataque válido que acertar."
+      : "Funciona automaticamente ao calcular o dano.",
+  }[item.trigger] || "Funciona conforme a condição da batalha.";
+  return {
+    usageLabel: item.usageType === ITEM_USAGE.HELD ? "EQUIPÁVEL" : "MOCHILA",
+    persistenceLabel: item.consumable ? "CONSUMÍVEL" : "PERMANENTE",
+    triggerLabel,
+    effectLabel: item.description || item.shortDescription,
+    afterUseLabel: item.consumable
+      ? item.usageType === ITEM_USAGE.HELD
+        ? "Depois de ativar, é consumido e o Pokémon fica sem item equipado."
+        : "Depois de um uso válido, uma unidade é consumida."
+      : "Permanece equipado depois de funcionar.",
+  };
+}
+
 export const LEGACY_ITEM_MAP = Object.freeze({
   oran: "fruit-vital",
   "oran-berry": "fruit-vital",

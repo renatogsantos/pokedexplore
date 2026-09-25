@@ -42,7 +42,7 @@ import ItemSprite from "@/components/ItemSprite/ItemSprite";
 import PokemonAura from "@/components/PokemonAura/PokemonAura";
 import BadgeArtwork from "@/components/Badges/BadgeArtwork";
 import { BADGE_REQUIRED_WINS } from "@/lib/badges/config";
-import { BAG_ITEM_CATALOG, getItemDefinition } from "@/lib/items/catalog";
+import { BAG_ITEM_CATALOG, getItemDefinition, getItemUsagePresentation } from "@/lib/items/catalog";
 import { getStatusDefinition } from "@/lib/battle/statuses";
 import { getWagerResult } from "@/lib/battle/wager";
 import StatusIcon from "@/components/Battle/StatusIcon";
@@ -106,6 +106,7 @@ function Fighter({
 }) {
   const pokemon = player.team[player.active];
   const ability = getSupportedAbility(pokemon.ability);
+  const heldItemPresentation = getItemUsagePresentation(pokemon.heldItem);
   const weaknesses = side === "opponent" ? getOpponentWeaknesses(pokemon) : [];
   return (
     <div
@@ -149,14 +150,14 @@ function Fighter({
         {pokemon.heldItem && (
           <span
             className="held-item-indicator"
-            title="Item equipado: ativa conforme sua condição."
+            title={`${getItemLabel(pokemon.heldItem)} · ${heldItemPresentation?.persistenceLabel || "ITEM"}. ${heldItemPresentation?.triggerLabel || ""}`}
           >
             <ItemSprite
               item={pokemon.heldItem}
               alt=""
               className="battle-held-indicator-sprite"
             />
-            {getItemLabel(pokemon.heldItem)} <b>PRONTO</b>
+            {getItemLabel(pokemon.heldItem)} <b>{heldItemPresentation?.persistenceLabel || "PRONTO"}</b>
           </span>
         )}
         {pokemon.status && (
@@ -325,6 +326,28 @@ function statusNotification(event) {
   return null;
 }
 
+function itemEventNotification(event) {
+  const definition = getItemDefinition(event?.itemId);
+  if (!definition) return null;
+  const presentation = getItemUsagePresentation(definition);
+  const effect = event.effect || {};
+  const percent = effect.multiplier ? Math.round(Math.abs(effect.multiplier - 1) * 100) : null;
+  let detail = presentation.effectLabel;
+  if (effect.type === "heal_hp" && effect.amount) detail = `Recuperou ${effect.amount} HP.`;
+  if (effect.type === "regeneration") detail = `Regeneração por ${effect.ticks} turnos.`;
+  if (effect.type === "survive") detail = `Evitou o nocaute e ficou com ${effect.hp} HP${effect.nextAttackMultiplier ? ` · próximo ataque +${Math.round((effect.nextAttackMultiplier - 1) * 100)}%` : ""}.`;
+  if (effect.type === "prevent_status") detail = `${getStatusLabel(effect.status)} bloqueado${effect.healing ? ` · +${effect.healing} HP` : ""}.`;
+  if (effect.type === "cure_status") detail = `${getStatusLabel(effect.status)} removido${effect.healing ? ` · +${effect.healing} HP` : ""}.`;
+  if (effect.type === "damage_multiplier" && percent != null) detail = effect.multiplier < 1 ? `Reduziu ${percent}% do dano.` : `Ataque fortalecido em ${percent}%.`;
+  return {
+    title: `${definition.name.toUpperCase()} ${event.consumed ? "ATIVADO!" : "EM EFEITO"}`,
+    detail: `${detail} ${event.consumed ? "Item consumido." : "Permanece equipado."}`,
+    tone: definition.rarity === "LEGENDARY" ? "strong" : event.consumed ? "healing" : "turn",
+    itemId: definition.id,
+    duration: definition.rarity === "LEGENDARY" ? 1150 : event.consumed ? 950 : 650,
+  };
+}
+
 function buildBattleNotifications(state, role, opponentName) {
   if (state.status === "countdown")
     return [
@@ -378,32 +401,10 @@ function buildBattleNotifications(state, role, opponentName) {
     const notification = statusNotification(event);
     if (notification) queue.push(notification);
   }
-  const cureHandled = (effect.statusEvents || []).some((event) =>
-    ["STATUS_CURED", "STATUS_PREVENTED"].includes(event.type),
-  );
-  if (effect.heldItem && !cureHandled) {
-    const definition = getItemDefinition(effect.heldItem.itemId);
-    queue.push({
-      title: `${(definition?.name || getItemLabel(effect.heldItem.itemId)).toUpperCase()} ATIVADO!`,
-      detail: effect.heldItem.effect?.amount
-        ? `+${effect.heldItem.effect.amount} HP · item consumido`
-        : "Item consumido",
-      tone: definition?.rarity === "LEGENDARY" ? "strong" : "healing",
-      itemId: effect.heldItem.itemId,
-      duration: 900,
-    });
-  } else if (effect.itemEvents?.length && !cureHandled) {
-    const item = effect.itemEvents[0];
-    const definition = getItemDefinition(item.itemId);
-    queue.push({
-      title: (definition?.name || getItemLabel(item.itemId)).toUpperCase(),
-      detail: item.effect?.amount
-        ? `+${item.effect.amount} HP`
-        : definition?.shortDescription || "Efeito ativado",
-      tone: "turn",
-      itemId: item.itemId,
-      duration: 900,
-    });
+  const itemEvents = effect.itemEvents || (effect.heldItem ? [effect.heldItem] : []);
+  for (const itemEvent of itemEvents) {
+    const notification = itemEventNotification(itemEvent);
+    if (notification) queue.push(notification);
   }
   if (effect.ability && !queue.some((entry) => entry.status))
     queue.push({
@@ -412,10 +413,10 @@ function buildBattleNotifications(state, role, opponentName) {
       tone: "strong",
       duration: 900,
     });
-  if (effect.kind === "item" && !cureHandled)
+  if (effect.kind === "item")
     queue.push({
       title: effect.itemName?.toUpperCase() || "ITEM USADO!",
-      detail: `×${effect.remaining} restante${effect.remaining === 1 ? "" : "s"}`,
+      detail: `${effect.healing ? `+${effect.healing} HP · ` : ""}1 unidade consumida · ×${effect.remaining} restante${effect.remaining === 1 ? "" : "s"}`,
       tone: effect.healing ? "healing" : "strong",
       itemId: effect.itemId,
       duration: 1050,
