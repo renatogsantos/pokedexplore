@@ -27,7 +27,7 @@ import {
   getShowdownThumbnail,
 } from "@/lib/battle/pokemon";
 import { getPokemonSprite, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
-import { playBattleSound } from "@/lib/battle/sound";
+import { getDamageReactionSound, playBattleSound } from "@/lib/battle/sound";
 import PokemonRarity, { getRarityClassName } from "@/components/PokemonRarity";
 import { calculateBattleRewards } from "@/lib/battle/rewards";
 import PokemonTypeIcon from "@/components/PokemonTypeIcon";
@@ -324,7 +324,11 @@ function buildBattleNotifications(state, role, opponentName) {
 function BattleNotification({ state, role, opponentName }) {
   const [notification, setNotification] = useState(null);
   useEffect(() => {
-    if (state.effect?.kind === "attack") playBattleSound("anime-ahh", 0.5);
+    if (state.effect?.kind === "attack") {
+      const targetTeam = state[state.effect.target]?.team || [];
+      const targetPokemon = targetTeam.find((pokemon) => String(pokemon.id) === String(state.effect.targetPokemonId));
+      playBattleSound(getDamageReactionSound(targetPokemon), 0.5);
+    }
     if (state.effect?.kind === "item" && state.effect?.healing) playBattleSound("healing-pokemon-sound", 0.5);
     if (state.status === "finished") playBattleSound(state.winner === role ? "win" : "lost", 0.62);
     const queue = buildBattleNotifications(state, role, opponentName);
