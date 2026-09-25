@@ -261,7 +261,7 @@ export const webStore = {
       }));
     } catch (error) { console.error("Erro ao recuperar moedas:", error); return { ...EMPTY_ECONOMY }; }
   },
-  async rewardVictory(matchId, amount) {
+  async rewardVictory(matchId, amount, itemId = null) {
     if (!matchId) return { rewarded: false, coins: 0 };
     try {
       return await withDatabase((database) => new Promise((resolve, reject) => {
@@ -272,9 +272,11 @@ export const webStore = {
           const economy = normalizeEconomy(request.result);
           const rewardedMatchIds = economy.rewardedMatchIds || [];
           const rewarded = !rewardedMatchIds.includes(matchId);
-          const next = rewarded ? { ...economy, coins: economy.coins + amount, rewardedMatchIds: [...rewardedMatchIds, matchId].slice(-100) } : economy;
+          const inventory = { ...economy.inventory };
+          if (rewarded && itemId) inventory[itemId] = (inventory[itemId] || 0) + 1;
+          const next = rewarded ? { ...economy, coins: economy.coins + amount, inventory, rewardedMatchIds: [...rewardedMatchIds, matchId].slice(-100) } : economy;
           if (rewarded) store.put(next);
-          transaction.result = { rewarded, coins: next.coins, infiniteCoins: Boolean(next.creatorMode?.infiniteCoins) };
+          transaction.result = { rewarded, coins: next.coins, itemId: rewarded ? itemId : null, infiniteCoins: Boolean(next.creatorMode?.infiniteCoins) };
         };
         transaction.oncomplete = () => resolve(transaction.result);
         transaction.onerror = () => reject(transaction.error);

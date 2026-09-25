@@ -18,7 +18,7 @@ function HeldItemBadge({ item, compact = false }) {
   return <span className={`battle-held-item ${compact ? "compact" : ""}`}><ItemSprite item={item} alt="" className="battle-held-item-sprite" />{!compact && `${getItemDefinition(item)?.name || "Item"} · EQUIPADO`}</span>;
 }
 
-export default function TeamSelector({ collection, selected, onToggle, onReady, waiting, preparing = false, canReady = true, onEquipmentChanged, onUseDeck, badgeContext = null }) {
+export default function TeamSelector({ collection, selected, onToggle, onReady, waiting, preparing = false, canReady = true, onEquipmentChanged, onUseDeck, badgeContext = null, cpuDifficulty = null }) {
   const [economy, setEconomy] = useState({ inventory: {} });
   const [equipmentPokemon, setEquipmentPokemon] = useState(null);
   const [activeTab, setActiveTab] = useState("pokemon");
@@ -29,6 +29,11 @@ export default function TeamSelector({ collection, selected, onToggle, onReady, 
   if (collection.length < 3) return <section className="battle-panel empty-team"><GameController size={42} weight="fill" /><h2>Capture pelo menos 3 Pokémon</h2><p>Você precisa de três Pokémon na sua Pokédex para montar uma equipe.</p><a href="/pokedex">Capturar Pokémon</a></section>;
   const selectedEquipment = selected.map((entry) => collection.find((pokemon) => String(pokemon.id) === String(entry.id)) || entry);
   return <section className="battle-panel team-selector">
+    {cpuDifficulty && <aside className={`cpu-battle-brief cpu-battle-brief--${cpuDifficulty.id}`} aria-label={`Dificuldade ${cpuDifficulty.label}`}>
+      <span>DIFICULDADE · {cpuDifficulty.label.toUpperCase()}</span>
+      <strong>{cpuDifficulty.summary}</strong>
+      <small>🪙 {cpuDifficulty.baseCoins} base · 🎁 {Math.round(cpuDifficulty.itemDropChance * 100)}%{cpuDifficulty.id === "hard" ? " · pode conter Lendário" : ""}</small>
+    </aside>}
     <div className="battle-collection-heading"><div><span className="eyebrow">SEUS POKÉMON</span><h2>{collection.length} na sua Pokédex</h2><p>{selected.length} / 3 selecionados. A ordem define quem entra primeiro.</p></div><span className="battle-selection-count" aria-live="polite">{selected.length} / 3</span></div>
     {badgeContext && <BadgeRequirements badgeContext={badgeContext} selected={selected} validation={badgeValidation} />}
     {activeTab === "pokemon" && selectedEquipment.length > 0 && <section className="selected-equipment-list" aria-label="Itens equipados na equipe selecionada">{selectedEquipment.map((pokemon) => <article key={pokemon.id}><div><strong>{pokemon.name}</strong><small>Lv. {getPokemonLevel(pokemon)} · {(pokemon.types?.map((item) => item.type?.name || item.name).filter(Boolean) || []).map(getTypeLabel).join(" / ")}</small></div><span><small>ITEM EQUIPADO</small><HeldItemBadge item={pokemon.heldItem} /></span><button type="button" onClick={() => setEquipmentPokemon(pokemon)} disabled={waiting}>{pokemon.heldItem ? "TROCAR ITEM" : "EQUIPAR ITEM"}</button></article>)}</section>}

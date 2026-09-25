@@ -21,7 +21,8 @@ import { webStore } from "@/helpers/webStore";
 import TeamSelector from "@/components/Battle/TeamSelector";
 import BattleArena from "@/components/Battle/BattleArena";
 import { CPU_ROSTER, CPU_TEAM, toBattlePokemon } from "@/lib/battle/pokemon";
-import { calculateDamage, createBattleState, getPokemonMatchup, resolveAction } from "@/lib/battle/engine";
+import { createBattleState, resolveAction } from "@/lib/battle/engine";
+import { createCpuInventory, createCpuVictoryReward, decideCpuIntent, generateCpuTeam, getCpuDifficulty } from "@/lib/battle/cpu";
 import {
   BATTLE_EVENTS,
   createBattleRoom,
@@ -98,6 +99,7 @@ export default function BattlePage() {
   const arenaBackgrounds = useRef([]);
   const isStartingBattle = useRef(false);
   const processedBadgeBattles = useRef(new Set());
+  const recentCpuTeams = useRef([]);
 
   const loadArenaBackgrounds = useCallback(async () => {
     try {
@@ -213,7 +215,7 @@ export default function BattlePage() {
       }));
   }, []);
   const startState = useCallback(
-    async (hostTeam, guestTeam, host, guest) => {
+    async (hostTeam, guestTeam, host, guest, cpuContext = null) => {
       if (isStartingBattle.current) return;
       const badgeConfig = getBadgeConfig(badgeChallenge?.badge?.code);
       if (badgeConfig) {
@@ -244,9 +246,10 @@ export default function BattlePage() {
       const backgrounds = await loadArenaBackgrounds();
       const next = createBattleState(
         { ...host, inventory: Object.fromEntries(BAG_ITEM_CATALOG.map((item) => [item.id, inventory[item.id] || 0])), team: hostTeam.map(toBattlePokemon) },
-        { ...guest, team: guestTeam.map(toBattlePokemon) },
+        { ...guest, inventory: guest.inventory || {}, team: guestTeam.map(toBattlePokemon) },
       );
       next.matchId = makeMatchId();
+      if (cpuContext) next.cpuDifficulty = cpuContext.difficulty;
       if (badgeChallenge) {
         next.badgeChallengeId = badgeChallenge.id;
         next.seriesBattleNumber = badgeChallenge.current_battle;
@@ -273,8 +276,8 @@ export default function BattlePage() {
     [badgeChallenge, broadcast, inventory, loadArenaBackgrounds, profile?.playerId],
   );
   const awardVictory = useCallback(
-    async (matchId, amount) => {
-      const reward = await webStore.rewardVictory(matchId, amount);
+    async (matchId, amount, itemId = null) => {
+      const reward = await webStore.rewardVictory(matchId, amount, itemId);
       dispatch(actCoins(reward.coins));
       return reward;
     },
@@ -283,6 +286,8 @@ export default function BattlePage() {
   const rewardFinishedBattle = useCallback(
     (previous, next, localRole) => {
       const justFinished = previous?.status !== "finished" && next?.status === "finished";
+      if (justFinished && mode === "cpu" && next.winner === localRole && !next.cpuReward)
+        next.cpuReward = createCpuVictoryReward(next.cpuDifficulty || cpuDifficulty);
       if (justFinished && profile && hasBadgeServiceConfig() && !String(mode).startsWith("badge")) {
         void recordCompetitiveBattleActivity({ battleId: next.matchId, playerId: profile.playerId, displayName: profile.displayName, battleMode: mode }).catch(() => {});
       }
@@ -334,13 +339,14 @@ export default function BattlePage() {
           durationMs: performance.endedAt - performance.startedAt,
           usedOnlyOnePokemon: !performance.players?.[localRole]?.hasSwitched,
           championBonusEligible: isBadgeChampion,
+          baseCoins: mode === "cpu" ? next.cpuReward?.baseCoins : undefined,
         });
         celebrateBattleVictory();
-        void awardVictory(next.matchId, reward.total);
+        void awardVictory(next.matchId, reward.total, mode === "cpu" ? next.cpuReward?.itemId : null);
       }
       return next;
     },
-    [awardVictory, badgeChallenge, isBadgeChampion, journeyNode, mode, profile],
+    [awardVictory, badgeChallenge, cpuDifficulty, isBadgeChampion, journeyNode, mode, profile],
   );
 
   useEffect(() => {
@@ -512,35 +518,10 @@ export default function BattlePage() {
     cpuTimer.current = setTimeout(
       () =>
         setBattle((current) => {
-          const active = current?.guest?.team[current.guest.active];
-          const shouldHeal =
-            active &&
-            active.hp > 0 &&
-            active.hp / active.maxHp <= 0.35 &&
-            current.guest.potionsRemaining > 0;
-          const availableMoves = (active?.moves || []).filter((move) => !move.special || active?.specialAttackUsesRemaining > 0);
-          const specialMove = availableMoves.find((move) => move.special && active?.specialAttackUsesRemaining > 0);
-          const regularMove = availableMoves.find((move) => !move.special) || availableMoves[0];
-          const useSpecial = specialMove && Math.random() > 0.48;
-          const enemy = current?.host?.team[current.host.active];
-          const bestMove = [...availableMoves].sort((a, b) => calculateDamage({ attacker: active, defender: enemy, move: b }).damage - calculateDamage({ attacker: active, defender: enemy, move: a }).damage)[0];
-          const reserveIndex = current?.guest?.team.findIndex((pokemon, index) => index !== current.guest.active && pokemon.hp > 0 && getPokemonMatchup(pokemon, enemy) === "advantage");
-          const strategicCpu = cpuDifficulty === "hard" || mode === "badge-cpu";
-          const shouldSwitch = strategicCpu && reserveIndex >= 0 && getPokemonMatchup(active, enemy) === "disadvantage" && active.hp / active.maxHp < .65;
+          const intent = decideCpuIntent(current, { difficulty: mode === "badge-cpu" ? "hard" : current?.cpuDifficulty || cpuDifficulty });
           return rewardFinishedBattle(
             current,
-            resolveAction(
-              current,
-              "guest",
-              shouldSwitch
-                ? { type: "switch", index: reserveIndex }
-                : shouldHeal
-                ? { type: "potion", targetPokemonId: active.id }
-                : {
-                    type: "attack",
-                    moveId: (cpuDifficulty === "easy" && mode !== "badge-cpu" ? regularMove : strategicCpu ? bestMove : useSpecial ? specialMove : regularMove)?.id || "strike",
-                  },
-            ),
+            resolveAction(current, "guest", intent),
             "host",
           );
         }),
@@ -615,8 +596,9 @@ export default function BattlePage() {
       setPlayer(local);
       const journeyTeam = mode === "badge-cpu"
         ? getBadgeCpuTeam(badgeConfig.type, badgeChallenge.current_battle)
-        : journeyNode ? journeyNode.team.map((entry) => { const rosterEntry = CPU_ROSTER.find((pokemon) => pokemon.id === (entry.id || entry)) || CPU_TEAM[0]; return { ...rosterEntry, level: entry.level || rosterEntry.level }; }) : CPU_TEAM;
-      await startState(currentTeam, journeyTeam, local, { id: "cpu", name: mode === "badge-cpu" ? badgeConfig.leaderName : journeyNode?.badge ? "Líder do Ginásio" : journeyNode ? journeyNode.title : "CPU" });
+        : journeyNode ? journeyNode.team.map((entry) => { const rosterEntry = CPU_ROSTER.find((pokemon) => pokemon.id === (entry.id || entry)) || CPU_TEAM[0]; return { ...rosterEntry, level: entry.level || rosterEntry.level }; }) : generateCpuTeam({ difficulty: cpuDifficulty, playerTeam: currentTeam, recentTeams: recentCpuTeams.current });
+      if (mode === "cpu" && !journeyNode) recentCpuTeams.current = [...recentCpuTeams.current, journeyTeam].slice(-3);
+      await startState(currentTeam, journeyTeam, local, { id: "cpu", name: mode === "badge-cpu" ? badgeConfig.leaderName : journeyNode?.badge ? "Líder do Ginásio" : journeyNode ? journeyNode.title : "CPU", inventory: mode === "badge-cpu" ? {} : createCpuInventory(cpuDifficulty) }, mode === "cpu" ? { difficulty: cpuDifficulty } : null);
       setPreparingTeam(false);
       return;
     }
@@ -926,6 +908,7 @@ export default function BattlePage() {
               preparing={preparingTeam}
               canReady={["cpu", "badge-cpu"].includes(mode) || connection === "CONNECTED"}
               onUseDeck={setSelected}
+              cpuDifficulty={mode === "cpu" ? getCpuDifficulty(cpuDifficulty) : null}
               badgeContext={String(mode).startsWith("badge") ? getBadgeConfig(badgeChallenge?.badge?.code) : null}
               onEquipmentChanged={(updated) => { setCollection((current) => current.map((pokemon) => String(pokemon.id) === String(updated.id) ? updated : pokemon)); setSelected((current) => current.map((pokemon) => String(pokemon.id) === String(updated.id) ? updated : pokemon)); }}
             />
@@ -966,6 +949,7 @@ function BadgeChallengeIntro({ challenge, profile, notice, busy, onPrepare, onBa
 
 function ModeScreen({ onChoose, activeTournament, onResumeTournament }) {
   const [difficulty, setDifficulty] = useState("normal");
+  const difficultyConfig = getCpuDifficulty(difficulty);
   return (
     <section className="battle-panel mode-panel">
       <span className="eyebrow">ESCOLHA COMO JOGAR</span>
@@ -992,6 +976,11 @@ function ModeScreen({ onChoose, activeTournament, onResumeTournament }) {
       <div className="cpu-difficulty" role="group" aria-label="Dificuldade da CPU">
         {["easy", "normal", "hard"].map((option) => <button type="button" key={option} className={difficulty === option ? "selected" : ""} onClick={() => setDifficulty(option)} aria-pressed={difficulty === option}>{option === "easy" ? "Fácil" : option === "normal" ? "Normal" : "Difícil"}</button>)}
       </div>
+      <aside className={`cpu-difficulty-summary cpu-difficulty-summary--${difficultyConfig.id}`} aria-live="polite">
+        <span>{difficultyConfig.id === "easy" ? "🟢" : difficultyConfig.id === "normal" ? "🟡" : "🔴"} {difficultyConfig.label.toUpperCase()}</span>
+        <strong>{difficultyConfig.summary}</strong>
+        <small>🪙 {difficultyConfig.baseCoins} base · 🎁 item: {difficultyConfig.id === "easy" ? "chance baixa" : difficultyConfig.id === "normal" ? "chance média" : "até Lendário"}</small>
+      </aside>
     </section>
   );
 }

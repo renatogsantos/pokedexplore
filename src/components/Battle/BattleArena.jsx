@@ -488,6 +488,7 @@ function BattleResultModal({ won, reward, coins, mode, onRematch, tournamentCont
   const rematchRef = useRef(null);
   const isPerfect = reward.bonuses.fastVictory > 0 && reward.bonuses.onePokemonVictory > 0;
   const rematchLabel = mode === "tournament" ? "Voltar ao campeonato" : mode === "friend" ? "Pedir revanche" : "Jogar novamente";
+  const droppedItem = reward.itemId ? getItemDefinition(reward.itemId) : null;
 
   useEffect(() => {
     const focusFrame = requestAnimationFrame(() => rematchRef.current?.focus());
@@ -578,6 +579,12 @@ function BattleResultModal({ won, reward, coins, mode, onRematch, tournamentCont
                 )}
                 {reward.bonuses.champion > 0 && (
                   <RewardRow icon={Crown} label="Bônus de Campeão" value={reward.bonuses.champion} />
+                )}
+                {droppedItem && (
+                  <li className={`cpu-result-drop rarity-${droppedItem.rarity.toLowerCase()}`}>
+                    <span><ItemSprite item={droppedItem.id} alt="" /> Item {droppedItem.name}</span>
+                    <strong>{droppedItem.rarity}</strong>
+                  </li>
                 )}
               </ul>
               <div className="result-modal__balance">
@@ -703,8 +710,9 @@ export default function BattleArena({
       (state.performance?.endedAt || 0) - (state.performance?.startedAt || 0),
     usedOnlyOnePokemon: !state.performance?.players?.[role]?.hasSwitched,
     championBonusEligible,
+    baseCoins: mode === "cpu" ? state.cpuReward?.baseCoins : undefined,
   });
-  const victoryReward = tournamentContext ? { base: tournamentContext.reward, bonuses: { fastVictory: 0, onePokemonVictory: 0, champion: 0 }, total: tournamentContext.reward } : normalReward;
+  const victoryReward = tournamentContext ? { base: tournamentContext.reward, bonuses: { fastVictory: 0, onePokemonVictory: 0, champion: 0 }, total: tournamentContext.reward } : { ...normalReward, itemId: mode === "cpu" ? state.cpuReward?.itemId || null : null };
   const performanceRewardsVisible = mode === "cpu" || mode === "friend";
   const arenaRef = useBattleParallax(
     state.status === "playing" || state.status === "countdown",

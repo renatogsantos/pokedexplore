@@ -528,6 +528,12 @@
 .result-modal__breakdown li > span { display: inline-flex; align-items: center; min-width: 0; gap: 7px; }
 .result-modal__breakdown li svg { flex: 0 0 auto; color: #a8f4c7; }
 .result-modal__breakdown li strong { flex: 0 0 auto; color: #ffdf5d; font-variant-numeric: tabular-nums; }
+.result-modal__breakdown .cpu-result-drop { border-color: #7ae8b377; background: #0c2a2a99; }
+.result-modal__breakdown .cpu-result-drop > span { color: #d9fff0; font-weight: 850; }
+.result-modal__breakdown .cpu-result-drop img { width: 24px; height: 24px; object-fit: contain; }
+.result-modal__breakdown .cpu-result-drop.rarity-legendary { border-color: #ffcf5c; background: linear-gradient(90deg, #5c350eaa, #3d215aaa); box-shadow: 0 0 18px #ffb52e55; }
+.result-modal__breakdown .cpu-result-drop.rarity-legendary strong { color: #fff0a5; }
+@media (prefers-reduced-motion: reduce) { .result-modal__breakdown .cpu-result-drop.rarity-legendary { box-shadow: none; } }
 .result-modal__balance {
   display: flex;
   align-items: center;
@@ -1583,6 +1589,31 @@
 .cpu-difficulty button:focus-visible {
   outline: 2px solid #ffdf5d;
   outline-offset: 2px;
+}
+.cpu-difficulty-summary,
+.cpu-battle-brief {
+  display: grid;
+  gap: 3px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid #ffffff24;
+  border-radius: 12px;
+  background: #071426c9;
+}
+.cpu-difficulty-summary > span,
+.cpu-battle-brief > span { color: #c8d8eb; font-size: .61rem; font-weight: 950; letter-spacing: .1em; }
+.cpu-difficulty-summary strong,
+.cpu-battle-brief strong { color: #f7fbff; font-size: .82rem; }
+.cpu-difficulty-summary small,
+.cpu-battle-brief small { color: #b7c9df; font-size: .68rem; font-weight: 750; }
+.cpu-difficulty-summary--easy, .cpu-battle-brief--easy { border-color: #64d99877; }
+.cpu-difficulty-summary--normal, .cpu-battle-brief--normal { border-color: #ffcb0577; }
+.cpu-difficulty-summary--hard, .cpu-battle-brief--hard { border-color: #ff856caa; box-shadow: 0 0 18px #ff6a3a22; }
+.cpu-difficulty-summary--hard > span, .cpu-battle-brief--hard > span { color: #ffad82; }
+.cpu-battle-brief { margin: 0 0 14px; }
+@media (max-width: 420px) {
+  .cpu-difficulty { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; gap: 4px; }
+  .cpu-difficulty button { padding-inline: 5px; font-size: .66rem; }
 }
 .switch-trigger {
   min-height: 40px;
