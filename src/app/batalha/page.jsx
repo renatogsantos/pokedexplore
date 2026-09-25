@@ -24,7 +24,7 @@ import { CPU_ROSTER, CPU_TEAM, toBattlePokemon } from "@/lib/battle/pokemon";
 import { createBattleState, resolveAction } from "@/lib/battle/engine";
 import { createCpuInventory, createCpuVictoryReward, decideCpuIntent, generateCpuTeam, getCpuDifficulty } from "@/lib/battle/cpu";
 import { canStartWagerBattle, getWagerPot, normalizeWagerAmount } from "@/lib/battle/wager";
-import { completeSelection, createSelectionTiming, getSelectionTimerState } from "@/lib/battle/selectionTimer";
+import { completeSelection, createSelectionTiming, getReadySelection, getSelectionTimerState } from "@/lib/battle/selectionTimer";
 import {
   BATTLE_EVENTS,
   createBattleRoom,
@@ -657,8 +657,9 @@ export default function BattlePage() {
           : current,
     );
   }
-  async function readyTeam(teamToConfirm = selected, automatic = false) {
+  async function readyTeam(teamToConfirm, automatic = false) {
     if (preparingTeam || myReady) return;
+    const requestedTeam = getReadySelection(teamToConfirm, selected);
     setPreparingTeam(true);
     let currentCollection;
     let currentEconomy;
@@ -669,8 +670,8 @@ export default function BattlePage() {
       setPreparingTeam(false);
       return;
     }
-    const currentTeam = teamToConfirm.map((selectedPokemon) => currentCollection.find((pokemon) => String(pokemon.id) === String(selectedPokemon.id))).filter(Boolean);
-    if (currentTeam.length !== teamToConfirm.length || currentTeam.length !== 3) {
+    const currentTeam = requestedTeam.map((selectedPokemon) => currentCollection.find((pokemon) => String(pokemon.id) === String(selectedPokemon.id))).filter(Boolean);
+    if (currentTeam.length !== requestedTeam.length || currentTeam.length !== 3) {
       setNotice("Um Pokémon selecionado não foi encontrado na sua coleção. Monte a equipe novamente.");
       setCollection(currentCollection);
       setSelected(currentTeam);

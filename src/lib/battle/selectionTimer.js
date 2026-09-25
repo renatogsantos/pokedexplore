@@ -35,3 +35,8 @@ export function completeSelection(collection = [], selected = []) {
   });
   return resolved.slice(0, 3);
 }
+
+// Manual controls pass a click event; timeout resolution passes a Pokémon array.
+export function getReadySelection(candidate, selected = []) {
+  return Array.isArray(candidate) ? candidate : selected;
+}
