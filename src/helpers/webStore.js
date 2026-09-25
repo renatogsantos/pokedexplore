@@ -417,7 +417,9 @@ export const webStore = {
   async consumeHeldItem(pokemonId, heldItem, consumptionId) {
     if (!pokemonId || !heldItem) return { ok: false, reason: "invalid-item" };
     const inventoryId = getHeldItemInventoryId(heldItem);
-    if (!inventoryId) return { ok: false, reason: "invalid-item" };
+    const definition = getItemDefinition(inventoryId);
+    if (!inventoryId || definition?.usageType !== "HELD" || !definition.consumable)
+      return { ok: false, reason: "invalid-item" };
     try {
       return await withDatabase((database) => new Promise((resolve, reject) => {
         const transaction = database.transaction([POKEDEX_STORE, PLAYER_STORE], "readwrite");

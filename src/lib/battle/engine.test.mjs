@@ -294,7 +294,11 @@ test("consumable damage modifiers consume only on a successful damaging move", (
   assert.equal(next.host.team[0].heldItem, null);
   assert.equal(
     next.effect.itemEvents.some(
-      (event) => event.itemId === "impact-crystal" && event.consumed,
+      (event) =>
+        event.itemId === "impact-crystal" &&
+        event.consumed &&
+        event.owner === "host" &&
+        event.pokemonId === next.host.team[0].id,
     ),
     true,
   );
@@ -373,6 +377,8 @@ test("switch effects distinguish voluntary switch from initial spawn", () => {
   });
   assert.equal(switched.host.team[0].hp, 60);
   assert.equal(switched.host.team[0].heldItem, null);
+  assert.equal(switched.effect.itemEvents[0].owner, "host");
+  assert.equal(switched.effect.itemEvents[0].pokemonId, switched.host.team[0].id);
   const boots = makeState();
   boots.host.team[1].heldItem = "impulse-boots";
   const entered = resolveAction(boots, "host", { type: "switch", index: 1 });

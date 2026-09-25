@@ -249,7 +249,7 @@ const heal = (fighter, amount) => {
   fighter.hp += actual;
   return actual;
 };
-const consumeHeld = (fighter, itemId, eventId, effect = {}) => {
+const consumeHeld = (fighter, itemId, eventId, effect = {}, owner = null) => {
   fighter.heldItem = null;
   return {
     type: "held-item-activated",
@@ -257,6 +257,7 @@ const consumeHeld = (fighter, itemId, eventId, effect = {}) => {
     pokemonId: fighter.id,
     targetPokemonId: fighter.id,
     eventId,
+    owner,
     effect,
     consumed: true,
   };
@@ -613,6 +614,7 @@ export function resolveHeldItemEvent({
   owner,
   targetPokemonId,
   sourcePokemonId = null,
+  ownerRole = null,
   eventId = null,
   processedEventIds = [],
 }) {
@@ -635,7 +637,7 @@ export function resolveHeldItemEvent({
       ...consumeHeld(owner, definition.id, eventId, {
         type: "heal_hp",
         amount,
-      }),
+      }, ownerRole),
       sourcePokemonId,
       beforeHp: owner.hp - amount,
       afterHp: owner.hp,
@@ -651,7 +653,7 @@ export function resolveHeldItemEvent({
       ...consumeHeld(owner, definition.id, eventId, {
         type: "regeneration",
         ticks: definition.rules.ticks,
-      }),
+      }, ownerRole),
       sourcePokemonId,
       trigger,
     };
@@ -707,7 +709,7 @@ function applySupportedStatus(target, statusId, context, effect, eventId) {
         type: "prevent_status",
         status: statusId,
         healing: recovery,
-      }),
+      }, context.targetRole),
       owner: context.targetRole,
     });
     addStatusEvent(effect, {
@@ -742,7 +744,7 @@ function applySupportedStatus(target, statusId, context, effect, eventId) {
         type: "cure_status",
         status: statusId,
         healing: recovery,
-      }),
+      }, context.targetRole),
       owner: context.targetRole,
     });
     addStatusEvent(effect, {
@@ -950,6 +952,7 @@ export function resolveAction(state, actor, action) {
           itemId,
           action.actionId || `${actor}:${state.revision + 1}:switch`,
           { type: "heal_hp", amount },
+          actor,
         ),
       );
     }
@@ -1118,7 +1121,7 @@ export function resolveAction(state, actor, action) {
         ...consumeHeld(owner, trigger.itemId, eventId, {
           type: "damage_multiplier",
           multiplier: trigger.multiplier,
-        }),
+        }, ownerRole),
         owner: ownerRole,
       });
     }
@@ -1150,7 +1153,7 @@ export function resolveAction(state, actor, action) {
           lethalItem === "phoenix-heart"
             ? (phoenixRules?.multiplier ?? 1.25)
             : null,
-      }),
+      }, enemy),
       owner: enemy,
     });
   }
@@ -1269,6 +1272,7 @@ export function resolveAction(state, actor, action) {
     targetPokemonId: defender.id,
     sourcePokemonId: fighter.id,
     eventId,
+    ownerRole: enemy,
     processedEventIds: next.resolvedItemEventIds || [],
   });
   if (automatic) addItemEvent(effect, { ...automatic, owner: enemy });
