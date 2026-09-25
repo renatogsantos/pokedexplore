@@ -13,7 +13,8 @@ export function getStatMultiplier(level = 1) {
 
 export function getBaseStats(pokemon) {
   if (pokemon?.baseStats?.hp) return { hp: pokemon.baseStats.hp, attack: pokemon.baseStats.attack || 50, defense: pokemon.baseStats.defense || 50, specialAttack: pokemon.baseStats.specialAttack || pokemon.baseStats.attack || 50, specialDefense: pokemon.baseStats.specialDefense || pokemon.baseStats.defense || 50, speed: pokemon.baseStats.speed || 50 };
-  const findStat = (name, fallback) => pokemon?.stats?.find((stat) => stat.stat?.name === name)?.base_stat || fallback;
+  const stats = Array.isArray(pokemon?.stats) ? pokemon.stats : [];
+  const findStat = (name, fallback) => stats.find((stat) => stat?.stat?.name === name)?.base_stat || fallback;
   return { hp: findStat("hp", pokemon?.maxHp || 90), attack: findStat("attack", 50), defense: findStat("defense", 50), specialAttack: findStat("special-attack", 50), specialDefense: findStat("special-defense", 50), speed: findStat("speed", 50) };
 }
 
@@ -26,5 +27,19 @@ export function normalizeCapturedPokemon(pokemon) {
   delete current.held_item;
   delete current.equippedItem;
   delete current.equipped_item;
-  return { ...current, level: getPokemonLevel(pokemon), baseStats: getBaseStats(pokemon), heldItem: normalizePokemonHeldItem(pokemon) };
+  const id = current.id ?? current.instanceId ?? current.pokemonId ?? current.speciesId;
+  const name = String(current.name || current.displayName || (id ? `Pokémon ${id}` : "Pokémon")).trim() || "Pokémon";
+  return {
+    ...current,
+    id,
+    name,
+    displayName: String(current.displayName || name),
+    types: Array.isArray(current.types) ? current.types.filter(Boolean) : [],
+    stats: Array.isArray(current.stats) ? current.stats.filter(Boolean) : [],
+    moveset: Array.isArray(current.moveset) ? current.moveset.filter(Boolean).slice(0, 4) : [],
+    level: getPokemonLevel(pokemon),
+    baseStats: getBaseStats(pokemon),
+    heldItem: normalizePokemonHeldItem(pokemon),
+    saveVersion: 4,
+  };
 }

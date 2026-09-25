@@ -8,7 +8,8 @@ import { DEFAULT_PLAYER_AVATAR_ID, normalizePlayerAvatarId } from "@/lib/profile
 import { getItemDefinition, ITEM_CATALOG, ITEM_SYSTEM_VERSION, migrateItemInventory } from "@/lib/items/catalog";
 
 const DATABASE_NAME = "PokedExploreDB";
-const DATABASE_VERSION = 3;
+const DATABASE_VERSION = 4;
+const SAVE_VERSION = 4;
 const POKEDEX_STORE = "pokedex";
 const PLAYER_STORE = "player";
 const CACHE_STORE = "pokeapi-cache";
@@ -59,11 +60,18 @@ function openDatabase() {
 async function migrateLocalStorage(database) {
   if (window.localStorage.getItem("PokedExploreIndexedDBMigrated")) return;
   let oldData = [];
-  try { oldData = JSON.parse(window.localStorage.getItem("Pokedex")) || []; }
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem("Pokedex"));
+    oldData = Array.isArray(parsed) ? parsed : [];
+  }
   catch (error) { console.error("Erro ao migrar a Pokédex antiga:", error); }
   if (oldData.length) await new Promise((resolve, reject) => {
     const transaction = database.transaction(POKEDEX_STORE, "readwrite");
-    oldData.filter((pokemon) => pokemon?.id).forEach((pokemon) => transaction.objectStore(POKEDEX_STORE).put(pokemon));
+    oldData
+      .filter((pokemon) => pokemon?.id || pokemon?.instanceId || pokemon?.pokemonId || pokemon?.speciesId)
+      .map(normalizeCapturedPokemon)
+      .filter((pokemon) => pokemon?.id !== undefined && pokemon?.id !== null)
+      .forEach((pokemon) => transaction.objectStore(POKEDEX_STORE).put(pokemon));
     transaction.oncomplete = resolve;
     transaction.onerror = () => reject(transaction.error);
   });
@@ -348,6 +356,7 @@ export const webStore = {
       const normalized = records.map(normalizeCapturedPokemon);
       const collection = await Promise.all(normalized.map((pokemon) => hasResolvedPokemonRarity(pokemon) ? pokemon : enrichPokemonRarity(pokemon)));
       const needsMigration = records.some((record, index) =>
+        record.saveVersion !== SAVE_VERSION ||
         record.heldItem !== collection[index].heldItem ||
         "held_item" in record ||
         "equippedItem" in record ||

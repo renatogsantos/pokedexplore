@@ -20,6 +20,7 @@ import { useDispatch } from "react-redux";
 import { webStore } from "@/helpers/webStore";
 import TeamSelector from "@/components/Battle/TeamSelector";
 import BattleArena from "@/components/Battle/BattleArena";
+import BattleDebugPanel from "@/components/Battle/BattleDebugPanel";
 import { CPU_ROSTER, CPU_TEAM, toBattlePokemon } from "@/lib/battle/pokemon";
 import { createBattleState, resolveAction } from "@/lib/battle/engine";
 import { createCpuInventory, createCpuVictoryReward, decideCpuIntent, generateCpuTeam, getCpuDifficulty } from "@/lib/battle/cpu";
@@ -580,7 +581,11 @@ export default function BattlePage() {
     if (mode === "tournament" && tournamentMatch) {
       void markTournamentMatchPlaying(tournamentMatch.id).catch((error) => setNotice(error.message));
     }
-    startState(selected, remoteTeam.team, player, remoteTeam.player);
+    void startState(selected, remoteTeam.team, player, remoteTeam.player).catch((error) => {
+      isStartingBattle.current = false;
+      setNotice(error?.message || "Não foi possível iniciar a batalha.");
+      console.error("[Battle start error]", error);
+    });
   }, [mode, role, myReady, opponentReady, selected, remoteTeam, player, battle, startState, tournamentMatch, wager]);
 
   useEffect(() => {
@@ -900,6 +905,11 @@ export default function BattlePage() {
   }
   async function enterTournamentMatch(match) {
     if (!profile) return;
+    const participantIds = [match?.player1_id, match?.player2_id];
+    if (!match?.id || !match?.tournament_id || !match?.battle_room_code || !participantIds.includes(profile.playerId)) {
+      setNotice("Esta partida do campeonato ainda não está pronta. Atualize a chave e tente novamente.");
+      return;
+    }
     const currentPlayer = { id: profile.playerId, name: name.trim() || profile.displayName };
     const currentRole = match.player1_id === profile.playerId ? "host" : "guest";
     setMode("tournament"); setTournamentMatch(match); setPlayer(currentPlayer); setRole(currentRole); setRoomCode(match.battle_room_code); setSelected([]); setBattle(null); setMyReady(false); setOpponentReady(false); setScreen("team");
@@ -1068,6 +1078,18 @@ export default function BattlePage() {
             badgeContext={String(mode).startsWith("badge") && badgeChallenge ? { config: getBadgeConfig(badgeChallenge.badge?.code), challenge: badgeChallenge, resolution: badgeResolution, resolving: badgeResolving, error: badgeResultError, playerId: profile?.playerId } : null}
           />
         )}
+        <BattleDebugPanel
+          context={{
+            mode,
+            tournamentId: tournament?.id,
+            matchId: tournamentMatch?.id,
+            playerId: player?.id,
+            battlePhase: battle?.status,
+            teamSize: selected.length,
+            opponentPresent: Boolean(remoteTeam?.player),
+            realtimeStatus: connection,
+          }}
+        />
       </div>
     </main>
   );

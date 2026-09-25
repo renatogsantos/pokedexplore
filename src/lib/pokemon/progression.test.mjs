@@ -20,3 +20,19 @@ test("legacy captured Pokemon normalize safely to level one with base stats", ()
   assert.deepEqual(legacy.baseStats, { hp: 35, attack: 55, defense: 50, specialAttack: 50, specialDefense: 50, speed: 50 });
   assert.equal(legacy.heldItem, null);
 });
+
+test("malformed legacy shapes cannot call array methods during battle normalization", () => {
+  const legacy = normalizeCapturedPokemon({
+    pokemonId: 25,
+    displayName: "Pikachu antigo",
+    stats: { hp: 35 },
+    types: { primary: "electric" },
+    moveset: { id: "thunder-shock" },
+  });
+  assert.equal(legacy.id, 25);
+  assert.equal(legacy.name, "Pikachu antigo");
+  assert.deepEqual(legacy.types, []);
+  assert.deepEqual(legacy.stats, []);
+  assert.deepEqual(legacy.moveset, []);
+  assert.equal(legacy.saveVersion, 4);
+});
