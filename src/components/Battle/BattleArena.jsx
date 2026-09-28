@@ -32,6 +32,7 @@ import {
   createBattleAudioEventDeduper,
   getDamageReactionSound,
   getItemConsumptionSound,
+  BATTLE_EVENT_SOUND,
   playBattleSound,
   preloadBattleSounds,
 } from "@/lib/battle/sound";
@@ -560,13 +561,16 @@ function BattleNotification({ state, role, opponentName }) {
       );
       playBattleSound(getDamageReactionSound(targetPokemon), 0.5);
     }
-    if (state.status === "finished")
-      playBattleSound(state.winner === role ? "win" : "lost", 0.62);
     const queue = buildBattleNotifications(state, role, opponentName);
     const timers = [];
     let elapsed = 0;
     const isHydrating = initialAudioHydration.current;
     initialAudioHydration.current = false;
+    if (!isHydrating)
+      (state.audioEvents || []).forEach((event) => {
+        if (audioDeduper.current.shouldPlay(state.matchId, event?.id, event?.sound))
+          playBattleSound(event.sound, event.sound === BATTLE_EVENT_SOUND.FINISH_HIM ? 0.58 : 0.62);
+      });
     queue.forEach((entry, index) => {
       timers.push(
         window.setTimeout(() => {

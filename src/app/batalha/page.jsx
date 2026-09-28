@@ -31,7 +31,7 @@ import {
   createBattleRoom,
   hasRealtimeConfig,
 } from "@/lib/battle/realtime";
-import { playBattleSound } from "@/lib/battle/sound";
+import { appendBattleAudioEvents, playBattleSound } from "@/lib/battle/sound";
 import { calculateBattleRewards } from "@/lib/battle/rewards";
 import { actCoins } from "@/redux/economy";
 import CoinBalance from "@/components/CoinBalance";
@@ -297,12 +297,12 @@ export default function BattlePage() {
       broadcast(BATTLE_EVENTS.START, next);
       clearTimeout(introTimer.current);
       introTimer.current = setTimeout(() => {
-        const playing = {
+        const playing = appendBattleAudioEvents(next, {
           ...next,
           status: "playing",
           performance: { ...next.performance, startedAt: Date.now() },
           log: `SUA VEZ, ${host.name.toUpperCase()}!`,
-        };
+        }, { mode });
         setBattle(playing);
         broadcast(BATTLE_EVENTS.STATE, playing);
       }, 1650);
@@ -532,7 +532,7 @@ export default function BattlePage() {
             if (type === BATTLE_EVENTS.ACTION && currentRole === "host")
               setBattle((previous) => {
                 if (!previous) return previous;
-                const next = resolveAction(previous, "guest", payload);
+                const next = appendBattleAudioEvents(previous, resolveAction(previous, "guest", payload), { mode });
                 if (next === previous) return previous;
                 persistBattleConsumables(next, currentRole);
                 broadcast(BATTLE_EVENTS.STATE, next);
@@ -624,7 +624,7 @@ export default function BattlePage() {
       () =>
         setBattle((current) => {
           const intent = decideCpuIntent(current, { difficulty: mode === "badge-cpu" ? "hard" : current?.cpuDifficulty || cpuDifficulty });
-          const next = resolveAction(current, "guest", intent);
+          const next = appendBattleAudioEvents(current, resolveAction(current, "guest", intent), { mode });
           persistBattleConsumables(next, "host");
           return rewardFinishedBattle(current, next, "host");
         }),
@@ -918,7 +918,7 @@ export default function BattlePage() {
   }
   function sendAction(action) {
     const resolveAndPersist = (current, actor) => {
-      const next = resolveAction(current, actor, action);
+      const next = appendBattleAudioEvents(current, resolveAction(current, actor, action), { mode });
       persistBattleConsumables(next, role);
       return next;
     };

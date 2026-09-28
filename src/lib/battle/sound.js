@@ -5,6 +5,15 @@ export const BATTLE_ITEM_SOUND = Object.freeze({
   HELD_ITEM_CONSUMED: "item-consumed",
 });
 
+export const BATTLE_EVENT_SOUND = Object.freeze({
+  FINISH_HIM: "finish-him",
+  BRUTALITY: "brutality",
+  VICTORY: "win",
+  ROUND_ONE: "round-one",
+  ROUND_TWO: "round-two",
+  FINAL_ROUND: "final-round",
+});
+
 const audioCache = new Map();
 
 function getAudio(name) {
@@ -62,7 +71,7 @@ export function createBattleAudioEventDeduper() {
 
 export function preloadBattleSounds() {
   if (typeof window === "undefined") return;
-  Object.values(BATTLE_ITEM_SOUND).forEach((name) => {
+  [...Object.values(BATTLE_ITEM_SOUND), ...Object.values(BATTLE_EVENT_SOUND)].forEach((name) => {
     const audio = getAudio(name);
     try {
       audio?.load();
@@ -70,6 +79,55 @@ export function preloadBattleSounds() {
       // A failed preload is never allowed to affect battle initialization.
     }
   });
+}
+
+export function getBadgeRoundSound(mode, battleNumber) {
+  if (!["badge-cpu", "badge-pvp"].includes(mode)) return null;
+  return {
+    1: BATTLE_EVENT_SOUND.ROUND_ONE,
+    2: BATTLE_EVENT_SOUND.ROUND_TWO,
+    3: BATTLE_EVENT_SOUND.FINAL_ROUND,
+  }[Number(battleNumber)] || null;
+}
+
+function getLivingPokemon(team = []) {
+  return team.filter((pokemon) => Number(pokemon?.hp) > 0);
+}
+
+function getFinishHimEvents(state) {
+  if (state?.status === "finished") return [];
+  return ["host", "guest"].flatMap((side) => {
+    const living = getLivingPokemon(state?.[side]?.team);
+    const lastPokemon = living[0];
+    const hpPercentage = lastPokemon?.maxHp > 0 ? (lastPokemon.hp / lastPokemon.maxHp) * 100 : 0;
+    if (living.length !== 1 || hpPercentage >= 20) return [];
+    return [{ id: `finish-him:${side}`, sound: BATTLE_EVENT_SOUND.FINISH_HIM }];
+  });
+}
+
+// These events travel inside the already-authoritative battle state. The host
+// creates them once and both clients consume the same event ID, rather than
+// inferring audio separately from their React render cycle.
+export function appendBattleAudioEvents(previous, next, { mode } = {}) {
+  if (!next || previous === next) return next;
+  const existing = Array.isArray(next.audioEvents) ? next.audioEvents : [];
+  const knownIds = new Set(existing.map((event) => event?.id));
+  const additions = [];
+  if (next.status === "playing" && previous?.status !== "playing") {
+    const sound = getBadgeRoundSound(mode, next.seriesBattleNumber);
+    if (sound) additions.push({ id: `badge-round:${next.seriesBattleNumber}`, sound });
+  }
+  if (next.status === "finished" && previous?.status !== "finished") {
+    const winnerAlive = getLivingPokemon(next?.[next.winner]?.team).length;
+    additions.push({
+      id: "battle-result",
+      sound: winnerAlive === 1 ? BATTLE_EVENT_SOUND.BRUTALITY : BATTLE_EVENT_SOUND.VICTORY,
+    });
+  } else {
+    additions.push(...getFinishHimEvents(next));
+  }
+  const fresh = additions.filter((event) => event?.id && event?.sound && !knownIds.has(event.id));
+  return fresh.length ? { ...next, audioEvents: [...existing, ...fresh].slice(-20) } : next;
 }
 
 export function getDamageReactionSound(pokemon) {
