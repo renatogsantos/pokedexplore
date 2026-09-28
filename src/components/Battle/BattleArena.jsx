@@ -144,7 +144,7 @@ function Fighter({
             className={`battle-ability ${pokemon.hp / pokemon.maxHp <= 1 / 3 ? "is-active" : ""}`}
             title={ability.description}
           >
-            {ability.id}
+            <Lightning size={13} weight="fill" aria-hidden="true" /> {ability.namePtBr}
           </span>
         )}
         {pokemon.heldItem && (
@@ -348,6 +348,20 @@ function itemEventNotification(event) {
   };
 }
 
+function abilityEventNotification(event) {
+  if (!event?.abilityName) return null;
+  const effect = event.effect || {};
+  let detail = "Habilidade ativada.";
+  if (effect.type === "status") detail = `O ataque fez contato e ${event.targetPokemonName} ficou ${getStatusLabel(effect.status).toLowerCase()}.`;
+  if (effect.type === "reflect_status") detail = `${getStatusLabel(effect.status)} foi refletido em ${event.targetPokemonName}.`;
+  if (effect.type === "absorb_and_heal") detail = `O golpe ${getTypeLabel(effect.attackType)} foi absorvido${effect.healing ? ` · +${effect.healing} HP` : ""}.`;
+  if (effect.type === "absorb_and_empower") detail = "O golpe de Fogo foi absorvido. Golpes Fire foram fortalecidos.";
+  if (effect.type === "immune") detail = `O golpe ${getTypeLabel(effect.attackType)} não causou dano.`;
+  if (effect.type === "damage_multiplier") detail = `Dano fortalecido em ${Math.round((effect.multiplier - 1) * 100)}%.`;
+  if (effect.type === "stat_stage") detail = effect.stages > 0 ? `${effect.stat === "speed" ? "Velocidade" : "Ataque"} aumentou.` : "Ataque do adversário diminuiu.";
+  return { title: `${event.abilityName.toUpperCase()}!`, detail, tone: "strong", duration: 1050 };
+}
+
 function buildBattleNotifications(state, role, opponentName) {
   if (state.status === "countdown")
     return [
@@ -397,6 +411,10 @@ function buildBattleNotifications(state, role, opponentName) {
       tone: effect.effective ? "strong" : "damage",
       duration: 850,
     });
+  for (const event of effect.abilityEvents || []) {
+    const notification = abilityEventNotification(event);
+    if (notification) queue.push(notification);
+  }
   for (const event of effect.statusEvents || []) {
     const notification = statusNotification(event);
     if (notification) queue.push(notification);
@@ -406,13 +424,6 @@ function buildBattleNotifications(state, role, opponentName) {
     const notification = itemEventNotification(itemEvent);
     if (notification) queue.push(notification);
   }
-  if (effect.ability && !queue.some((entry) => entry.status))
-    queue.push({
-      title: `${effect.ability.toUpperCase()}!`,
-      detail: "Habilidade ativada",
-      tone: "strong",
-      duration: 900,
-    });
   if (effect.kind === "item")
     queue.push({
       title: effect.itemName?.toUpperCase() || "ITEM USADO!",
@@ -1237,7 +1248,7 @@ export default function BattleArena({
                       );
                       onAction({ type: "attack", moveId: move.id });
                     }}
-                    aria-label={`${move.name}. ${move.special ? (exhausted ? "Especial esgotado" : `Especial, ${uses} de 2 usos`) : `${move.power} de poder, ${effectiveness}${strategistDetail}`}${moveStatus ? `. ${moveStatusChance}% de chance de causar ${moveStatus.eventName}` : ""}.`}
+                    aria-label={`${move.name}. ${move.special ? (exhausted ? "Especial esgotado" : `Especial, ${uses} de 2 usos`) : `${move.power} de poder, ${effectiveness}${strategistDetail}`}. ${move.makesContact ? "Golpe de contato" : "Golpe sem contato"}${moveStatus ? `. ${moveStatusChance}% de chance de causar ${moveStatus.eventName}` : ""}.`}
                   >
                     <span className="attack-icon">
                       <PokemonTypeIcon type={attackType} size={25} decorative />
@@ -1273,6 +1284,7 @@ export default function BattleArena({
                           {moveStatusChance}% {moveStatus.eventName}
                         </small>
                       )}
+                      <span className="move-contact-hint">{move.makesContact ? "CONTATO" : "SEM CONTATO"}</span>
                     </span>
                   </button>
                 );

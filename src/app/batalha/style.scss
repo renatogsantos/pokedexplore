@@ -4874,6 +4874,8 @@
 @keyframes status-event-burst { 0% { opacity: 0; transform: scale(.55); } 28% { opacity: 1; } 100% { opacity: 0; transform: scale(1.15); } }
 
 .move-status-hint, .switch-status { display: inline-flex; align-items: center; gap: 3px; color: #ffe06a !important; font-size: .48rem !important; font-weight: 850; white-space: nowrap; }
+.move-contact-hint { display: inline-flex; align-items: center; color: #9bd9ff; font-size: .45rem; font-weight: 900; letter-spacing: .06em; white-space: nowrap; }
+.battle-ability { display: inline-flex; align-items: center; gap: 4px; }
 .move-status-hint.is-burn, .switch-status.is-burn { color: #ffb084 !important; }
 .move-status-hint.is-poison, .switch-status.is-poison { color: #e3a5ff !important; }
 .move-status-hint.is-sleep, .switch-status.is-sleep { color: #c3c8ff !important; }

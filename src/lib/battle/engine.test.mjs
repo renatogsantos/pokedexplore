@@ -17,6 +17,13 @@ const statusesSource = await readFile(
 globalThis.__battleStatuses = await import(
   `data:text/javascript;base64,${Buffer.from(statusesSource).toString("base64")}`
 );
+const abilitiesSource = await readFile(
+  new URL("./abilities.js", import.meta.url),
+  "utf8",
+);
+globalThis.__battleAbilities = await import(
+  `data:text/javascript;base64,${Buffer.from(abilitiesSource).toString("base64")}`,
+);
 const engineSource = (
   await readFile(new URL("./engine.js", import.meta.url), "utf8")
 )
@@ -27,6 +34,10 @@ const engineSource = (
   .replace(
     /import\s*\{[\s\S]*?isSupportedStatus[\s\S]*?\}\s*from\s*"@\/lib\/battle\/statuses";/,
     "const { isSupportedStatus, normalizeStatusEffect } = globalThis.__battleStatuses;",
+  )
+  .replace(
+    /import\s*\{[\s\S]*?normalizeAbilityId,[\s\S]*?\}\s*from\s*"@\/lib\/battle\/abilities";/,
+    "const { getContactAbilityRule, getDamageAbilityRule, getEndTurnAbilityRule, getEnterAbilityRule, getSupportedAbility: getCatalogAbility, normalizeAbilityId } = globalThis.__battleAbilities;",
   );
 const {
   MAX_HEALS_PER_POKEMON,
@@ -583,4 +594,55 @@ test("manual and automatic cures emit one traceable cure event", () => {
     ).length,
     1,
   );
+});
+
+test("all V1 ability hooks resolve through the shared engine", () => {
+  const reactive = [
+    ["poison-point", "poison"], ["static", "paralysis"], ["flame-body", "burn"], ["effect-spore", "poison"],
+  ];
+  for (const [abilityId, status] of reactive) {
+    const state = makeState();
+    state.guest.team[0].abilityId = abilityId;
+    state.guest.team[0].ability = abilityId;
+    state.host.team[0].moves.find((move) => move.id === "hit").makesContact = true;
+    state.rng = 8; // accuracy roll then a deterministic successful ability roll
+    const next = resolveAction(state, "host", { type: "attack", moveId: "hit", actionId: abilityId });
+    assert.equal(abilityId === "effect-spore" ? ["poison", "paralysis", "sleep"].includes(next.host.team[0].status?.id) : next.host.team[0].status?.id === status, true);
+    assert.equal(next.effect.abilityEvents.some((event) => event.abilityId === abilityId), true);
+  }
+  for (const [abilityId, type] of [["water-absorb", "water"], ["volt-absorb", "electric"], ["levitate", "ground"], ["flash-fire", "fire"]]) {
+    const state = makeState();
+    state.guest.team[0].abilityId = abilityId;
+    state.host.team[0].moves.find((move) => move.id === "hit").type = type;
+    state.guest.team[0].hp = 50;
+    const next = resolveAction(state, "host", { type: "attack", moveId: "hit", actionId: abilityId });
+    assert.equal(next.effect.damage, 0);
+    assert.equal(next.guest.team[0].hp, abilityId === "levitate" || abilityId === "flash-fire" ? 50 : 75);
+  }
+});
+
+test("low HP boosts, field stages and Synchronize are battle-only", () => {
+  for (const [abilityId, type] of [["overgrow", "grass"], ["blaze", "fire"], ["torrent", "water"], ["swarm", "bug"]]) {
+    const attacker = pokemon(1, null, 33, 5, type);
+    attacker.abilityId = abilityId;
+    const boosted = calculateDamage({ attacker, defender: pokemon(2), move: { ...attacker.moveset[0], type }, variance: 1 });
+    attacker.hp = 34;
+    const normal = calculateDamage({ attacker, defender: pokemon(2), move: { ...attacker.moveset[0], type }, variance: 1 });
+    assert.ok(boosted.damage > normal.damage);
+  }
+  const entered = makeState();
+  entered.host.team[1].abilityId = "intimidate";
+  const switched = resolveAction(entered, "host", { type: "switch", index: 1 });
+  assert.equal(switched.guest.team[0].temporaryEffects.statStages.attack, -1);
+  switched.guest.team[0].abilityId = "speed-boost";
+  switched.turn = "guest";
+  const speed = resolveAction(switched, "guest", { type: "attack", moveId: "hit" });
+  assert.equal(speed.guest.team[0].temporaryEffects.statStages.speed, 1);
+  const sync = makeState();
+  sync.guest.team[0].abilityId = "synchronize";
+  sync.host.team[0].moves.find((move) => move.id === "hit").statusEffect = { id: "burn", chance: 1 };
+  const reflected = resolveAction(sync, "host", { type: "attack", moveId: "hit", actionId: "sync" });
+  assert.equal(reflected.guest.team[0].status.id, "burn");
+  assert.equal(reflected.host.team[0].status.id, "burn");
+  assert.equal(reflected.effect.abilityEvents.filter((event) => event.abilityId === "synchronize").length, 1);
 });

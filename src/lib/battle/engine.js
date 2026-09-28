@@ -7,6 +7,14 @@ import {
   isSupportedStatus,
   normalizeStatusEffect,
 } from "@/lib/battle/statuses";
+import {
+  getContactAbilityRule,
+  getDamageAbilityRule,
+  getEndTurnAbilityRule,
+  getEnterAbilityRule,
+  getSupportedAbility as getCatalogAbility,
+  normalizeAbilityId,
+} from "@/lib/battle/abilities";
 
 // Framework-free, deterministic battle domain. The host runs this same
 // pipeline for CPU, friends, tournaments and Badge Challenges.
@@ -100,6 +108,13 @@ const itemRules = (id) => getItemDefinition(id)?.rules || {};
 // per move from PokéAPI's structured meta.ailment/meta.ailment_chance fields.
 // Never infer an ailment from the elemental type.
 const move = (name, options = {}) => Object.freeze({ name, ...options });
+const KNOWN_CONTACT_MOVES = new Set([
+  "Tackle", "Quick Attack", "Fire Fang", "Aqua Tail", "Vine Whip", "Spark",
+  "Ice Fang", "Karate Chop", "Brick Break", "Close Combat", "Poison Sting",
+  "Bulldoze", "Peck", "Wing Attack", "Bug Bite", "X-Scissor", "Astonish",
+  "Shadow Sneak", "Dragon Claw", "Bite", "Assurance", "Metal Claw", "Iron Head",
+  "Draining Kiss",
+]);
 const TYPE_MOVES = Object.freeze({
   normal: [move("Tackle"), move("Quick Attack"), move("Hyper Beam")],
   fire: [
@@ -210,6 +225,7 @@ export const MOVES = [
     power: 40,
     accuracy: 100,
     damageClass: "physical",
+    makesContact: true,
     special: false,
   },
   {
@@ -219,6 +235,7 @@ export const MOVES = [
     power: 70,
     accuracy: 100,
     damageClass: "special",
+    makesContact: false,
     special: true,
   },
 ];
@@ -272,12 +289,40 @@ const addStatusEvent = (effect, event) => {
   effect.statusEvents = [...(effect.statusEvents || []), event];
   effect.statusEvent = event;
 };
+const addAbilityEvent = (effect, event) => {
+  if (!event) return;
+  effect.abilityEvents = [...(effect.abilityEvents || []), event];
+  effect.abilityEvent = event;
+};
+const abilityEvent = ({ ability, trigger, owner, source, target, eventId, effect = {} }) => ({
+  type: "ABILITY_ACTIVATED", eventId, abilityId: ability.id, abilityName: ability.namePtBr,
+  trigger, ownerPokemonId: owner?.id || null, ownerPokemonName: owner?.name || null,
+  sourcePokemonId: source?.id || null, sourcePokemonName: source?.name || null,
+  targetPokemonId: target?.id || null, targetPokemonName: target?.name || null, effect,
+});
 
-export function getSupportedAbility(ability) {
-  return SUPPORTED_ABILITIES[ability]
-    ? { id: ability, description: SUPPORTED_ABILITIES[ability] }
-    : null;
+function applyEnterAbility(next, ownerRole, opponentRole, effect, eventId) {
+  const owner = next[ownerRole].team[next[ownerRole].active];
+  const opponent = next[opponentRole].team[next[opponentRole].active];
+  const definition = getEnterAbilityRule(owner);
+  if (!definition || !opponent || opponent.hp <= 0) return;
+  opponent.temporaryEffects.statStages ||= {};
+  opponent.temporaryEffects.statStages.attack = Math.max(-6, (opponent.temporaryEffects.statStages.attack || 0) + definition.rule.stages);
+  addAbilityEvent(effect, abilityEvent({ ability: definition, trigger: "ON_ENTER_BATTLE", owner, source: owner, target: opponent, eventId, effect: { type: "stat_stage", stat: "attack", stages: definition.rule.stages } }));
 }
+
+function applySynchronize(effect, target, source, targetRole, sourceRole, eventId, turn) {
+  const definition = getCatalogAbility(target?.abilityId || target?.ability);
+  const applied = (effect.statusEvents || []).find((event) => event.type === "STATUS_APPLIED" && event.targetPokemonId === target.id && definition?.rule.statuses?.includes(event.status));
+  if (!definition || !applied || source.status || source.hp <= 0) return;
+  const reflected = applySupportedStatus(source, applied.status, {
+    sourcePokemon: target, sourceRole: targetRole, targetRole: sourceRole,
+    sourceKind: "ability", abilityId: definition.id, chance: 1, appliedTurn: turn,
+  }, effect, eventId);
+  if (reflected) addAbilityEvent(effect, abilityEvent({ ability: definition, trigger: "ON_STATUS_APPLIED", owner: target, source: target, target: source, eventId, effect: { type: "reflect_status", status: reflected } }));
+}
+
+export const getSupportedAbility = getCatalogAbility;
 export function multiplier(attackType, defender) {
   return normalizeTypes(defender).reduce(
     (total, defenseType) =>
@@ -321,6 +366,8 @@ export function normalizeBattleMove(rawMove, fallback = {}) {
   const normalized = { ...fallback, ...rawMove };
   return {
     ...normalized,
+    // Unknown legacy/custom moves must never infer contact from damage class.
+    makesContact: normalized.makesContact === true || KNOWN_CONTACT_MOVES.has(normalized.name),
     statusEffect: normalizeStatusEffect(normalized),
   };
 }
@@ -335,6 +382,7 @@ export function getBattleMoves(pokemon) {
       power: 40,
       accuracy: 100,
       damageClass: "physical",
+      makesContact: true,
       special: false,
     },
     {
@@ -343,6 +391,7 @@ export function getBattleMoves(pokemon) {
       power: 60,
       accuracy: 100,
       damageClass: "physical",
+      makesContact: true,
       special: false,
     },
     {
@@ -351,6 +400,7 @@ export function getBattleMoves(pokemon) {
       power: 90,
       accuracy: 100,
       damageClass: "special",
+      makesContact: false,
       special: true,
     },
   ];
@@ -399,17 +449,16 @@ function prepareFighter(pokemon) {
           ].slice(0, 4),
     status: pokemon.status || null,
     heldItem: heldItemId(pokemon.heldItem),
-    ability: pokemon.ability || null,
+    abilityId: normalizeAbilityId(pokemon.abilityId || pokemon.ability),
+    ability: normalizeAbilityId(pokemon.abilityId || pokemon.ability),
     specialAttackUsesRemaining: MAX_SPECIAL_ATTACK_USES,
     healsUsed: 0,
     rechargeUsed: false,
     temporaryEffects: {},
   };
 }
-function abilityBonus(fighter, type) {
-  return ABILITIES[fighter.ability] === type && hpRatio(fighter) <= 1 / 3
-    ? 1.2
-    : 1;
+function statStageMultiplier(stage = 0) {
+  return stage >= 0 ? (2 + stage) / 2 : 2 / (2 - stage);
 }
 export function getMovePowerFactor(power = 40, special = false) {
   const base =
@@ -437,7 +486,7 @@ export function calculateDamage({ attacker, defender, move, variance = 1 }) {
       : defender.stats.defense;
   const ratio = Math.min(
     DAMAGE_BALANCE.MAX_ATTACK_RATIO,
-    Math.max(DAMAGE_BALANCE.MIN_ATTACK_RATIO, attack / Math.max(1, defense)),
+    Math.max(DAMAGE_BALANCE.MIN_ATTACK_RATIO, (attack * statStageMultiplier(attacker.temporaryEffects?.statStages?.attack || 0)) / Math.max(1, defense)),
   );
   const levelFactor = Math.min(
     1.2,
@@ -452,7 +501,8 @@ export function calculateDamage({ attacker, defender, move, variance = 1 }) {
   const maximum = special
     ? DAMAGE_BALANCE.SPECIAL_MAX
     : DAMAGE_BALANCE.REGULAR_MAX;
-  let outgoing = abilityBonus(attacker, attackType);
+  const abilityRule = getDamageAbilityRule({ attacker, defender, attackType, hpRatio: hpRatio(attacker) });
+  let outgoing = abilityRule?.kind === "boost" ? abilityRule.multiplier : 1;
   let incoming = 1;
   const itemTriggers = [];
   if (activeItem(attacker, "power-claw"))
@@ -601,6 +651,7 @@ export function calculateDamage({ attacker, defender, move, variance = 1 }) {
     attackRatio: ratio,
     special,
     itemTriggers,
+    abilityRule,
     heldItemBonus:
       itemTriggers.find(
         (entry) =>
@@ -797,6 +848,12 @@ function finishActorTurn(next, actor, effect) {
         effect: { type: "heal_hp", amount },
       });
   }
+  const ability = getEndTurnAbilityRule(fighter);
+  if (fighter.hp > 0 && ability) {
+    fighter.temporaryEffects.statStages ||= {};
+    fighter.temporaryEffects.statStages.speed = Math.min(6, (fighter.temporaryEffects.statStages.speed || 0) + ability.rule.stages);
+    addAbilityEvent(effect, abilityEvent({ ability, trigger: "END_OF_TURN", owner: fighter, source: fighter, target: fighter, eventId: `ability:${next.revision + 1}:${fighter.id}:speed`, effect: { type: "stat_stage", stat: "speed", stages: ability.rule.stages } }));
+  }
 }
 
 export function createBattleState(host, guest, firstTurn) {
@@ -821,7 +878,7 @@ export function createBattleState(host, guest, firstTurn) {
   const fasterGuest =
     (preparedGuest.team[0]?.stats.speed || 0) >
     (preparedHost.team[0]?.stats.speed || 0);
-  return {
+  const state = {
     host: preparedHost,
     guest: preparedGuest,
     turn: firstTurn || (fasterGuest ? "guest" : "host"),
@@ -838,6 +895,11 @@ export function createBattleState(host, guest, firstTurn) {
     },
     revision: 0,
   };
+  const effect = { kind: "battle-start", abilityEvents: [] };
+  applyEnterAbility(state, "host", "guest", effect, "battle-start:host");
+  applyEnterAbility(state, "guest", "host", effect, "battle-start:guest");
+  state.effect = effect.abilityEvents.length ? effect : null;
+  return state;
 }
 
 function resolveBagAction(state, next, actor, enemy, action) {
@@ -944,7 +1006,7 @@ export function resolveAction(state, actor, action) {
       return state;
     const outgoing = fighter;
     const itemId = heldItemId(outgoing.heldItem);
-    const effect = { kind: "switch", actor, itemEvents: [] };
+    const effect = { kind: "switch", actor, itemEvents: [], abilityEvents: [] };
     if (itemId === "return-symbol" && outgoing.hp > 0) {
       const amount = heal(outgoing, outgoing.maxHp * 0.1);
       addItemEvent(
@@ -962,6 +1024,7 @@ export function resolveAction(state, actor, action) {
     incoming.temporaryEffects.impulse =
       activeItem(incoming, "impulse-boots") || undefined;
     next.performance.players[actor].hasSwitched = true;
+    applyEnterAbility(next, actor, enemy, effect, action.actionId || `${actor}:${state.revision + 1}:switch-in`);
     next.turn = enemy;
     next.log = `Vai, ${incoming.name}!`;
     next.effect = effect;
@@ -1084,7 +1147,8 @@ export function resolveAction(state, actor, action) {
     action.actionId ||
     `${actor}:${state.revision + 1}:${fighter.id}:${defender.id}:${move.id}`;
   const beforeHp = defender.hp;
-  let damage = Math.min(beforeHp, resolution.damage);
+  const immunity = resolution.abilityRule?.kind === "immunity" ? resolution.abilityRule : null;
+  let damage = immunity ? 0 : Math.min(beforeHp, resolution.damage);
   const effect = {
     kind: "attack",
     actor,
@@ -1102,7 +1166,13 @@ export function resolveAction(state, actor, action) {
     damageResolution: resolution,
     itemEvents: [],
     statusEvents: [],
+    abilityEvents: [],
   };
+  let immunityRecovery = 0;
+  if (immunity) {
+    if (immunity.activate) defender.temporaryEffects.flashFire = true;
+    addAbilityEvent(effect, abilityEvent({ ability: immunity.ability, trigger: "BEFORE_DAMAGE", owner: defender, source: fighter, target: defender, eventId, effect: { type: immunity.activate ? "absorb_and_empower" : immunity.healRatio ? "absorb_and_heal" : "immune", attackType, healing: 0, activated: Boolean(immunity.activate) } }));
+  }
   for (const trigger of resolution.itemTriggers) {
     if (trigger.temporary) {
       const owner = trigger.temporary === "barrier" ? defender : fighter;
@@ -1162,10 +1232,15 @@ export function resolveAction(state, actor, action) {
   if (move.special) fighter.specialAttackUsesRemaining -= 1;
   defender.hp = Math.max(0, beforeHp - damage);
   if (surviveHp != null) defender.hp = surviveHp;
+  if (immunity?.healRatio) {
+    immunityRecovery = heal(defender, defender.maxHp * immunity.healRatio);
+    if (effect.abilityEvent?.abilityId === immunity.ability.id) effect.abilityEvent.effect.healing = immunityRecovery;
+    if (effect.abilityEvents?.[0]?.abilityId === immunity.ability.id) effect.abilityEvents[0].effect.healing = immunityRecovery;
+  }
   effect.damage = damage;
   let status = null;
   let reactiveAbility = null;
-  if (!defender.status && defender.hp > 0 && move.statusEffect) {
+  if (!immunity && !defender.status && defender.hp > 0 && move.statusEffect) {
     const successful = nextRandom(next) < move.statusEffect.chance;
     if (successful)
       status = applySupportedStatus(
@@ -1201,28 +1276,30 @@ export function resolveAction(state, actor, action) {
         eventId,
       });
   }
-  if (
-    defender.ability === "static" &&
-    move.damageClass === "physical" &&
-    nextRandom(next) < 0.2
-  ) {
+  const contactRule = !immunity && move.makesContact && defender.hp > 0
+    ? getContactAbilityRule(defender, nextRandom(next))
+    : null;
+  if (contactRule) {
     const applied = applySupportedStatus(
       fighter,
-      "paralysis",
+      contactRule.status,
       {
         sourcePokemon: defender,
         sourceRole: enemy,
         targetRole: actor,
         sourceKind: "ability",
-        abilityId: "static",
-        chance: 0.2,
+        abilityId: contactRule.ability.id,
+        chance: contactRule.chance,
         appliedTurn: state.revision + 1,
       },
       effect,
       eventId,
     );
     status = applied || status;
-    if (applied) reactiveAbility = "static";
+    if (applied) {
+      reactiveAbility = contactRule.ability.id;
+      addAbilityEvent(effect, abilityEvent({ ability: contactRule.ability, trigger: "AFTER_CONTACT_RECEIVED", owner: defender, source: defender, target: fighter, eventId, effect: { type: "status", status: applied, makesContact: true } }));
+    }
   }
   if (
     damage > 0 &&
@@ -1268,6 +1345,8 @@ export function resolveAction(state, actor, action) {
         effect: { type: "heal_hp", amount },
       });
   }
+  applySynchronize(effect, defender, fighter, enemy, actor, eventId, state.revision + 1);
+  applySynchronize(effect, fighter, defender, actor, enemy, eventId, state.revision + 1);
   const automatic = resolveHeldItemEvent({
     trigger: HELD_ITEM_TRIGGER.AFTER_DAMAGE_RECEIVED,
     owner: defender,
@@ -1279,10 +1358,10 @@ export function resolveAction(state, actor, action) {
   });
   if (automatic) addItemEvent(effect, { ...automatic, owner: enemy });
   effect.status = status;
-  effect.ability =
-    resolution.percentage > 0 && abilityBonus(fighter, attackType) > 1
-      ? fighter.ability
-      : reactiveAbility;
+  if (resolution.abilityRule?.kind === "boost") {
+    addAbilityEvent(effect, abilityEvent({ ability: resolution.abilityRule.ability, trigger: "BEFORE_DAMAGE", owner: fighter, source: fighter, target: defender, eventId, effect: { type: "damage_multiplier", multiplier: resolution.abilityRule.multiplier } }));
+  }
+  effect.ability = resolution.abilityRule?.kind === "boost" ? resolution.abilityRule.ability.id : reactiveAbility;
   effect.amplifier = resolution.heldItemBonus;
   next.effect = effect;
   next.resolvedItemEventIds = [
@@ -1303,6 +1382,7 @@ export function resolveAction(state, actor, action) {
     } else {
       next[enemy].active = replacement;
       next.performance.players[enemy].hasSwitched = true;
+      applyEnterAbility(next, enemy, actor, effect, `${eventId}:switch-in`);
       next.log = `${defender.name} desmaiou! Vai, ${next[enemy].team[replacement].name}!`;
       next.turn = enemy;
     }
@@ -1319,6 +1399,7 @@ export function resolveAction(state, actor, action) {
       } else {
         next[actor].active = replacement;
         next.performance.players[actor].hasSwitched = true;
+        applyEnterAbility(next, actor, enemy, effect, `${eventId}:switch-in`);
       }
     }
     if (next.status !== "finished") next.turn = enemy;

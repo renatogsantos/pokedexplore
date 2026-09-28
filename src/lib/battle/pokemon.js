@@ -1,4 +1,5 @@
 import { getPokemonSprite, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
+import { resolvePokemonAbilityId } from "@/lib/pokemon/progression";
 
 export function getPokemonArtwork(pokemon) { return getPokemonSprite({ pokemon, context: SPRITE_CONTEXT.GENERAL }); }
 
@@ -55,7 +56,8 @@ export function toBattlePokemon(pokemon) {
     homeDefaultSprite: getHomeDefaultSprite(pokemon),
     animatedShiny: getReserveSprite(pokemon),
     rarity: pokemon.rarity || "normal",
-    ability: pokemon.ability || pokemon.abilities?.find((entry) => !entry.is_hidden)?.ability?.name || null,
+    abilityId: resolvePokemonAbilityId(pokemon),
+    ability: resolvePokemonAbilityId(pokemon),
     heldItem: pokemon.heldItem || null,
     moveset: pokemon.moveset || [],
     maxHp,
@@ -63,7 +65,8 @@ export function toBattlePokemon(pokemon) {
   };
 }
 
-const cpuPokemon = (id, name, type, types, baseStats) => ({ id, name, type, types, level: 1, baseStats, maxHp: baseStats.hp, hp: baseStats.hp, artwork: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png` });
+const CPU_ABILITY_IDS = Object.freeze({ 1: "overgrow", 4: "blaze", 7: "torrent", 25: "static", 92: "levitate", 63: "synchronize" });
+const cpuPokemon = (id, name, type, types, baseStats) => ({ id, name, type, types, level: 1, baseStats, maxHp: baseStats.hp, hp: baseStats.hp, abilityId: CPU_ABILITY_IDS[id] || null, artwork: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png` });
 
 export const CPU_ROSTER = Object.freeze([
   cpuPokemon(1, "bulbasaur", "grass", ["grass", "poison"], { hp: 92, attack: 49, defense: 49, specialAttack: 65, specialDefense: 65, speed: 45 }),

@@ -9,7 +9,7 @@ import { getItemDefinition, ITEM_CATALOG, ITEM_SYSTEM_VERSION, migrateItemInvent
 
 const DATABASE_NAME = "PokedExploreDB";
 const DATABASE_VERSION = 4;
-const SAVE_VERSION = 4;
+const SAVE_VERSION = 5;
 const POKEDEX_STORE = "pokedex";
 const PLAYER_STORE = "player";
 const CACHE_STORE = "pokeapi-cache";
@@ -357,6 +357,7 @@ export const webStore = {
       const collection = await Promise.all(normalized.map((pokemon) => hasResolvedPokemonRarity(pokemon) ? pokemon : enrichPokemonRarity(pokemon)));
       const needsMigration = records.some((record, index) =>
         record.saveVersion !== SAVE_VERSION ||
+        record.abilityId !== collection[index].abilityId ||
         record.heldItem !== collection[index].heldItem ||
         "held_item" in record ||
         "equippedItem" in record ||

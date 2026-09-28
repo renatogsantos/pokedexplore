@@ -22,6 +22,28 @@ export function calculateLeveledStat(baseStat, level = 1) {
   return Math.round(baseStat * getStatMultiplier(level));
 }
 
+function abilityId(value) {
+  const name = typeof value === "string" ? value : value?.name;
+  return typeof name === "string"
+    ? name.trim().toLowerCase().replaceAll("_", "-").replaceAll(" ", "-") || null
+    : null;
+}
+
+export function resolvePokemonAbilityId(pokemon) {
+  if (!pokemon || pokemon.source === "custom" || pokemon.isCustom)
+    return abilityId(pokemon?.abilityId);
+
+  const explicit = abilityId(pokemon.abilityId);
+  if (explicit) return explicit;
+  const legacy = abilityId(pokemon.ability);
+  if (legacy) return legacy;
+
+  const defaultAbility = Array.isArray(pokemon.abilities)
+    ? pokemon.abilities.find((entry) => !entry?.is_hidden)?.ability
+    : null;
+  return abilityId(defaultAbility);
+}
+
 export function normalizeCapturedPokemon(pokemon) {
   const current = { ...(pokemon || {}) };
   delete current.held_item;
@@ -37,9 +59,10 @@ export function normalizeCapturedPokemon(pokemon) {
     types: Array.isArray(current.types) ? current.types.filter(Boolean) : [],
     stats: Array.isArray(current.stats) ? current.stats.filter(Boolean) : [],
     moveset: Array.isArray(current.moveset) ? current.moveset.filter(Boolean).slice(0, 4) : [],
+    abilityId: resolvePokemonAbilityId(current),
     level: getPokemonLevel(pokemon),
     baseStats: getBaseStats(pokemon),
     heldItem: normalizePokemonHeldItem(pokemon),
-    saveVersion: 4,
+    saveVersion: 5,
   };
 }

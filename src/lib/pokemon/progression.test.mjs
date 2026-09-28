@@ -21,6 +21,36 @@ test("legacy captured Pokemon normalize safely to level one with base stats", ()
   assert.equal(legacy.heldItem, null);
 });
 
+test("captured Pokemon keep a deterministic non-hidden ability ID", () => {
+  const captured = normalizeCapturedPokemon({
+    id: 25,
+    abilities: [
+      { ability: { name: "static" }, is_hidden: false },
+      { ability: { name: "lightning-rod" }, is_hidden: true },
+    ],
+  });
+  assert.equal(captured.abilityId, "static");
+  assert.equal(captured.saveVersion, 5);
+  assert.equal(
+    normalizeCapturedPokemon({ id: 1, abilities: [
+      { ability: { name: "chlorophyll" }, is_hidden: true },
+      { ability: { name: "overgrow" }, is_hidden: false },
+    ] }).abilityId,
+    "overgrow",
+  );
+});
+
+test("custom Pokemon require an explicit canonical ability ID", () => {
+  assert.equal(
+    normalizeCapturedPokemon({ source: "custom", id: 10001, ability: "quatro-elementos" }).abilityId,
+    null,
+  );
+  assert.equal(
+    normalizeCapturedPokemon({ source: "custom", id: 10001, abilityId: "static" }).abilityId,
+    "static",
+  );
+});
+
 test("malformed legacy shapes cannot call array methods during battle normalization", () => {
   const legacy = normalizeCapturedPokemon({
     pokemonId: 25,
@@ -34,5 +64,5 @@ test("malformed legacy shapes cannot call array methods during battle normalizat
   assert.deepEqual(legacy.types, []);
   assert.deepEqual(legacy.stats, []);
   assert.deepEqual(legacy.moveset, []);
-  assert.equal(legacy.saveVersion, 4);
+  assert.equal(legacy.saveVersion, 5);
 });
