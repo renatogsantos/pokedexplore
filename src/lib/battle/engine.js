@@ -10,9 +10,12 @@ import {
 import {
   getContactAbilityRule,
   getContactAbilityPreview,
+  getContactRecoilRule,
+  getDamageModifiers,
   getDamageAbilityRule,
   getEndTurnAbilityRule,
   getEnterAbilityRule,
+  getStatusPreventionRule,
   getSupportedAbility as getCatalogAbility,
   normalizeAbilityId,
 } from "@/lib/battle/abilities";
@@ -135,6 +138,13 @@ const KNOWN_CONTACT_MOVES = new Set([
   "Iron Head",
   "Draining Kiss",
 ]);
+// Canonical move families used by ability rules. Custom/PokÃ©API moves may
+// provide `traits` directly; this local table is the safe fallback for the
+// curated battle move pool and never guesses from UI text.
+const MOVE_TRAITS = Object.freeze({
+  "Bullet Punch": ["PUNCH"], "Comet Punch": ["PUNCH"], "Dizzy Punch": ["PUNCH"], "Drain Punch": ["PUNCH"], "Dynamic Punch": ["PUNCH"], "Fire Punch": ["PUNCH"], "Focus Punch": ["PUNCH"], "Hammer Arm": ["PUNCH"], "Ice Punch": ["PUNCH"], "Mach Punch": ["PUNCH"], "Mega Punch": ["PUNCH"], "Meteor Mash": ["PUNCH"], "Power-Up Punch": ["PUNCH"], "Shadow Punch": ["PUNCH"], "Sky Uppercut": ["PUNCH"], "Thunder Punch": ["PUNCH"],
+  Bite: ["BITE"], "Bug Bite": ["BITE"], "Crunch": ["BITE"], "Fire Fang": ["BITE"], "Hyper Fang": ["BITE"], "Ice Fang": ["BITE"], "Poison Fang": ["BITE"], "Psychic Fangs": ["BITE"], "Super Fang": ["BITE"], "Thunder Fang": ["BITE"],
+});
 const TYPE_MOVES = Object.freeze({
   normal: [move("Tackle"), move("Quick Attack"), move("Hyper Beam")],
   fire: [
@@ -342,11 +352,7 @@ function applyEnterAbility(next, ownerRole, opponentRole, effect, eventId) {
   const opponent = next[opponentRole].team[next[opponentRole].active];
   const definition = getEnterAbilityRule(owner);
   if (!definition || !opponent || opponent.hp <= 0) return;
-  opponent.temporaryEffects.statStages ||= {};
-  opponent.temporaryEffects.statStages.attack = Math.max(
-    -6,
-    (opponent.temporaryEffects.statStages.attack || 0) + definition.rule.stages,
-  );
+  applyStatStageChange(opponent, owner, opponentRole, ownerRole, "attack", definition.rule.stages, effect, eventId);
   addAbilityEvent(
     effect,
     abilityEvent({
@@ -363,6 +369,17 @@ function applyEnterAbility(next, ownerRole, opponentRole, effect, eventId) {
       },
     }),
   );
+}
+
+function applyStatStageChange(target, source, targetRole, sourceRole, stat, stages, effect, eventId) {
+  target.temporaryEffects.statStages ||= {};
+  target.temporaryEffects.statStages[stat] = Math.max(-6, Math.min(6, (target.temporaryEffects.statStages[stat] || 0) + stages));
+  if (stages >= 0 || !source || sourceRole === targetRole) return;
+  const response = getCatalogAbility(target.abilityId || target.ability);
+  if (!response?.rule?.reactsToStatDrop || target.hp <= 0) return;
+  const responseStat = response.rule.stat;
+  target.temporaryEffects.statStages[responseStat] = Math.min(6, (target.temporaryEffects.statStages[responseStat] || 0) + response.rule.stages);
+  addAbilityEvent(effect, abilityEvent({ ability: response, trigger: "ON_STAT_LOWERED", owner: target, source, target, eventId: `${eventId}:${response.id}`, effect: { type: "stat_stage", stat: responseStat, stages: response.rule.stages } }));
 }
 
 function applySynchronize(
@@ -461,6 +478,7 @@ export function normalizeBattleMove(rawMove, fallback = {}) {
       normalized.makesContact === true ||
       KNOWN_CONTACT_MOVES.has(normalized.name),
     statusEffect: normalizeStatusEffect(normalized),
+    traits: Array.from(new Set([...(Array.isArray(normalized.traits) ? normalized.traits : []), ...(MOVE_TRAITS[normalized.name] || [])])),
   };
 }
 
@@ -568,6 +586,8 @@ export function getMovePowerFactor(power = 40, special = false) {
 
 export function calculateDamage({ attacker, defender, move, variance = 1 }) {
   const attackType = move.type === "own" ? attacker.type : move.type;
+  const attackStat = move.damageClass === "special" ? "specialAttack" : "attack";
+  const defenseStat = move.damageClass === "special" ? "specialDefense" : "defense";
   const attack =
     move.damageClass === "special"
       ? attacker.stats.specialAttack
@@ -580,11 +600,8 @@ export function calculateDamage({ attacker, defender, move, variance = 1 }) {
     DAMAGE_BALANCE.MAX_ATTACK_RATIO,
     Math.max(
       DAMAGE_BALANCE.MIN_ATTACK_RATIO,
-      (attack *
-        statStageMultiplier(
-          attacker.temporaryEffects?.statStages?.attack || 0,
-        )) /
-        Math.max(1, defense),
+      (attack * statStageMultiplier(attacker.temporaryEffects?.statStages?.[attackStat] || 0)) /
+        Math.max(1, defense * statStageMultiplier(defender.temporaryEffects?.statStages?.[defenseStat] || 0)),
     ),
   );
   const levelFactor = Math.min(
@@ -592,7 +609,9 @@ export function calculateDamage({ attacker, defender, move, variance = 1 }) {
     Math.max(0.85, 1 + ((attacker.level || 1) - (defender.level || 1)) * 0.025),
   );
   const effectiveness = getTypeEffectiveness(attackType, defender);
-  const stab = attacker.types.includes(attackType) ? DAMAGE_BALANCE.STAB : 1;
+  const abilityModifiers = getDamageModifiers({ attacker, defender, move, attackType, effectiveness, attackerHpRatio: hpRatio(attacker), defenderHpRatio: hpRatio(defender) });
+  const adaptability = abilityModifiers.outgoing.find((entry) => entry.kind === "stab");
+  const stab = attacker.types.includes(attackType) ? (adaptability?.multiplier || DAMAGE_BALANCE.STAB) : 1;
   const special = Boolean(move.special);
   const minimum = special
     ? DAMAGE_BALANCE.SPECIAL_MIN
@@ -608,6 +627,8 @@ export function calculateDamage({ attacker, defender, move, variance = 1 }) {
   });
   let outgoing = abilityRule?.kind === "boost" ? abilityRule.multiplier : 1;
   let incoming = 1;
+  for (const modifier of abilityModifiers.outgoing) if (modifier.kind !== "stab") outgoing *= modifier.multiplier;
+  for (const modifier of abilityModifiers.incoming) incoming *= modifier.multiplier;
   const itemTriggers = [];
   if (activeItem(attacker, "power-claw"))
     outgoing *= itemRules("power-claw").dealtMultiplier ?? 1.2;
@@ -756,6 +777,7 @@ export function calculateDamage({ attacker, defender, move, variance = 1 }) {
     special,
     itemTriggers,
     abilityRule,
+    abilityModifiers,
     heldItemBonus:
       itemTriggers.find(
         (entry) =>
@@ -862,6 +884,20 @@ function applySupportedStatus(target, statusId, context, effect, eventId) {
     chance: context.chance ?? null,
     appliedTurn: context.appliedTurn,
   };
+  const abilityPrevention = getStatusPreventionRule(target, statusId);
+  if (abilityPrevention) {
+    addStatusEvent(effect, { ...statusEvent, type: "STATUS_PREVENTED", successful: false, abilityId: abilityPrevention.id });
+    addAbilityEvent(effect, abilityEvent({
+      ability: abilityPrevention,
+      trigger: "STATUS_ATTEMPT",
+      owner: target,
+      source: context.sourcePokemon,
+      target,
+      eventId,
+      effect: { type: "prevent_status", status: statusId },
+    }));
+    return null;
+  }
   const prevention = heldItemId(target.heldItem);
   if (["arcane-mirror", "celestial-clock"].includes(prevention)) {
     const recovery =
@@ -1019,10 +1055,13 @@ export function analyzeMoveDecision({
     hpRatio: hpRatio(attacker),
   });
   const blockedByAbility = abilityRule?.kind === "immunity";
+  const abilityModifiers = getDamageModifiers({ attacker, defender, move, attackType, effectiveness, attackerHpRatio: hpRatio(attacker), defenderHpRatio: hpRatio(defender) });
   const contact = move?.makesContact === true;
   const defenderContactAbility = getContactAbilityPreview(defender);
   const contactPreview =
     contact && !blockedByAbility ? defenderContactAbility : null;
+  const contactRecoil = contact && !blockedByAbility ? getContactRecoilRule(defender) : null;
+  const preventedStatus = move?.statusEffect ? getStatusPreventionRule(defender, move.statusEffect.id) : null;
   const canReceiveContactStatus =
     !attacker?.status && contactPreview?.statuses?.some(isSupportedStatus);
   const synchronize = getCatalogAbility(
@@ -1048,6 +1087,10 @@ export function analyzeMoveDecision({
           : "O golpe não atinge",
     });
   else {
+    for (const modifier of abilityModifiers.incoming)
+      warnings.push({ kind: "reduced", ability: modifier.ability, multiplier: modifier.multiplier, detail: "DANO REDUZIDO" });
+    for (const modifier of abilityModifiers.outgoing)
+      warnings.push({ kind: "boost", ability: modifier.ability, multiplier: modifier.multiplier, detail: modifier.kind === "stab" ? "STAB FORTALECIDO" : `+${Math.round((modifier.multiplier - 1) * 100)}% PODER` });
     if (abilityRule?.kind === "boost")
       warnings.push({
         kind: "boost",
@@ -1066,6 +1109,8 @@ export function analyzeMoveDecision({
             ? "Pode causar status"
             : `Pode causar ${{ poison: "veneno", paralysis: "paralisia", burn: "queimadura" }[contactPreview.statuses[0]] || "status"}`,
       });
+    if (contactRecoil) warnings.push({ kind: "risk", ability: contactRecoil.ability, detail: "Contato causa dano em vocÃª" });
+    if (preventedStatus) warnings.push({ kind: "blocked", ability: preventedStatus, detail: `NÃ£o pode receber ${move.statusEffect.id}` });
     if (synchronizeRisk)
       warnings.push({
         kind: "risk",
@@ -1098,7 +1143,9 @@ export function analyzeMoveDecision({
     absorbedByAbility: Boolean(abilityRule?.healRatio),
     attackerAbilityBoost: abilityRule?.kind === "boost" ? abilityRule : null,
     contactRisk:
-      contactPreview && canReceiveContactStatus ? contactPreview : null,
+      contactPreview && canReceiveContactStatus ? contactPreview : contactRecoil,
+    statusPreventedByAbility: preventedStatus,
+    abilityModifiers,
     synchronizeRisk: Boolean(synchronizeRisk),
     attackReduced,
     warnings,
@@ -1267,6 +1314,13 @@ export function resolveAction(state, actor, action) {
     const outgoing = fighter;
     const itemId = heldItemId(outgoing.heldItem);
     const effect = { kind: "switch", actor, itemEvents: [], abilityEvents: [] };
+    const switchAbility = getCatalogAbility(outgoing.abilityId || outgoing.ability);
+    if (switchAbility?.rule?.healRatio && switchAbility.hooks?.includes("ON_SWITCH_OUT")) {
+      const amount = heal(outgoing, outgoing.maxHp * switchAbility.rule.healRatio);
+      if (amount) addAbilityEvent(effect, abilityEvent({ ability: switchAbility, trigger: "ON_SWITCH_OUT", owner: outgoing, source: outgoing, target: outgoing, eventId: `${action.actionId || `${actor}:${state.revision + 1}:switch`}:regenerator`, effect: { type: "heal_hp", amount } }));
+    }
+    // Stages are battle-local and leave with the PokÃ©mon; durable data is never mutated.
+    outgoing.temporaryEffects.statStages = {};
     if (itemId === "return-symbol" && outgoing.hp > 0) {
       const amount = heal(outgoing, outgoing.maxHp * 0.1);
       addItemEvent(
@@ -1459,6 +1513,11 @@ export function resolveAction(state, actor, action) {
         },
       }),
     );
+    if (immunity.stat && immunity.stages) {
+      applyStatStageChange(defender, fighter, enemy, actor, immunity.stat, immunity.stages, effect, `${eventId}:absorb-boost`);
+      effect.abilityEvents[effect.abilityEvents.length - 1].effect.stat = immunity.stat;
+      effect.abilityEvents[effect.abilityEvents.length - 1].effect.stages = immunity.stages;
+    }
   }
   for (const trigger of resolution.itemTriggers) {
     if (trigger.temporary) {
@@ -1493,7 +1552,14 @@ export function resolveAction(state, actor, action) {
   }
   const lethalItem = heldItemId(defender.heldItem);
   let surviveHp = null;
+  const sturdy = getCatalogAbility(defender.abilityId || defender.ability);
+  if (damage >= beforeHp && beforeHp === defender.maxHp && sturdy?.rule?.surviveAtFullHp) {
+    surviveHp = 1;
+    damage = Math.max(0, beforeHp - 1);
+    addAbilityEvent(effect, abilityEvent({ ability: sturdy, trigger: "BEFORE_FAINT", owner: defender, source: fighter, target: defender, eventId: `${eventId}:sturdy`, effect: { type: "survive", hp: 1 } }));
+  }
   if (
+    surviveHp == null &&
     damage >= beforeHp &&
     ["survival-amulet", "phoenix-heart"].includes(lethalItem) &&
     beforeHp > 0
@@ -1614,6 +1680,13 @@ export function resolveAction(state, actor, action) {
       );
     }
   }
+  const contactRecoil = !immunity && move.makesContact && defender.hp > 0 ? getContactRecoilRule(defender) : null;
+  if (contactRecoil && fighter.hp > 0) {
+    const recoil = Math.max(1, Math.floor(fighter.maxHp * contactRecoil.ratio));
+    fighter.hp = Math.max(0, fighter.hp - recoil);
+    reactiveAbility = contactRecoil.ability.id;
+    addAbilityEvent(effect, abilityEvent({ ability: contactRecoil.ability, trigger: "AFTER_CONTACT_RECEIVED", owner: defender, source: defender, target: fighter, eventId: `${eventId}:contact-recoil`, effect: { type: "contact_recoil", damage: recoil, makesContact: true } }));
+  }
   if (
     damage > 0 &&
     activeItem(defender, "poison-thorn") &&
@@ -1719,6 +1792,11 @@ export function resolveAction(state, actor, action) {
       ? "SUPER EFETIVO!"
       : `${fighter.name} usou ${move.name}!`;
   if (defender.hp === 0) {
+    const faintAbility = getCatalogAbility(fighter.abilityId || fighter.ability);
+    if (faintAbility?.rule?.stat && faintAbility.hooks?.includes("ON_FAINT_OPPONENT") && fighter.hp > 0) {
+      applyStatStageChange(fighter, fighter, actor, actor, faintAbility.rule.stat, faintAbility.rule.stages, effect, `${eventId}:faint`);
+      addAbilityEvent(effect, abilityEvent({ ability: faintAbility, trigger: "ON_FAINT_OPPONENT", owner: fighter, source: fighter, target: defender, eventId: `${eventId}:moxie`, effect: { type: "stat_stage", stat: faintAbility.rule.stat, stages: faintAbility.rule.stages } }));
+    }
     const replacement = next[enemy].team.findIndex((pokemon) => pokemon.hp > 0);
     if (replacement === -1) {
       next.status = "finished";

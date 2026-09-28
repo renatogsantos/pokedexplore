@@ -6,6 +6,8 @@ export const ABILITY_HOOK = Object.freeze({
   AFTER_CONTACT_RECEIVED: "AFTER_CONTACT_RECEIVED",
   ON_STATUS_APPLIED: "ON_STATUS_APPLIED",
   END_OF_TURN: "END_OF_TURN",
+  ON_SWITCH_OUT: "ON_SWITCH_OUT",
+  ON_FAINT_OPPONENT: "ON_FAINT_OPPONENT",
 });
 
 const ability = (id, namePtBr, shortDescription, hooks, rule = {}) =>
@@ -124,6 +126,29 @@ export const ABILITY_CATALOG = Object.freeze({
     [ABILITY_HOOK.ON_STATUS_APPLIED],
     { statuses: ["burn", "paralysis", "poison"] },
   ),
+  sturdy: ability("sturdy", "Robustez", "Com HP cheio, resiste a um golpe que causaria nocaute com 1 HP.", [ABILITY_HOOK.BEFORE_DAMAGE], { surviveAtFullHp: true }),
+  "thick-fat": ability("thick-fat", "Gordura Espessa", "Reduz pela metade o dano de golpes Fire e Ice.", [ABILITY_HOOK.BEFORE_DAMAGE], { damageTypes: ["fire", "ice"], damageMultiplier: 0.5 }),
+  multiscale: ability("multiscale", "Multiescamas", "Com HP cheio, reduz pela metade o dano recebido.", [ABILITY_HOOK.BEFORE_DAMAGE], { fullHpDamageMultiplier: 0.5 }),
+  filter: ability("filter", "Filtro", "Reduz o dano de golpes super efetivos.", [ABILITY_HOOK.BEFORE_DAMAGE], { superEffectiveDamageMultiplier: 0.75 }),
+  "solid-rock": ability("solid-rock", "Rocha SÃ³lida", "Reduz o dano de golpes super efetivos.", [ABILITY_HOOK.BEFORE_DAMAGE], { superEffectiveDamageMultiplier: 0.75 }),
+  adaptability: ability("adaptability", "Adaptabilidade", "Fortalece o bÃ´nus de golpes do mesmo tipo.", [ABILITY_HOOK.BEFORE_DAMAGE], { stabMultiplier: 2 }),
+  technician: ability("technician", "TÃ©cnico", "Fortalece golpes com poder base de 60 ou menos.", [ABILITY_HOOK.BEFORE_DAMAGE], { maxPower: 60, multiplier: 1.5 }),
+  "iron-fist": ability("iron-fist", "Punho de Ferro", "Fortalece golpes de soco.", [ABILITY_HOOK.BEFORE_DAMAGE], { trait: "PUNCH", multiplier: 1.2 }),
+  "strong-jaw": ability("strong-jaw", "MandÃ­bula Forte", "Fortalece golpes de mordida.", [ABILITY_HOOK.BEFORE_DAMAGE], { trait: "BITE", multiplier: 1.5 }),
+  "rough-skin": ability("rough-skin", "Pele Ãspera", "Golpes de contato causam dano ao atacante.", [ABILITY_HOOK.AFTER_CONTACT_RECEIVED], { contactDamageRatio: 1 / 8 }),
+  "iron-barbs": ability("iron-barbs", "Espinhos de Ferro", "Golpes de contato causam dano ao atacante.", [ABILITY_HOOK.AFTER_CONTACT_RECEIVED], { contactDamageRatio: 1 / 8 }),
+  immunity: ability("immunity", "Imunidade", "NÃ£o pode ser envenenado.", [ABILITY_HOOK.ON_STATUS_APPLIED], { preventsStatuses: ["poison"] }),
+  limber: ability("limber", "Flexibilidade", "NÃ£o pode ser paralisado.", [ABILITY_HOOK.ON_STATUS_APPLIED], { preventsStatuses: ["paralysis"] }),
+  insomnia: ability("insomnia", "InsÃ´nia", "NÃ£o pode dormir.", [ABILITY_HOOK.ON_STATUS_APPLIED], { preventsStatuses: ["sleep"] }),
+  "vital-spirit": ability("vital-spirit", "EspÃ­rito Vital", "NÃ£o pode dormir.", [ABILITY_HOOK.ON_STATUS_APPLIED], { preventsStatuses: ["sleep"] }),
+  "own-tempo": ability("own-tempo", "Ritmo PrÃ³prio", "NÃ£o pode ficar confuso.", [ABILITY_HOOK.ON_STATUS_APPLIED], { preventsStatuses: ["confusion"] }),
+  regenerator: ability("regenerator", "RegeneraÃ§Ã£o", "Ao trocar normalmente, recupera 1/3 do HP mÃ¡ximo.", [ABILITY_HOOK.ON_SWITCH_OUT], { healRatio: 1 / 3 }),
+  moxie: ability("moxie", "Ãmpeto", "Ao derrubar um adversÃ¡rio, aumenta o Ataque.", [ABILITY_HOOK.ON_FAINT_OPPONENT], { stat: "attack", stages: 1 }),
+  defiant: ability("defiant", "Desafio", "Quando um adversÃ¡rio reduz seus atributos, aumenta muito o Ataque.", [ABILITY_HOOK.ON_STATUS_APPLIED], { reactsToStatDrop: true, stat: "attack", stages: 2 }),
+  competitive: ability("competitive", "Competitivo", "Quando um adversÃ¡rio reduz seus atributos, aumenta muito o Ataque Especial.", [ABILITY_HOOK.ON_STATUS_APPLIED], { reactsToStatDrop: true, stat: "specialAttack", stages: 2 }),
+  "sap-sipper": ability("sap-sipper", "HerbÃ­voro", "Golpes Grass nÃ£o causam dano e aumentam o Ataque.", [ABILITY_HOOK.BEFORE_DAMAGE], { immuneType: "grass", stat: "attack", stages: 1 }),
+  "lightning-rod": ability("lightning-rod", "Para-Raios", "Golpes Electric nÃ£o causam dano e aumentam o Ataque Especial.", [ABILITY_HOOK.BEFORE_DAMAGE], { immuneType: "electric", stat: "specialAttack", stages: 1 }),
+  "storm-drain": ability("storm-drain", "Dreno de Ãgua", "Golpes Water nÃ£o causam dano e aumentam o Ataque Especial.", [ABILITY_HOOK.BEFORE_DAMAGE], { immuneType: "water", stat: "specialAttack", stages: 1 }),
 });
 
 export const SUPPORTED_ABILITY_IDS = Object.freeze(
@@ -155,6 +180,8 @@ export function getDamageAbilityRule({
       ability: defenderAbility,
       healRatio: defenderAbility.rule.healRatio || 0,
       activate: defenderAbility.rule.activate || null,
+      stat: defenderAbility.rule.stat || null,
+      stages: defenderAbility.rule.stages || 0,
     };
   const attackerAbility = getAbilityDefinition(
     attacker?.abilityId || attacker?.ability,
@@ -178,11 +205,35 @@ export function getDamageAbilityRule({
   return null;
 }
 
+export function getDamageModifiers({ attacker, defender, move, attackType, effectiveness, attackerHpRatio, defenderHpRatio }) {
+  const attackerAbility = getAbilityDefinition(attacker?.abilityId || attacker?.ability);
+  const defenderAbility = getAbilityDefinition(defender?.abilityId || defender?.ability);
+  const outgoing = [];
+  const incoming = [];
+  if (attackerAbility?.id === "adaptability" && (attacker?.types || [attacker?.type]).includes(attackType)) outgoing.push({ ability: attackerAbility, multiplier: attackerAbility.rule.stabMultiplier, kind: "stab" });
+  if (attackerAbility?.id === "technician" && Number(move?.power) <= attackerAbility.rule.maxPower) outgoing.push({ ability: attackerAbility, multiplier: attackerAbility.rule.multiplier, kind: "power" });
+  if (attackerAbility?.rule?.trait && move?.traits?.includes(attackerAbility.rule.trait)) outgoing.push({ ability: attackerAbility, multiplier: attackerAbility.rule.multiplier, kind: "trait" });
+  if (defenderAbility?.rule?.damageTypes?.includes(attackType)) incoming.push({ ability: defenderAbility, multiplier: defenderAbility.rule.damageMultiplier, kind: "type_reduction" });
+  if (defenderAbility?.rule?.fullHpDamageMultiplier && defenderHpRatio >= 1) incoming.push({ ability: defenderAbility, multiplier: defenderAbility.rule.fullHpDamageMultiplier, kind: "full_hp_reduction" });
+  if (defenderAbility?.rule?.superEffectiveDamageMultiplier && effectiveness > 1) incoming.push({ ability: defenderAbility, multiplier: defenderAbility.rule.superEffectiveDamageMultiplier, kind: "super_effective_reduction" });
+  return { outgoing, incoming };
+}
+
+export function getStatusPreventionRule(target, statusId) {
+  const ability = getAbilityDefinition(target?.abilityId || target?.ability);
+  return ability?.rule?.preventsStatuses?.includes(statusId) ? ability : null;
+}
+
+export function getContactRecoilRule(defender) {
+  const ability = getAbilityDefinition(defender?.abilityId || defender?.ability);
+  return ability?.rule?.contactDamageRatio ? { ability, ratio: ability.rule.contactDamageRatio } : null;
+}
+
 export function getContactAbilityRule(defender, roll) {
   const ability = getAbilityDefinition(
     defender?.abilityId || defender?.ability,
   );
-  if (!ability?.hooks.includes(ABILITY_HOOK.AFTER_CONTACT_RECEIVED))
+  if (!ability?.hooks.includes(ABILITY_HOOK.AFTER_CONTACT_RECEIVED) || !ability.rule.status && !ability.rule.statuses)
     return null;
   if (roll >= ability.rule.chance) return null;
   const statuses = ability.rule.statuses || [ability.rule.status];
@@ -204,7 +255,7 @@ export function getContactAbilityPreview(defender) {
   const ability = getAbilityDefinition(
     defender?.abilityId || defender?.ability,
   );
-  if (!ability?.hooks.includes(ABILITY_HOOK.AFTER_CONTACT_RECEIVED))
+  if (!ability?.hooks.includes(ABILITY_HOOK.AFTER_CONTACT_RECEIVED) || !ability.rule.status && !ability.rule.statuses)
     return null;
   return {
     ability,

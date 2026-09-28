@@ -37,7 +37,7 @@ const engineSource = (
   )
   .replace(
     /import\s*\{[\s\S]*?normalizeAbilityId,[\s\S]*?\}\s*from\s*"@\/lib\/battle\/abilities";/,
-    "const { getContactAbilityRule, getContactAbilityPreview, getDamageAbilityRule, getEndTurnAbilityRule, getEnterAbilityRule, getSupportedAbility: getCatalogAbility, normalizeAbilityId } = globalThis.__battleAbilities;",
+    "const { getContactAbilityRule, getContactAbilityPreview, getContactRecoilRule, getDamageModifiers, getDamageAbilityRule, getEndTurnAbilityRule, getEnterAbilityRule, getStatusPreventionRule, getSupportedAbility: getCatalogAbility, normalizeAbilityId } = globalThis.__battleAbilities;",
   );
 const {
   MAX_HEALS_PER_POKEMON,
@@ -272,6 +272,26 @@ test("Fruto Vital and Nucleo de Cura trigger only after qualifying received dama
   assert.equal(resolvePostDamageHeldItem(core), null);
   core.hp = 25;
   assert.equal(resolvePostDamageHeldItem(core).effect.amount, 50);
+});
+
+test("V2 catalog uses one resolver for damage, status, contact and lifecycle rules", () => {
+  const abilities = globalThis.__battleAbilities;
+  const v2 = ["sturdy", "thick-fat", "multiscale", "filter", "solid-rock", "adaptability", "technician", "iron-fist", "strong-jaw", "rough-skin", "iron-barbs", "immunity", "limber", "insomnia", "vital-spirit", "own-tempo", "regenerator", "moxie", "defiant", "competitive", "sap-sipper", "lightning-rod", "storm-drain"];
+  for (const id of v2) assert.equal(Boolean(abilities.getSupportedAbility(id)), true, id);
+
+  const attacker = { type: "fire", types: ["fire"], abilityId: "technician" };
+  const defender = { type: "grass", types: ["grass"], abilityId: "thick-fat" };
+  const modifiers = abilities.getDamageModifiers({ attacker, defender, move: { power: 60, traits: [] }, attackType: "fire", effectiveness: 1.3, attackerHpRatio: 1, defenderHpRatio: 1 });
+  assert.equal(modifiers.outgoing[0].multiplier, 1.5);
+  assert.equal(modifiers.incoming[0].multiplier, 0.5);
+  assert.equal(abilities.getDamageModifiers({ attacker: { ...attacker, abilityId: "iron-fist" }, defender, move: { power: 75, traits: ["PUNCH"] }, attackType: "fire", effectiveness: 1, attackerHpRatio: 1, defenderHpRatio: 1 }).outgoing[0].multiplier, 1.2);
+  assert.equal(abilities.getDamageModifiers({ attacker: { ...attacker, abilityId: "strong-jaw" }, defender, move: { power: 75, traits: ["BITE"] }, attackType: "fire", effectiveness: 1, attackerHpRatio: 1, defenderHpRatio: 1 }).outgoing[0].multiplier, 1.5);
+
+  assert.equal(abilities.getStatusPreventionRule({ abilityId: "immunity" }, "poison").id, "immunity");
+  assert.equal(abilities.getStatusPreventionRule({ abilityId: "limber" }, "paralysis").id, "limber");
+  assert.equal(abilities.getStatusPreventionRule({ abilityId: "insomnia" }, "sleep").id, "insomnia");
+  assert.equal(abilities.getContactRecoilRule({ abilityId: "rough-skin" }).ratio, 1 / 8);
+  assert.equal(abilities.getDamageAbilityRule({ attacker, defender: { abilityId: "storm-drain" }, attackType: "water", hpRatio: 1 }).kind, "immunity");
 });
 
 test("item presentation keeps usage, persistence and trigger separate", () => {

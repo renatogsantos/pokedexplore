@@ -388,10 +388,18 @@ function abilityEventNotification(event) {
     detail = `O golpe ${getTypeLabel(effect.attackType)} não causou dano.`;
   if (effect.type === "damage_multiplier")
     detail = `Dano fortalecido em ${Math.round((effect.multiplier - 1) * 100)}%.`;
+  if (effect.type === "survive")
+    detail = "Resistiu ao golpe com 1 HP!";
+  if (effect.type === "contact_recoil")
+    detail = `O contato feriu ${event.targetPokemonName}! -${effect.damage} HP.`;
+  if (effect.type === "prevent_status")
+    detail = `${event.targetPokemonName} nÃ£o pode receber ${getStatusLabel(effect.status).toLowerCase()}.`;
+  if (effect.type === "heal_hp")
+    detail = `${event.targetPokemonName} recuperou +${effect.amount} HP.`;
   if (effect.type === "stat_stage")
     detail =
       effect.stages > 0
-        ? `${effect.stat === "speed" ? "Velocidade" : "Ataque"} aumentou.`
+        ? `${({ speed: "Velocidade", specialAttack: "Ataque Especial", attack: "Ataque" })[effect.stat] || "Atributo"} aumentou.`
         : "Ataque do adversário diminuiu.";
   return {
     title: `${event.abilityName.toUpperCase()}!`,
