@@ -17,6 +17,7 @@ import { useSelector } from "react-redux";
 import {
   getOpponentWeaknesses,
   analyzeMoveDecision,
+  getDamagePreview,
   MAX_HEALS_PER_POKEMON,
   getPokemonMatchup,
   getSupportedAbility,
@@ -457,6 +458,13 @@ function buildBattleNotifications(state, role, opponentName) {
         : `${effect.targetPokemonName} recebeu o golpe.`,
       tone: effect.effective ? "strong" : "damage",
       duration: 850,
+    });
+  for (const event of effect.momentumEvents || [])
+    queue.push({
+      title: event.type === "MOMENTUM_GAINED" ? "IMPULSO +1" : "IMPULSO USADO",
+      detail: event.type === "MOMENTUM_GAINED" ? `${event.after}/3` : `${event.before}/3 Â· +${Math.round((event.multiplier - 1) * 100)}% poder`,
+      tone: "turn",
+      duration: 700,
     });
   for (const event of effect.abilityEvents || []) {
     const notification = abilityEventNotification(event);
@@ -1245,6 +1253,12 @@ export default function BattleArena({
         </div>
         <div className="action-deck-panel">
           {actionMode === "moves" && (
+            <>
+              <div className="momentum-indicator" aria-label={`Impulso: ${active.momentum || 0} de 3`}>
+                <Lightning size={13} weight="fill" aria-hidden="true" />
+                <span>IMPULSO</span>
+                <b>{active.momentum || 0}/3</b>
+              </div>
             <div
               className="attack-grid v2-move-grid"
               role="tabpanel"
@@ -1272,6 +1286,7 @@ export default function BattleArena({
                   defender: enemy,
                   move,
                 });
+                const preview = getDamagePreview({ attacker: active, defender: enemy, move });
                 const strong =
                   decision.effectiveness > 1 && !decision.blockedByAbility;
                 const weak =
@@ -1297,7 +1312,7 @@ export default function BattleArena({
                   <button
                     type="button"
                     key={move.id}
-                    className={`attack-button ${strong ? "recommended" : ""} ${weak ? "disadvantage" : ""} ${decision.blockedByAbility ? "is-blocked" : ""} ${decision.decisionSeverity === "RISK" ? "has-risk" : ""} ${move.special ? "is-special" : ""} ${exhausted ? "is-exhausted" : ""}`}
+                    className={`attack-button ${weak ? "disadvantage" : ""} ${decision.blockedByAbility ? "is-blocked" : ""} ${decision.decisionSeverity === "RISK" ? "has-risk" : ""} ${move.special ? "is-special" : ""} ${exhausted ? "is-exhausted" : ""}`}
                     disabled={!myTurn || exhausted}
                     onClick={() => {
                       playBattleSound(
@@ -1312,25 +1327,19 @@ export default function BattleArena({
                     </span>
                     <span className="attack-copy">
                       <strong>{move.name}</strong>
-                      <small
-                        className={
-                          move.special ? "special-meta" : "attack-meta"
-                        }
-                      >
+                      <small className={move.special ? "special-meta" : "damage-preview"}>
                         {move.special ? (
                           exhausted ? (
                             "ESGOTADO"
                           ) : (
                             `ESPECIAL · ${uses}/2`
                           )
-                        ) : (
-                          <>
-                            <span>{move.power}</span>
-                            <span>{effectiveness}</span>
-                            <span>{strategistDetail}</span>
-                          </>
+                        ) : preview.blocked ? "NÃƒO ATINGE" : (
+                          <><span>{`DANO ${preview.minDamage}${preview.maxDamage !== preview.minDamage ? `â€“${preview.maxDamage}` : ""}`}</span><span>{effectiveness}</span><span>{strategistDetail}</span></>
                         )}
                       </small>
+                      {!move.special && move.role === "FAST" && <small className="momentum-move"><Lightning size={11} weight="fill" aria-hidden="true" /> +1 IMPULSO</small>}
+                      {!move.special && move.role === "TECHNICAL" && <small className="momentum-move"><Lightning size={11} weight="fill" aria-hidden="true" /> {active.momentum ? `USA ${active.momentum}/3 Â· +${active.momentum * 10}%` : "IMPULSO 0/3"}</small>}
                       {moveStatus && (
                         <small
                           className={`move-status-hint is-${moveStatus.id}`}
@@ -1387,6 +1396,7 @@ export default function BattleArena({
                 );
               })}
             </div>
+            </>
           )}
           {actionMode === "items" && (
             <div

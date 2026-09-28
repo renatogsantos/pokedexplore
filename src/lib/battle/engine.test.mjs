@@ -43,6 +43,7 @@ const {
   MAX_HEALS_PER_POKEMON,
   MAX_SPECIAL_ATTACK_USES,
   calculateDamage,
+  getDamagePreview,
   analyzeMoveDecision,
   createBattleState,
   getBattleMoves,
@@ -731,4 +732,37 @@ test("move decision analysis covers every V1 ability decision without treating c
   attacker.abilityId = "speed-boost";
   const speedBoost = analyzeMoveDecision({ attacker, defender: { ...defender, abilityId: null }, move: contact });
   assert.equal(speedBoost.warnings.some((warning) => warning.ability?.id === "speed-boost"), false);
+});
+
+test("damage preview is pure and bounds every ordinary authoritative damage roll", () => {
+  const attacker = { ...pokemon(81, null, 100, 5, "fire"), momentum: 2, temporaryEffects: {}, types: ["fire"] };
+  const defender = { ...pokemon(82, null, 100, 5, "grass"), temporaryEffects: {}, types: ["grass"] };
+  const move = { id: "technical", name: "Fire Fang", type: "fire", power: 60, accuracy: 100, damageClass: "physical", role: "TECHNICAL", makesContact: true, special: false, traits: ["BITE"] };
+  const before = structuredClone(attacker);
+  const preview = getDamagePreview({ attacker, defender, move });
+  assert.deepEqual(attacker, before);
+  assert.equal(preview.blocked, false);
+  for (const variance of [.95, .97, 1, 1.03, 1.05]) {
+    const result = calculateDamage({ attacker, defender, move, variance });
+    assert.ok(result.damage >= preview.minDamage && result.damage <= preview.maxDamage, `${result.damage} outside ${preview.minDamage}-${preview.maxDamage}`);
+  }
+});
+
+test("Fast gains battle-local momentum and Technical consumes its exact previewed bonus", () => {
+  const fast = { ...pokemon(91, null, 100, 5, "fire"), moveset: [
+    { id: "fast", name: "Ember", type: "fire", power: 40, accuracy: 100, damageClass: "special", role: "FAST", special: false },
+    { id: "technical", name: "Fire Fang", type: "fire", power: 60, accuracy: 100, damageClass: "physical", role: "TECHNICAL", special: false },
+    { id: "special", name: "Flamethrower", type: "fire", power: 90, accuracy: 100, damageClass: "special", special: true },
+  ] };
+  let state = createBattleState({ team: [fast] }, { team: [pokemon(92, null, 100, 5, "grass")] }, "host");
+  state = resolveAction(state, "host", { type: "attack", moveId: "fast", actionId: "fast-1" });
+  assert.equal(state.host.team[0].momentum, 1);
+  assert.equal(state.effect.momentumEvent.type, "MOMENTUM_GAINED");
+  state.turn = "host";
+  const technical = state.host.team[0].moves.find((move) => move.id === "technical");
+  const preview = getDamagePreview({ attacker: state.host.team[0], defender: state.guest.team[0], move: technical });
+  state = resolveAction(state, "host", { type: "attack", moveId: "technical", actionId: "technical-1" });
+  assert.ok(state.effect.damage >= preview.minDamage && state.effect.damage <= preview.maxDamage);
+  assert.equal(state.host.team[0].momentum, 0);
+  assert.equal(state.effect.momentumEvent.type, "MOMENTUM_CONSUMED");
 });

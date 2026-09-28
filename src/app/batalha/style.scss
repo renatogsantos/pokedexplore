@@ -4156,6 +4156,20 @@
 .v2-move-grid .attack-button small {
   font-size: 0.48rem;
 }
+.momentum-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 4px 2px;
+  color: #9bd9ff;
+  font-size: .5rem;
+  font-weight: 900;
+  letter-spacing: .07em;
+}
+.momentum-indicator b { color: #f4fbff; font-size: .55rem; }
+.damage-preview { color: #f5fbff !important; font-size: .57rem !important; }
+.damage-preview span { margin-left: 4px; color: #a8f4c7; }
+.momentum-move { color: #9bd9ff !important; }
 .move-slot-empty {
   display: grid;
   place-content: center;

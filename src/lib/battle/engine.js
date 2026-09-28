@@ -43,6 +43,10 @@ const ADVANTAGES = {
 };
 
 export const MAX_SPECIAL_ATTACK_USES = 2;
+export const MOMENTUM_CONFIG = Object.freeze({
+  MAX: 3,
+  BONUS_PER_STACK: 0.1,
+});
 export const MAX_POTIONS = 2; // compatibility only; Bag stock now comes from inventory.
 export const MAX_HEALS_PER_POKEMON = 3;
 export const POTION_HEAL_PERCENTAGE = 0.4;
@@ -145,6 +149,13 @@ const MOVE_TRAITS = Object.freeze({
   "Bullet Punch": ["PUNCH"], "Comet Punch": ["PUNCH"], "Dizzy Punch": ["PUNCH"], "Drain Punch": ["PUNCH"], "Dynamic Punch": ["PUNCH"], "Fire Punch": ["PUNCH"], "Focus Punch": ["PUNCH"], "Hammer Arm": ["PUNCH"], "Ice Punch": ["PUNCH"], "Mach Punch": ["PUNCH"], "Mega Punch": ["PUNCH"], "Meteor Mash": ["PUNCH"], "Power-Up Punch": ["PUNCH"], "Shadow Punch": ["PUNCH"], "Sky Uppercut": ["PUNCH"], "Thunder Punch": ["PUNCH"],
   Bite: ["BITE"], "Bug Bite": ["BITE"], "Crunch": ["BITE"], "Fire Fang": ["BITE"], "Hyper Fang": ["BITE"], "Ice Fang": ["BITE"], "Poison Fang": ["BITE"], "Psychic Fangs": ["BITE"], "Super Fang": ["BITE"], "Thunder Fang": ["BITE"],
 });
+export const MOVE_ROLE = Object.freeze({ FAST: "FAST", TECHNICAL: "TECHNICAL", SPECIAL: "SPECIAL" });
+const normalizeMoveRole = (move, fallback = MOVE_ROLE.FAST) =>
+  move?.special ? MOVE_ROLE.SPECIAL : Object.values(MOVE_ROLE).includes(move?.role) ? move.role : fallback;
+export const getMomentumMultiplier = (fighter, move) =>
+  normalizeMoveRole(move) === MOVE_ROLE.TECHNICAL
+    ? 1 + Math.min(MOMENTUM_CONFIG.MAX, Math.max(0, Number(fighter?.momentum) || 0)) * MOMENTUM_CONFIG.BONUS_PER_STACK
+    : 1;
 const TYPE_MOVES = Object.freeze({
   normal: [move("Tackle"), move("Quick Attack"), move("Hyper Beam")],
   fire: [
@@ -324,6 +335,11 @@ const addAbilityEvent = (effect, event) => {
   effect.abilityEvents = [...(effect.abilityEvents || []), event];
   effect.abilityEvent = event;
 };
+const addMomentumEvent = (effect, event) => {
+  if (!event) return;
+  effect.momentumEvents = [...(effect.momentumEvents || []), event];
+  effect.momentumEvent = event;
+};
 const abilityEvent = ({
   ability,
   trigger,
@@ -479,6 +495,7 @@ export function normalizeBattleMove(rawMove, fallback = {}) {
       KNOWN_CONTACT_MOVES.has(normalized.name),
     statusEffect: normalizeStatusEffect(normalized),
     traits: Array.from(new Set([...(Array.isArray(normalized.traits) ? normalized.traits : []), ...(MOVE_TRAITS[normalized.name] || [])])),
+    role: normalizeMoveRole(normalized, fallback.role),
   };
 }
 
@@ -494,6 +511,7 @@ export function getBattleMoves(pokemon) {
       damageClass: "physical",
       makesContact: true,
       special: false,
+      role: MOVE_ROLE.FAST,
     },
     {
       id: `${type}-steady`,
@@ -503,6 +521,7 @@ export function getBattleMoves(pokemon) {
       damageClass: "physical",
       makesContact: true,
       special: false,
+      role: MOVE_ROLE.TECHNICAL,
     },
     {
       id: `${type}-special`,
@@ -512,6 +531,7 @@ export function getBattleMoves(pokemon) {
       damageClass: "special",
       makesContact: false,
       special: true,
+      role: MOVE_ROLE.SPECIAL,
     },
   ];
   return definitions.map((definition, index) =>
@@ -539,7 +559,7 @@ function prepareFighter(pokemon) {
   const custom = Array.isArray(pokemon.moveset)
     ? pokemon.moveset
         .filter((entry) => entry?.id && Number.isFinite(Number(entry?.power)))
-        .map((entry) => normalizeBattleMove(entry))
+        .map((entry, index) => normalizeBattleMove(entry, { role: [MOVE_ROLE.FAST, MOVE_ROLE.TECHNICAL, MOVE_ROLE.SPECIAL][index] || MOVE_ROLE.TECHNICAL }))
     : [];
   return {
     ...pokemon,
@@ -562,6 +582,7 @@ function prepareFighter(pokemon) {
     abilityId: normalizeAbilityId(pokemon.abilityId || pokemon.ability),
     ability: normalizeAbilityId(pokemon.abilityId || pokemon.ability),
     specialAttackUsesRemaining: MAX_SPECIAL_ATTACK_USES,
+    momentum: 0,
     healsUsed: 0,
     rechargeUsed: false,
     temporaryEffects: {},
@@ -627,6 +648,8 @@ export function calculateDamage({ attacker, defender, move, variance = 1 }) {
   });
   let outgoing = abilityRule?.kind === "boost" ? abilityRule.multiplier : 1;
   let incoming = 1;
+  const momentumMultiplier = getMomentumMultiplier(attacker, move);
+  outgoing *= momentumMultiplier;
   for (const modifier of abilityModifiers.outgoing) if (modifier.kind !== "stab") outgoing *= modifier.multiplier;
   for (const modifier of abilityModifiers.incoming) incoming *= modifier.multiplier;
   const itemTriggers = [];
@@ -778,11 +801,36 @@ export function calculateDamage({ attacker, defender, move, variance = 1 }) {
     itemTriggers,
     abilityRule,
     abilityModifiers,
+    momentum: {
+      stacks: Math.min(MOMENTUM_CONFIG.MAX, Math.max(0, Number(attacker?.momentum) || 0)),
+      multiplier: momentumMultiplier,
+      consumedByMove: normalizeMoveRole(move) === MOVE_ROLE.TECHNICAL,
+    },
     heldItemBonus:
       itemTriggers.find(
         (entry) =>
           entry.owner === "attacker" || entry.itemId === "elemental-core",
       ) || null,
+  };
+}
+
+// Pure preview derived from the authoritative calculateDamage pipeline. It
+// never rolls or mutates state, so rendering a move button cannot affect RNG.
+export function getDamagePreview({ attacker, defender, move }) {
+  const attackType = move?.type === "own" ? attacker?.type : move?.type;
+  const resolution = calculateDamage({ attacker, defender, move, variance: 1 });
+  const blocked = resolution.abilityRule?.kind === "immunity";
+  if (blocked) return { minDamage: 0, maxDamage: 0, expectedDamage: 0, blocked: true, immune: true, resolution };
+  const min = calculateDamage({ attacker, defender, move, variance: 1 - DAMAGE_BALANCE.VARIANCE }).damage;
+  const max = calculateDamage({ attacker, defender, move, variance: 1 + DAMAGE_BALANCE.VARIANCE }).damage;
+  return {
+    minDamage: Math.min(defender?.hp ?? min, min),
+    maxDamage: Math.min(defender?.hp ?? max, max),
+    expectedDamage: Math.min(defender?.hp ?? resolution.damage, resolution.damage),
+    blocked: false,
+    immune: false,
+    attackType,
+    resolution,
   };
 }
 
@@ -1488,6 +1536,7 @@ export function resolveAction(state, actor, action) {
     itemEvents: [],
     statusEvents: [],
     abilityEvents: [],
+    momentumEvents: [],
   };
   let immunityRecovery = 0;
   if (immunity) {
@@ -1605,6 +1654,19 @@ export function resolveAction(state, actor, action) {
       effect.abilityEvents[0].effect.healing = immunityRecovery;
   }
   effect.damage = damage;
+  // Momentum is resolved only by the authoritative action after a successful,
+  // non-immune hit. It belongs to the fighter and therefore survives switching.
+  const moveRole = normalizeMoveRole(move);
+  if (!immunity && damage > 0 && moveRole === MOVE_ROLE.FAST) {
+    const before = fighter.momentum || 0;
+    fighter.momentum = Math.min(MOMENTUM_CONFIG.MAX, before + 1);
+    if (fighter.momentum > before) addMomentumEvent(effect, { type: "MOMENTUM_GAINED", pokemonId: fighter.id, owner: actor, before, after: fighter.momentum, amount: fighter.momentum - before, eventId });
+  }
+  if (!immunity && damage > 0 && moveRole === MOVE_ROLE.TECHNICAL && (fighter.momentum || 0) > 0) {
+    const before = fighter.momentum;
+    fighter.momentum = 0;
+    addMomentumEvent(effect, { type: "MOMENTUM_CONSUMED", pokemonId: fighter.id, owner: actor, before, after: 0, amount: before, multiplier: getMomentumMultiplier({ momentum: before }, move), eventId });
+  }
   let status = null;
   let reactiveAbility = null;
   if (!immunity && !defender.status && defender.hp > 0 && move.statusEffect) {
