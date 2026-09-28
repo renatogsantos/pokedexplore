@@ -118,10 +118,10 @@ export function appendBattleAudioEvents(previous, next, { mode } = {}) {
     if (sound) additions.push({ id: `badge-round:${next.seriesBattleNumber}`, sound });
   }
   if (next.status === "finished" && previous?.status !== "finished") {
-    const winnerAlive = getLivingPokemon(next?.[next.winner]?.team).length;
+    const usedOnlyOnePokemon = !next?.performance?.players?.[next.winner]?.hasSwitched;
     additions.push({
       id: "battle-result",
-      sound: winnerAlive === 1 ? BATTLE_EVENT_SOUND.BRUTALITY : BATTLE_EVENT_SOUND.VICTORY,
+      sound: usedOnlyOnePokemon ? BATTLE_EVENT_SOUND.BRUTALITY : BATTLE_EVENT_SOUND.VICTORY,
     });
   } else {
     additions.push(...getFinishHimEvents(next));
