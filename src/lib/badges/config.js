@@ -1,6 +1,8 @@
 import { getTypeLabel } from "@/lib/localization/ptBR";
 
-export const BADGE_REQUIRED_WINS = 4;
+// Shared by all newly created Badge Challenges. Existing challenge records
+// remain authoritative through their own wins_required value.
+export const BADGE_REQUIRED_WINS = 3;
 export const BADGE_TEAM_SIZE = 3;
 export const BADGE_INACTIVITY_HOURS = 48;
 export const BADGE_CHALLENGE_DURATION_HOURS = 48;

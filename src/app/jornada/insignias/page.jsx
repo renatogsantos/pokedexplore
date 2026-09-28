@@ -117,13 +117,13 @@ function BadgeDetail({ badge, history, profile, busy, exitBusy, exitDialogOpen, 
           {badge.status === "AVAILABLE" && <><Trophy size={25} weight="fill" /><div><strong>Sem campeão</strong><p>Esta Insígnia está esperando seu primeiro campeão.</p></div></>}
           {badge.owner_player_id && <><Crown size={25} weight="fill" /><div><strong>{mine ? "Sua Insígnia" : badge.owner_display_name}</strong><p>{mine ? "Você é o atual campeão." : "Campeão atual"} · {badge.defense_count} {badge.defense_count === 1 ? "defesa" : "defesas"}</p><small>{formatActivity(badge.ownerLastBattleAt)}</small></div></>}
         </section>
-        {challenge && <section className="badge-detail__challenge" aria-label="Desafio em andamento"><Sword size={23} weight="fill" /><div><strong>Em disputa</strong><p>{challenge.challenger_name} desafia {challenge.defender_name}</p><span>{challenge.challenger_wins}/{BADGE_REQUIRED_WINS} vitórias consecutivas · Batalha {challenge.current_battle}</span></div></section>}
+        {challenge && <section className="badge-detail__challenge" aria-label="Desafio em andamento"><Sword size={23} weight="fill" /><div><strong>Em disputa</strong><p>{challenge.challenger_name} desafia {challenge.defender_name}</p><span>{challenge.challenger_wins}/{challenge.wins_required || BADGE_REQUIRED_WINS} vitórias consecutivas · Batalha {challenge.current_battle}</span></div></section>}
         <section className="badge-detail__rules" aria-labelledby="badge-rules-title">
           <span className="eyebrow">FORMATO OFICIAL</span><h3 id="badge-rules-title">Regras do desafio</h3>
           <ul>
             <li><Check aria-hidden="true" /> Equipe de 3 Pokémon</li>
             <li><Check aria-hidden="true" /> Pelo menos 1 Pokémon {config.localizedTypeName}</li>
-            <li><Check aria-hidden="true" /> Vença 4 batalhas consecutivas</li>
+            <li><Check aria-hidden="true" /> Vença {BADGE_REQUIRED_WINS} batalhas consecutivas</li>
             <li><X aria-hidden="true" /> Pokémon Lendários ou Míticos</li>
           </ul>
         </section>
@@ -265,7 +265,7 @@ export default function CompetitiveBadgesPage() {
         eyebrow="DESAFIO DA INSÍGNIA"
         title={pendingExit?.action === BADGE_CHALLENGE_EXIT_ACTION.ABANDON ? "ABANDONAR DESAFIO?" : "CANCELAR DESAFIO?"}
         description={pendingExit && <>{Number(pendingExit.challenge.challenger_wins) > 0
-          ? <>Você já possui {pendingExit.challenge.challenger_wins} de {BADGE_REQUIRED_WINS} vitórias consecutivas. Ao {pendingExit.action === BADGE_CHALLENGE_EXIT_ACTION.ABANDON ? "abandonar" : "cancelar"}, esse progresso será perdido.</>
+          ? <>Você já possui {pendingExit.challenge.challenger_wins} de {pendingExit.challenge.wins_required || BADGE_REQUIRED_WINS} vitórias consecutivas. Ao {pendingExit.action === BADGE_CHALLENGE_EXIT_ACTION.ABANDON ? "abandonar" : "cancelar"}, esse progresso será perdido.</>
           : <>Você tem certeza que deseja {pendingExit.action === BADGE_CHALLENGE_EXIT_ACTION.ABANDON ? "abandonar" : "cancelar"} este Desafio da Insígnia? Seu progresso nesta tentativa será perdido.</>}{pendingExit.action === BADGE_CHALLENGE_EXIT_ACTION.ABANDON && <> O campeão manterá a Insígnia e receberá uma defesa.</>}</>}
         cancelLabel="Voltar"
         confirmLabel={pendingExit?.action === BADGE_CHALLENGE_EXIT_ACTION.ABANDON ? "Abandonar desafio" : "Cancelar desafio"}

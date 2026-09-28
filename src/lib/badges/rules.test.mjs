@@ -7,7 +7,7 @@ const source = (await readFile(new URL("./rules.js", import.meta.url), "utf8")).
   'const POKEMON_RARITY = { LEGENDARY: "legendary", MYTHICAL: "mythical", NORMAL: "normal" }; const getPokemonRarity = (pokemon) => pokemon?.rarity === "legendary" || pokemon?.isLegendary ? "legendary" : pokemon?.rarity === "mythical" || pokemon?.isMythical ? "mythical" : "normal";',
 ).replace(
   'import {\n  BADGE_CHAMPION_COIN_MULTIPLIER,\n  BADGE_INACTIVITY_HOURS,\n  BADGE_REQUIRED_WINS,\n  BADGE_TEAM_SIZE,\n} from "./config";',
-  'const BADGE_CHAMPION_COIN_MULTIPLIER = 1.25; const BADGE_INACTIVITY_HOURS = 48; const BADGE_REQUIRED_WINS = 4; const BADGE_TEAM_SIZE = 3;',
+  'const BADGE_CHAMPION_COIN_MULTIPLIER = 1.25; const BADGE_INACTIVITY_HOURS = 48; const BADGE_REQUIRED_WINS = 3; const BADGE_TEAM_SIZE = 3;',
 );
 const rules = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
 const { advanceBadgeSeries, getBadgeChallengeExitAction, getChampionCoinMultiplier, isBadgeOwnerInactive, validateBadgeTeam } = rules;
@@ -22,15 +22,15 @@ test("badge teams require three legal Pokemon and at least one matching type", (
   assert.equal(validateBadgeTeam([pokemon("dratini", ["dragon"]), pokemon("charizard", ["fire", "flying"]), pokemon("squirtle", ["water"])], "dragon").valid, true);
 });
 
-test("badge series is a perfect four-win run and ends on the first loss", () => {
+test("badge series is a perfect three-win run and ends on the first loss", () => {
   let state = { challengerWins: 0, challengerWon: true };
-  for (let wins = 1; wins <= 4; wins += 1) {
+  for (let wins = 1; wins <= 3; wins += 1) {
     const result = advanceBadgeSeries(state);
     assert.equal(result.challengerWins, wins);
-    assert.equal(result.complete, wins === 4);
+    assert.equal(result.complete, wins === 3);
     state = { challengerWins: result.challengerWins, challengerWon: true };
   }
-  assert.equal(advanceBadgeSeries({ challengerWins: 3, challengerWon: false }).status, "DEFENDED");
+  assert.equal(advanceBadgeSeries({ challengerWins: 2, challengerWon: false }).status, "DEFENDED");
   assert.equal(advanceBadgeSeries({ challengerWins: 0, challengerWon: false }).complete, true);
 });
 

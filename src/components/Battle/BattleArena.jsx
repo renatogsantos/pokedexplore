@@ -688,7 +688,7 @@ function BadgeBattleResultModal({ won, badgeContext, onRematch }) {
               : "O desafiante avançou"
             : "Batalha concluída";
   const description = acquired
-    ? `${challenge?.challenger_name} conquistou a ${config.name} com ${BADGE_REQUIRED_WINS} vitórias consecutivas.`
+    ? `${challenge?.challenger_name} conquistou a ${config.name} com ${challenge?.wins_required || BADGE_REQUIRED_WINS} vitórias consecutivas.`
     : defended
       ? challenge?.challenge_kind === "PVP_TAKEOVER"
         ? `${challenge?.defender_name} continua como campeão.`
@@ -741,7 +741,7 @@ function BadgeBattleResultModal({ won, badgeContext, onRematch }) {
             </strong>
             <span>
               {active &&
-              Number(resolution?.challenger_wins) === BADGE_REQUIRED_WINS - 1
+              Number(resolution?.challenger_wins) === Number(challenge?.wins_required || BADGE_REQUIRED_WINS) - 1
                 ? "MATCH POINT"
                 : acquired
                   ? "SÉRIE PERFEITA"

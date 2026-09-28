@@ -1015,7 +1015,7 @@ export default function BattlePage() {
               <span>Como jogar</span>
             </Link>
             <CoinBalance />
-            <span className="battle-round">{String(mode).startsWith("badge") ? `${badgeChallenge?.challenger_wins || 0}/${BADGE_REQUIRED_WINS} · 3 × 3` : "3 × 3"}</span>
+            <span className="battle-round">{String(mode).startsWith("badge") ? `${badgeChallenge?.challenger_wins || 0}/${badgeChallenge?.wins_required || BADGE_REQUIRED_WINS} · 3 × 3` : "3 × 3"}</span>
           </span>
         </header>
         {screen === "mode" && <ModeScreen onChoose={chooseMode} activeTournament={tournament} onResumeTournament={() => { setMode("tournament"); setScreen("tournament"); }} />}
@@ -1105,7 +1105,7 @@ function BadgeChallengeIntro({ challenge, profile, notice, busy, onPrepare, onBa
   return <section className="battle-panel badge-challenge-intro" style={{ "--badge-color": config.color }}>
     <div className="badge-intro-hero"><BadgeArtwork badge={config} /><div><span className="eyebrow">DESAFIO DA INSÍGNIA</span><h2>{config.name}</h2><p>Batalha {challenge.current_battle} · {challenge.challenger_wins}/{challenge.wins_required} vitórias consecutivas</p></div></div>
     <div className="badge-intro-versus"><article><span>DESAFIANTE</span><strong>{challenge.challenger_name}</strong></article><b>VS</b><article><span>{challenge.challenge_kind === "INITIAL_CPU" ? "LÍDER" : "CAMPEÃO"}</span><strong>{challenge.challenge_kind === "INITIAL_CPU" ? config.leaderName : challenge.defender_name}</strong></article></div>
-    <section className="badge-intro-rules" aria-labelledby="badge-intro-rules-title"><span className="eyebrow">CONDIÇÃO DE CONQUISTA</span><h3 id="badge-intro-rules-title">Uma série perfeita</h3><ul><li><Trophy weight="fill" /> Vença {BADGE_REQUIRED_WINS} batalhas consecutivas.</li><li><Check weight="bold" /> Ambos levam pelo menos 1 Pokémon {config.localizedTypeName}.</li><li><ShieldCheck weight="fill" /> Equipes de {BADGE_TEAM_SIZE}, sem Lendários ou Míticos.</li><li><Sword weight="fill" /> A equipe pode mudar entre as batalhas.</li></ul></section>
+    <section className="badge-intro-rules" aria-labelledby="badge-intro-rules-title"><span className="eyebrow">CONDIÇÃO DE CONQUISTA</span><h3 id="badge-intro-rules-title">Uma série perfeita</h3><ul><li><Trophy weight="fill" /> Vença {challenge.wins_required || BADGE_REQUIRED_WINS} batalhas consecutivas.</li><li><Check weight="bold" /> Ambos levam pelo menos 1 Pokémon {config.localizedTypeName}.</li><li><ShieldCheck weight="fill" /> Equipes de {BADGE_TEAM_SIZE}, sem Lendários ou Míticos.</li><li><Sword weight="fill" /> A equipe pode mudar entre as batalhas.</li></ul></section>
     {notice && <p className="setup-notice" role="alert">{notice}</p>}
     <div className="badge-intro-actions"><button type="button" className="badge-intro-back" onClick={onBack} disabled={busy}>Voltar</button><button type="button" className="badge-intro-prepare" onClick={terminal ? onBack : onPrepare} disabled={busy || (!participant && !terminal)}>{busy ? "Confirmando..." : terminal ? "Ver Insígnias" : !participant ? "Disputa em andamento" : isWaitingForChampion ? isChallenger ? "Preparar e aguardar" : "Aceitar defesa" : "Preparar equipe"}</button></div>
   </section>;
