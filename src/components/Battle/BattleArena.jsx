@@ -1320,26 +1320,21 @@ export default function BattleArena({
                       );
                       onAction({ type: "attack", moveId: move.id });
                     }}
-                    aria-label={`${move.name}. ${move.special ? (exhausted ? "Especial esgotado" : `Especial, ${uses} de 2 usos`) : `${move.power} de poder, ${effectiveness}${strategistDetail}`}.${decision.makesContact ? " Golpe de contato." : ""}${decision.warnings.map((warning) => ` ${warning.ability?.namePtBr || warning.detail}. ${warning.detail}`).join("")}${moveStatus ? `. ${moveStatusChance}% de chance de causar ${moveStatus.eventName}` : ""}.`}
+                    aria-label={`${move.name}. ${preview.blocked ? "Nao atinge" : `${preview.minDamage}${preview.maxDamage !== preview.minDamage ? ` a ${preview.maxDamage}` : ""} de dano. ${effectiveness}`}${move.special ? (exhausted ? " Especial esgotado." : ` Especial, ${uses} de 2 usos.`) : ""}${move.role === "FAST" ? " Gera 1 Impulso." : move.role === "TECHNICAL" ? ` Usa ${active.momentum || 0} de 3 Impulso.` : ""}${decision.makesContact ? " Golpe de contato." : ""}${decision.warnings.map((warning) => ` ${warning.ability?.namePtBr || warning.detail}. ${warning.detail}`).join("")}${moveStatus ? `. ${moveStatusChance}% de chance de causar ${moveStatus.eventName}` : ""}.`}
                   >
                     <span className="attack-icon">
                       <PokemonTypeIcon type={attackType} size={25} decorative />
                     </span>
                     <span className="attack-copy">
                       <strong>{move.name}</strong>
-                      <small className={move.special ? "special-meta" : "damage-preview"}>
-                        {move.special ? (
-                          exhausted ? (
-                            "ESGOTADO"
-                          ) : (
-                            `ESPECIAL · ${uses}/2`
-                          )
-                        ) : preview.blocked ? "NÃƒO ATINGE" : (
-                          <><span>{`DANO ${preview.minDamage}${preview.maxDamage !== preview.minDamage ? `â€“${preview.maxDamage}` : ""}`}</span><span>{effectiveness}</span><span>{strategistDetail}</span></>
+                      <span className={`damage-preview ${preview.blocked ? "is-blocked" : ""}`}>
+                        {preview.blocked ? <span className="damage-blocked">NÃO ATINGE</span> : (
+                          <><span className="damage-value">{preview.minDamage}{preview.maxDamage !== preview.minDamage ? `\u2013${preview.maxDamage}` : ""}</span><span className="damage-label">DANO</span><span className="move-effectiveness">{effectiveness}{strategistDetail}</span></>
                         )}
-                      </small>
+                      </span>
+                      {move.special && <small className="special-meta">{exhausted ? "ESGOTADO" : `ESPECIAL · ${uses}/2`}</small>}
                       {!move.special && move.role === "FAST" && <small className="momentum-move"><Lightning size={11} weight="fill" aria-hidden="true" /> +1 IMPULSO</small>}
-                      {!move.special && move.role === "TECHNICAL" && <small className="momentum-move"><Lightning size={11} weight="fill" aria-hidden="true" /> {active.momentum ? `USA ${active.momentum}/3 Â· +${active.momentum * 10}%` : "IMPULSO 0/3"}</small>}
+                      {!move.special && move.role === "TECHNICAL" && <small className="momentum-move"><Lightning size={11} weight="fill" aria-hidden="true" /> {active.momentum ? `+${active.momentum * 10}% IMPULSO` : "IMPULSO 0/3"}</small>}
                       {moveStatus && (
                         <small
                           className={`move-status-hint is-${moveStatus.id}`}
@@ -1348,13 +1343,13 @@ export default function BattleArena({
                           {moveStatusChance}% {moveStatus.eventName}
                         </small>
                       )}
-                      {(decision.makesContact || decision.contactRelevant) && (
+                      {(decision.makesContact || decision.contactRelevant) && !decision.contactRisk && (
                         <span className="move-contact-hint">
                           {decision.makesContact ? "CONTATO" : "SEM CONTATO"}
                         </span>
                       )}
                       {decision.warnings
-                        .slice(0, 2)
+                        .slice(0, 1)
                         .map((warning, warningIndex) => (
                           <small
                             key={`${warning.kind}-${warning.ability?.id || warningIndex}`}
