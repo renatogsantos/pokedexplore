@@ -18,7 +18,10 @@ import {
   getOpponentWeaknesses,
   analyzeMoveDecision,
   getDamagePreview,
+  getBagItemUsage,
+  getBagItemUseBlockReason,
   MAX_HEALS_PER_POKEMON,
+  MAX_BAG_ITEM_USES_PER_POKEMON,
   getPokemonMatchup,
   getSupportedAbility,
   multiplier,
@@ -54,6 +57,21 @@ import {
 import { getStatusDefinition } from "@/lib/battle/statuses";
 import { getWagerResult } from "@/lib/battle/wager";
 import StatusIcon from "@/components/Battle/StatusIcon";
+
+function getBagBlockLabel(reason) {
+  return {
+    BAG_LIMIT_REACHED: "Limite da Mochila atingido",
+    ITEM_LIMIT_REACHED: "Limite deste item atingido",
+    HEAL_LIMIT_REACHED: "Limite de curas atingido",
+    HP_FULL: "HP já está cheio",
+    NO_STATUS: "Nenhum status para remover",
+    BARRIER_ACTIVE: "Barreira já ativa",
+    STIMULANT_ACTIVE: "Estimulante já ativo",
+    SPECIAL_FULL: "Golpe Especial já está carregado",
+    ACTIVE_POKEMON_REQUIRED: "Escolha o Pokémon ativo",
+    TARGET_FAINTED: "Desmaiado",
+  }[reason] || "Indisponível nesta batalha";
+}
 
 function HpBar({ pokemon }) {
   const percent = Math.max(0, (pokemon.hp / pokemon.maxHp) * 100);
@@ -491,7 +509,7 @@ function buildBattleNotifications(state, role, opponentName) {
   if (effect.kind === "item")
     queue.push({
       title: effect.itemName?.toUpperCase() || "ITEM USADO!",
-      detail: `${effect.healing ? `+${effect.healing} HP · ` : ""}1 unidade consumida · ×${effect.remaining} restante${effect.remaining === 1 ? "" : "s"}`,
+      detail: `${effect.healing ? `+${effect.healing} HP · ` : ""}1 unidade consumida · ×${effect.remaining} restante${effect.remaining === 1 ? "" : "s"}${Number.isFinite(effect.itemUsageCount) ? ` · usos ${effect.itemUsageCount}/${effect.itemUsageLimit} · mochila ${effect.totalBagUsageCount}/${effect.totalBagUsageLimit}` : ""}`,
       tone: effect.healing ? "healing" : "strong",
       itemId: effect.itemId,
       audio: getItemConsumptionSound({
@@ -1430,35 +1448,25 @@ export default function BattleArena({
             >
               {selectedItem ? (
                 <>
+                  {(() => {
+                    const definition = getItemDefinition(selectedItem);
+                    const usage = getBagItemUsage(active, definition);
+                    return (
                   <div className="deck-panel-heading">
                     <button type="button" onClick={() => setSelectedItem(null)}>
                       Voltar
                     </button>
-                    <strong>Escolha o alvo · ×{bag[selectedItem] || 0}</strong>
+                    <strong>Escolha o alvo · ×{bag[selectedItem] || 0} estoque · usos {usage.itemUsed}/{usage.itemLimit}</strong>
                   </div>
+                    );
+                  })()}
                   <div className="deck-target-list">
                     {me.team.map((pokemon, index) => {
                       const definition = getItemDefinition(selectedItem);
                       const activeTarget = index === me.active;
-                      const unavailable =
-                        pokemon.hp <= 0 ||
-                        (definition.effectType === "BAG_HEAL" &&
-                          (pokemon.hp >= pokemon.maxHp ||
-                            pokemon.healsUsed >= MAX_HEALS_PER_POKEMON)) ||
-                        (definition.effectType === "BAG_CURE" &&
-                          !pokemon.status) ||
-                        (["BAG_BARRIER", "BAG_STIMULANT"].includes(
-                          definition.effectType,
-                        ) &&
-                          (!activeTarget ||
-                            pokemon.temporaryEffects?.[
-                              definition.effectType === "BAG_BARRIER"
-                                ? "barrier"
-                                : "stimulant"
-                            ])) ||
-                        (definition.effectType === "BAG_RECHARGE" &&
-                          (pokemon.specialAttackUsesRemaining >= 2 ||
-                            pokemon.rechargeUsed));
+                      const usage = getBagItemUsage(pokemon, definition);
+                      const blockReason = getBagItemUseBlockReason(pokemon, definition, { activeTarget });
+                      const unavailable = Boolean(blockReason);
                       return (
                         <button
                           type="button"
@@ -1482,30 +1490,13 @@ export default function BattleArena({
                           <span>
                             <strong>{pokemon.name}</strong>
                             <small>
-                              {pokemon.hp <= 0
-                                ? "Desmaiado"
-                                : definition.effectType === "BAG_HEAL"
-                                  ? pokemon.hp >= pokemon.maxHp
-                                    ? "HP já está cheio"
-                                    : pokemon.healsUsed >= MAX_HEALS_PER_POKEMON
-                                      ? "Limite de curas atingido"
-                                      : `${pokemon.hp}/${pokemon.maxHp} HP`
-                                  : definition.effectType === "BAG_CURE"
-                                    ? pokemon.status
-                                      ? `Curar ${getStatusLabel(pokemon.status.id)}`
-                                      : "Nenhum status para remover"
-                                    : definition.effectType === "BAG_RECHARGE"
-                                      ? pokemon.rechargeUsed
-                                        ? "Recarga já usada neste Pokémon"
-                                        : pokemon.specialAttackUsesRemaining >=
-                                            2
-                                          ? "Golpe Especial já está carregado"
-                                          : `${pokemon.specialAttackUsesRemaining}/2 usos Especiais`
-                                      : !activeTarget
-                                        ? "Escolha o Pokémon ativo"
-                                        : unavailable
-                                          ? "Efeito já preparado"
-                                          : "Pronto para usar"}
+                              {unavailable
+                                ? getBagBlockLabel(blockReason)
+                                : definition.effectType === "BAG_CURE"
+                                  ? `Curar ${getStatusLabel(pokemon.status.id)}`
+                                  : definition.effectType === "BAG_RECHARGE"
+                                    ? `${pokemon.specialAttackUsesRemaining}/2 usos Especiais`
+                                    : `${pokemon.hp}/${pokemon.maxHp} HP`} · usos {usage.itemUsed}/{usage.itemLimit} · mochila {usage.totalUsed}/{usage.totalLimit}
                             </small>
                           </span>
                         </button>
@@ -1514,33 +1505,44 @@ export default function BattleArena({
                   </div>
                 </>
               ) : (
+                <>
+                  <div className="bag-usage-heading">
+                    <span>MOCHILA</span>
+                    <strong>{getBagItemUsage(active, BAG_ITEM_CATALOG[0]).totalUsed}/{MAX_BAG_ITEM_USES_PER_POKEMON}</strong>
+                    <small>{getBagItemUsage(active, BAG_ITEM_CATALOG[0]).totalUsed >= MAX_BAG_ITEM_USES_PER_POKEMON ? "LIMITE ATINGIDO" : "usos nesta batalha"}</small>
+                  </div>
                 <div className="deck-item-grid">
                   {BAG_ITEM_CATALOG.map((item) => {
+                    const usage = getBagItemUsage(active, item);
                     const activeStatus = getStatusDefinition(active.status);
                     const contextualDescription =
                       item.effectType === "BAG_CURE" && activeStatus
                         ? `Remove ${activeStatus.eventName}`
                         : item.shortDescription;
+                    const blockReason = getBagItemUseBlockReason(active, item);
+                    const hasUsableTarget = me.team.some((pokemon, index) =>
+                      !getBagItemUseBlockReason(pokemon, item, { activeTarget: index === me.active }),
+                    );
                     return (
                       <button
                         type="button"
                         key={item.id}
-                        disabled={!myTurn || !bag[item.id]}
+                        disabled={!myTurn || !bag[item.id] || !hasUsableTarget}
                         onClick={() => setSelectedItem(item.id)}
-                        aria-label={`${item.name}. ${bag[item.id] ? `${bag[item.id]} disponíveis` : "Esgotado"}`}
+                        aria-label={`${item.name}. ${bag[item.id]} em estoque. ${usage.itemUsed} de ${usage.itemLimit} usos nesta batalha.${!hasUsableTarget && blockReason ? ` ${getBagBlockLabel(blockReason)}.` : ""}`}
                       >
                         <ItemSprite item={item.id} alt={item.name} />
                         <span>
                           <strong>{item.name}</strong>
-                          <small>
-                            {bag[item.id] ? contextualDescription : "ESGOTADO"}
-                          </small>
+                          <small>{!bag[item.id] ? "ESTOQUE ESGOTADO" : !hasUsableTarget && blockReason ? getBagBlockLabel(blockReason) : contextualDescription}</small>
+                          <small className="bag-item-usage">USOS {usage.itemUsed}/{usage.itemLimit}</small>
                         </span>
                         <b>×{bag[item.id] || 0}</b>
                       </button>
                     );
                   })}
                 </div>
+                </>
               )}
             </div>
           )}

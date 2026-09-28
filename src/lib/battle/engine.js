@@ -49,6 +49,7 @@ export const MOMENTUM_CONFIG = Object.freeze({
 });
 export const MAX_POTIONS = 2; // compatibility only; Bag stock now comes from inventory.
 export const MAX_HEALS_PER_POKEMON = 3;
+export const MAX_BAG_ITEM_USES_PER_POKEMON = 5;
 export const POTION_HEAL_PERCENTAGE = 0.4;
 export const STATUS_DAMAGE_PERCENTAGE = 0.08;
 export const PARALYSIS_ACTION_BLOCK_CHANCE = 0.25;
@@ -584,9 +585,55 @@ function prepareFighter(pokemon) {
     specialAttackUsesRemaining: MAX_SPECIAL_ATTACK_USES,
     momentum: 0,
     healsUsed: 0,
-    rechargeUsed: false,
+    bagUsage: { total: 0, byItem: {} },
     temporaryEffects: {},
   };
+}
+
+export function getBagItemUsageLimit(definition) {
+  const configured = Number(definition?.battleUsage?.maxPerPokemon);
+  if (Number.isInteger(configured) && configured > 0) return configured;
+  if (definition?.usageType === "BAG" && process.env.NODE_ENV !== "production")
+    console.warn(`[battle] Bag item ${definition?.id || "unknown"} is missing battleUsage.maxPerPokemon; using safe limit 1.`);
+  return 1;
+}
+
+export function getBagItemUsage(pokemon, itemOrId) {
+  const definition = typeof itemOrId === "string" ? getItemDefinition(itemOrId) : itemOrId;
+  const itemId = definition?.id;
+  const usage = pokemon?.bagUsage || {};
+  const itemUsed = Math.max(0, Number(usage.byItem?.[itemId]) || 0);
+  return {
+    itemUsed,
+    itemLimit: getBagItemUsageLimit(definition),
+    totalUsed: Math.max(0, Number(usage.total) || 0),
+    totalLimit: MAX_BAG_ITEM_USES_PER_POKEMON,
+  };
+}
+
+export function getBagItemUseBlockReason(pokemon, itemOrId, { activeTarget = true } = {}) {
+  const definition = typeof itemOrId === "string" ? getItemDefinition(itemOrId) : itemOrId;
+  if (!definition || definition.usageType !== "BAG") return "INVALID_ITEM";
+  if (!pokemon || pokemon.hp <= 0) return "TARGET_FAINTED";
+  const usage = getBagItemUsage(pokemon, definition);
+  if (usage.totalUsed >= usage.totalLimit) return "BAG_LIMIT_REACHED";
+  if (usage.itemUsed >= usage.itemLimit) return "ITEM_LIMIT_REACHED";
+  if (definition.effectType === "BAG_HEAL") {
+    if (pokemon.hp >= pokemon.maxHp) return "HP_FULL";
+    if (pokemon.healsUsed >= MAX_HEALS_PER_POKEMON) return "HEAL_LIMIT_REACHED";
+  }
+  if (definition.effectType === "BAG_CURE" && !pokemon.status) return "NO_STATUS";
+  if (definition.effectType === "BAG_BARRIER") {
+    if (!activeTarget) return "ACTIVE_POKEMON_REQUIRED";
+    if (pokemon.temporaryEffects?.barrier) return "BARRIER_ACTIVE";
+  }
+  if (definition.effectType === "BAG_STIMULANT") {
+    if (!activeTarget) return "ACTIVE_POKEMON_REQUIRED";
+    if (pokemon.temporaryEffects?.stimulant) return "STIMULANT_ACTIVE";
+  }
+  if (definition.effectType === "BAG_RECHARGE" && pokemon.specialAttackUsesRemaining >= MAX_SPECIAL_ATTACK_USES)
+    return "SPECIAL_FULL";
+  return null;
 }
 function statStageMultiplier(stage = 0) {
   return stage >= 0 ? (2 + stage) / 2 : 2 / (2 - stage);
@@ -1274,35 +1321,31 @@ function resolveBagAction(state, next, actor, enemy, action) {
     target.hp <= 0
   )
     return state;
+  const blockReason = getBagItemUseBlockReason(target, definition, {
+    activeTarget: targetIndex === next[actor].active,
+  });
+  if (blockReason) return state;
   let healing = 0;
   let curedStatus = null;
   if (definition.effectType === "BAG_HEAL") {
-    if (target.hp >= target.maxHp || target.healsUsed >= MAX_HEALS_PER_POKEMON)
-      return state;
     healing = heal(target, target.maxHp * definition.rules.healPercent);
     if (!healing) return state;
     target.healsUsed += 1;
   } else if (definition.effectType === "BAG_CURE") {
-    if (!target.status) return state;
     curedStatus = target.status.id;
     target.status = null;
   } else if (definition.effectType === "BAG_BARRIER") {
-    if (targetIndex !== next[actor].active || target.temporaryEffects.barrier)
-      return state;
     target.temporaryEffects.barrier = true;
   } else if (definition.effectType === "BAG_STIMULANT") {
-    if (targetIndex !== next[actor].active || target.temporaryEffects.stimulant)
-      return state;
     target.temporaryEffects.stimulant = true;
   } else if (definition.effectType === "BAG_RECHARGE") {
-    if (
-      target.specialAttackUsesRemaining >= MAX_SPECIAL_ATTACK_USES ||
-      target.rechargeUsed
-    )
-      return state;
     target.specialAttackUsesRemaining += 1;
-    target.rechargeUsed = true;
   } else return state;
+  const usage = getBagItemUsage(target, definition);
+  target.bagUsage = {
+    total: usage.totalUsed + 1,
+    byItem: { ...(target.bagUsage?.byItem || {}), [itemId]: usage.itemUsed + 1 },
+  };
   next[actor].bag[itemId] = quantity - 1;
   next[actor].potionsRemaining = next[actor].bag["vital-potion"] || 0;
   next.turn = enemy;
@@ -1320,6 +1363,10 @@ function resolveBagAction(state, next, actor, enemy, action) {
     healing,
     curedStatus,
     remaining: next[actor].bag[itemId],
+    itemUsageCount: usage.itemUsed + 1,
+    itemUsageLimit: usage.itemLimit,
+    totalBagUsageCount: usage.totalUsed + 1,
+    totalBagUsageLimit: usage.totalLimit,
     eventId:
       action.actionId ||
       `${actor}:${state.revision + 1}:bag:${itemId}:${target.id}`,
@@ -1344,6 +1391,10 @@ function resolveBagAction(state, next, actor, enemy, action) {
       targetPokemonId: target.id,
       healing,
       curedStatus,
+      itemUsageCount: usage.itemUsed + 1,
+      itemUsageLimit: usage.itemLimit,
+      totalBagUsageCount: usage.totalUsed + 1,
+      totalBagUsageLimit: usage.totalLimit,
     },
   };
   next.revision += 1;

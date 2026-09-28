@@ -2,6 +2,7 @@ import {
   calculateDamage,
   analyzeMoveDecision,
   getHpRatio,
+  getBagItemUseBlockReason,
   getPotionHealAmount,
   getTypeEffectiveness,
 } from "@/lib/battle/engine";
@@ -124,13 +125,14 @@ function itemIntent(state, config) {
   const bag = state.guest.bag || {};
   const hp = getHpRatio(active.hp, active.maxHp);
   if (config.itemThreshold <= 0 || !active.hp) return null;
-  if (active.status && bag["purifying-elixir"] && config.id !== "easy")
+  const canUse = (itemId) => !getBagItemUseBlockReason(active, itemId);
+  if (active.status && bag["purifying-elixir"] && canUse("purifying-elixir") && config.id !== "easy")
     return { type: "item", itemId: "purifying-elixir", targetPokemonId: active.id };
-  if (hp <= 0.32 && bag["vital-potion"] && getPotionHealAmount(active) > 0)
+  if (hp <= 0.32 && bag["vital-potion"] && canUse("vital-potion") && getPotionHealAmount(active) > 0)
     return { type: "potion", targetPokemonId: active.id };
-  if (hp <= 0.45 && bag["instant-barrier"] && !active.temporaryEffects?.barrier && config.id === "hard")
+  if (hp <= 0.45 && bag["instant-barrier"] && canUse("instant-barrier") && config.id === "hard")
     return { type: "item", itemId: "instant-barrier", targetPokemonId: active.id };
-  if (bag.stimulant && config.id === "hard" && getHpRatio(state.host.team[state.host.active].hp, state.host.team[state.host.active].maxHp) <= 0.35)
+  if (bag.stimulant && canUse("stimulant") && config.id === "hard" && getHpRatio(state.host.team[state.host.active].hp, state.host.team[state.host.active].maxHp) <= 0.35)
     return { type: "item", itemId: "stimulant", targetPokemonId: active.id };
   return null;
 }

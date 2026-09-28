@@ -275,6 +275,49 @@ test("Fruto Vital and Nucleo de Cura trigger only after qualifying received dama
   assert.equal(resolvePostDamageHeldItem(core).effect.amount, 50);
 });
 
+test("Bag item limits and the five-use budget are authoritative per Pokemon", () => {
+  let state = makeState();
+  state.host.team[0].hp = 10;
+  for (let index = 0; index < 3; index += 1) {
+    state.turn = "host";
+    state.host.team[0].hp = 10;
+    state = resolveAction(state, "host", { type: "potion", targetPokemonId: 1, actionId: `vital-${index}` });
+  }
+  state.turn = "host";
+  state.host.team[0].hp = 10;
+  assert.strictEqual(resolveAction(state, "host", { type: "potion", targetPokemonId: 1 }), state);
+  assert.deepEqual(state.host.team[0].bagUsage, { total: 3, byItem: { "vital-potion": 3 } });
+
+  state.host.team[0].status = { id: "poison" };
+  state.turn = "host";
+  state = resolveAction(state, "host", { type: "item", itemId: "purifying-elixir", targetPokemonId: 1 });
+  state.host.team[0].temporaryEffects.barrier = false;
+  state.turn = "host";
+  state = resolveAction(state, "host", { type: "item", itemId: "instant-barrier", targetPokemonId: 1 });
+  assert.equal(state.host.team[0].bagUsage.total, 5);
+  state.host.team[0].specialAttackUsesRemaining = 1;
+  state.turn = "host";
+  assert.strictEqual(resolveAction(state, "host", { type: "item", itemId: "recharge-crystal", targetPokemonId: 1 }), state);
+  assert.equal(state.host.bag["recharge-crystal"], 2);
+  assert.equal(state.host.team[0].bagUsage.byItem["recharge-crystal"] || 0, 0);
+});
+
+test("Bag limits survive switches, reset in a new battle, and do not include Held consumption", () => {
+  const state = makeState("healing-core");
+  state.host.team[0].bagUsage = { total: 4, byItem: { stimulant: 2, "vital-potion": 2 } };
+  state.host.team[1].bagUsage = { total: 0, byItem: {} };
+  state.turn = "host";
+  const switched = resolveAction(state, "host", { type: "switch", index: 1 });
+  assert.deepEqual(switched.host.team[0].bagUsage, { total: 4, byItem: { stimulant: 2, "vital-potion": 2 } });
+  assert.deepEqual(switched.host.team[1].bagUsage, { total: 0, byItem: {} });
+  const fresh = makeState("healing-core");
+  assert.deepEqual(fresh.host.team[0].bagUsage, { total: 0, byItem: {} });
+  fresh.host.team[0].hp = 25;
+  fresh.turn = "guest";
+  const heldTriggered = resolveAction(fresh, "guest", { type: "attack", moveId: "hit" });
+  assert.equal(heldTriggered.host.team[0].bagUsage.total, 0);
+});
+
 test("V2 catalog uses one resolver for damage, status, contact and lifecycle rules", () => {
   const abilities = globalThis.__battleAbilities;
   const v2 = ["sturdy", "thick-fat", "multiscale", "filter", "solid-rock", "adaptability", "technician", "iron-fist", "strong-jaw", "rough-skin", "iron-barbs", "immunity", "limber", "insomnia", "vital-spirit", "own-tempo", "regenerator", "moxie", "defiant", "competitive", "sap-sipper", "lightning-rod", "storm-drain"];

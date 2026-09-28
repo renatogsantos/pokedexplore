@@ -5016,6 +5016,28 @@
   .status-vfx { display: none; animation: none; }
   .battle-status, .status-detail-sheet { transition: none; }
 }
+.bag-usage-heading {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: baseline;
+  gap: 5px;
+  margin: 0 0 6px;
+  padding: 5px 7px;
+  border: 1px solid #ffffff18;
+  border-radius: 8px;
+  background: #071526aa;
+}
+.bag-usage-heading span,
+.bag-usage-heading small,
+.bag-item-usage {
+  color: #9bb4d1;
+  font-size: .43rem;
+  font-weight: 900;
+  letter-spacing: .07em;
+}
+.bag-usage-heading strong { color: #ffdf7e; font-size: .68rem; }
+.bag-usage-heading small { overflow: hidden; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+.deck-item-grid .bag-item-usage { color: #ffdf7e; }
 
 /* Tournament Arena V2: player-first bracket, composed vertically from mobile upward. */
 .tournament-panel { container-type: inline-size; }

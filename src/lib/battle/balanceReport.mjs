@@ -5,9 +5,12 @@ const catalogSource = await readFile(new URL("../items/catalog.js", import.meta.
 globalThis.__itemCatalog = await import(`data:text/javascript;base64,${Buffer.from(catalogSource).toString("base64")}`);
 const statusesSource = await readFile(new URL("./statuses.js", import.meta.url), "utf8");
 globalThis.__battleStatuses = await import(`data:text/javascript;base64,${Buffer.from(statusesSource).toString("base64")}`);
+const abilitiesSource = await readFile(new URL("./abilities.js", import.meta.url), "utf8");
+globalThis.__battleAbilities = await import(`data:text/javascript;base64,${Buffer.from(abilitiesSource).toString("base64")}`);
 const source = (await readFile(new URL("./engine.js", import.meta.url), "utf8"))
   .replace(/import\s*\{[\s\S]*?BAG_ITEM_CATALOG[\s\S]*?\}\s*from\s*"@\/lib\/items\/catalog";/, "const { BAG_ITEM_CATALOG, getItemDefinition, migrateLegacyItemId } = globalThis.__itemCatalog;")
-  .replace(/import\s*\{[\s\S]*?isSupportedStatus[\s\S]*?\}\s*from\s*"@\/lib\/battle\/statuses";/, "const { isSupportedStatus, normalizeStatusEffect } = globalThis.__battleStatuses;");
+  .replace(/import\s*\{[\s\S]*?isSupportedStatus[\s\S]*?\}\s*from\s*"@\/lib\/battle\/statuses";/, "const { isSupportedStatus, normalizeStatusEffect } = globalThis.__battleStatuses;")
+  .replace(/import\s*\{[\s\S]*?normalizeAbilityId,[\s\S]*?\}\s*from\s*"@\/lib\/battle\/abilities";/, "const { getContactAbilityRule, getContactAbilityPreview, getContactRecoilRule, getDamageModifiers, getDamageAbilityRule, getEndTurnAbilityRule, getEnterAbilityRule, getStatusPreventionRule, getSupportedAbility: getCatalogAbility, normalizeAbilityId } = globalThis.__battleAbilities;");
 const { calculateDamage } = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
 const fighter = (name, type, hp, stats, level = 5) => ({ name, type, types: [type], maxHp: hp, hp, level, stats });
 const cases = [

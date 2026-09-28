@@ -346,6 +346,7 @@ export const ITEM_CATALOG = Object.freeze([
     consumable: true,
     price: 45,
     rules: { healPercent: 0.4 },
+    battleUsage: { maxPerPokemon: 3, category: "HEALING" },
   }),
   item({
     id: "supreme-potion",
@@ -361,6 +362,7 @@ export const ITEM_CATALOG = Object.freeze([
     consumable: true,
     price: 270,
     rules: { healPercent: 0.6 },
+    battleUsage: { maxPerPokemon: 2, category: "HEALING" },
   }),
   item({
     id: "purifying-elixir",
@@ -375,6 +377,7 @@ export const ITEM_CATALOG = Object.freeze([
     trigger: "MANUAL",
     consumable: true,
     price: 60,
+    battleUsage: { maxPerPokemon: 2, category: "STATUS_CURE" },
   }),
   item({
     id: "instant-barrier",
@@ -391,6 +394,7 @@ export const ITEM_CATALOG = Object.freeze([
     consumable: true,
     price: 120,
     rules: { multiplier: 0.5 },
+    battleUsage: { maxPerPokemon: 2, category: "DEFENSIVE", blocksDuplicatePendingEffect: true },
   }),
   item({
     id: "stimulant",
@@ -407,6 +411,7 @@ export const ITEM_CATALOG = Object.freeze([
     consumable: true,
     price: 120,
     rules: { multiplier: 1.35 },
+    battleUsage: { maxPerPokemon: 3, category: "OFFENSIVE", blocksDuplicatePendingEffect: true },
   }),
   item({
     id: "recharge-crystal",
@@ -423,6 +428,7 @@ export const ITEM_CATALOG = Object.freeze([
     consumable: true,
     price: 300,
     rules: { amount: 1, maxPerPokemon: 1 },
+    battleUsage: { maxPerPokemon: 1, category: "RESOURCE" },
   }),
   item({
     id: "phoenix-heart",

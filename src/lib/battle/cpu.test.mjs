@@ -10,6 +10,7 @@ source = source
     const analyzeMoveDecision = () => ({ blockedByAbility: false, contactRisk: null });
     const getHpRatio = (hp, maxHp) => hp / maxHp;
     const getPotionHealAmount = (pokemon) => Math.min(Math.ceil(pokemon.maxHp * .4), pokemon.maxHp - pokemon.hp);
+    const getBagItemUseBlockReason = () => null;
   `)
   .replace('import { CPU_ROSTER } from "@/lib/battle/pokemon";', `
     const CPU_ROSTER = [
