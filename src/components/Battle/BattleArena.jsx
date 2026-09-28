@@ -25,7 +25,13 @@ import {
 } from "@/lib/battle/engine";
 import { SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
 import PokemonImage from "@/components/PokemonImage/PokemonImage";
-import { getDamageReactionSound, playBattleSound } from "@/lib/battle/sound";
+import {
+  createBattleAudioEventDeduper,
+  getDamageReactionSound,
+  getItemConsumptionSound,
+  playBattleSound,
+  preloadBattleSounds,
+} from "@/lib/battle/sound";
 import PokemonRarity, { getRarityClassName } from "@/components/PokemonRarity";
 import { calculateBattleRewards } from "@/lib/battle/rewards";
 import PokemonTypeIcon from "@/components/PokemonTypeIcon";
@@ -368,6 +374,8 @@ function itemEventNotification(event) {
           ? "healing"
           : "turn",
     itemId: definition.id,
+    audio: getItemConsumptionSound({ definition, event }),
+    audioEventId: event.eventId,
     duration:
       definition.rarity === "LEGENDARY" ? 1150 : event.consumed ? 950 : 650,
   };
@@ -486,6 +494,11 @@ function buildBattleNotifications(state, role, opponentName) {
       detail: `${effect.healing ? `+${effect.healing} HP · ` : ""}1 unidade consumida · ×${effect.remaining} restante${effect.remaining === 1 ? "" : "s"}`,
       tone: effect.healing ? "healing" : "strong",
       itemId: effect.itemId,
+      audio: getItemConsumptionSound({
+        definition: getItemDefinition(effect.itemId),
+        effect,
+      }),
+      audioEventId: effect.eventId,
       duration: 1050,
     });
   if (effect.kind === "switch")
@@ -512,6 +525,14 @@ function buildBattleNotifications(state, role, opponentName) {
 
 function BattleNotification({ state, role, opponentName }) {
   const [notification, setNotification] = useState(null);
+  const audioDeduper = useRef(null);
+  const initialAudioHydration = useRef(true);
+  if (!audioDeduper.current) audioDeduper.current = createBattleAudioEventDeduper();
+
+  useEffect(() => {
+    preloadBattleSounds();
+  }, []);
+
   useEffect(() => {
     if (state.effect?.kind === "attack") {
       const targetTeam = state[state.effect.target]?.team || [];
@@ -521,16 +542,24 @@ function BattleNotification({ state, role, opponentName }) {
       );
       playBattleSound(getDamageReactionSound(targetPokemon), 0.5);
     }
-    if (state.effect?.kind === "item" && state.effect?.healing)
-      playBattleSound("healing-pokemon-sound", 0.5);
     if (state.status === "finished")
       playBattleSound(state.winner === role ? "win" : "lost", 0.62);
     const queue = buildBattleNotifications(state, role, opponentName);
     const timers = [];
     let elapsed = 0;
+    const isHydrating = initialAudioHydration.current;
+    initialAudioHydration.current = false;
     queue.forEach((entry, index) => {
       timers.push(
-        window.setTimeout(() => setNotification({ ...entry, index }), elapsed),
+        window.setTimeout(() => {
+          setNotification({ ...entry, index });
+          if (
+            !isHydrating &&
+            entry.audio &&
+            audioDeduper.current.shouldPlay(state.matchId, entry.audioEventId, entry.audio)
+          )
+            playBattleSound(entry.audio, 0.5);
+        }, elapsed),
       );
       elapsed += entry.duration || 1050;
     });
