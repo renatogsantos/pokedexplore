@@ -8,7 +8,8 @@ import HeldItemDrawer from "@/components/HeldItemDrawer/HeldItemDrawer";
 import ConfirmationDialog from "@/components/ConfirmationDialog";
 import PokemonCollectionSelector from "@/components/Battle/PokemonCollectionSelector";
 import { webStore } from "@/helpers/webStore";
-import { getPokemonSprite, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
+import { SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
+import PokemonImage from "@/components/PokemonImage/PokemonImage";
 import { getTypeLabel } from "@/lib/localization/ptBR";
 import { getBadgeTeamErrorMessage, validateBadgeTeam } from "@/lib/badges/rules";
 import { getItemDefinition } from "@/lib/items/catalog";
@@ -69,7 +70,7 @@ function BadgeRequirements({ badgeContext, selected, validation }) {
   return <section className="badge-team-requirements" aria-label="Requisitos do Desafio da Insígnia"><div><img src={badgeContext.fallbackImage} alt="" aria-hidden="true" /><span><small>DESAFIO DA INSÍGNIA</small><strong>{badgeContext.name}</strong></span></div><ul><li className={selected.length === 3 ? "valid" : ""}>Equipe {selected.length}/3</li><li className={validation?.hasRequiredType ? "valid" : ""}>1 Pokémon {badgeContext.localizedTypeName}</li><li className={!validation?.hasLegendary && !validation?.hasMythical ? "valid" : ""}>Sem Lendários ou Míticos</li></ul>{selected.length === 3 && !validation?.valid && <p role="alert">{getBadgeTeamErrorMessage(validation, badgeContext.localizedTypeName)}</p>}</section>;
 }
 
-function DeckThumbnail({ pokemon }) { return pokemon ? <><img src={getPokemonSprite({ pokemon, context: SPRITE_CONTEXT.BATTLE_THUMBNAIL })} alt="" /><small>Lv. {getPokemonLevel(pokemon)}</small></> : <><span className="deck-missing">?</span><small>Indisponível</small></>; }
+function DeckThumbnail({ pokemon }) { return pokemon ? <><PokemonImage pokemon={pokemon} context={SPRITE_CONTEXT.BATTLE_THUMBNAIL} alt="" /><small>Lv. {getPokemonLevel(pokemon)}</small></> : <><span className="deck-missing">?</span><small>Indisponível</small></>; }
 
 function DecksPanel({ collection, decks, waiting, badgeContext, onDecksChange, onUseDeck }) {
   const [editor, setEditor] = useState(null); const [nameSheet, setNameSheet] = useState(false); const [renameDeck, setRenameDeck] = useState(null); const [saving, setSaving] = useState(false); const [pendingDeletion, setPendingDeletion] = useState(null); const [deleting, setDeleting] = useState(false); const [feedback, setFeedback] = useState("");

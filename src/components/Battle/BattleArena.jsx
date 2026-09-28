@@ -22,12 +22,8 @@ import {
   getSupportedAbility,
   multiplier,
 } from "@/lib/battle/engine";
-import {
-  getPokemonArtwork,
-  getReserveSprite,
-  getShowdownThumbnail,
-} from "@/lib/battle/pokemon";
-import { getPokemonSprite, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
+import { SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
+import PokemonImage from "@/components/PokemonImage/PokemonImage";
 import { getDamageReactionSound, playBattleSound } from "@/lib/battle/sound";
 import PokemonRarity, { getRarityClassName } from "@/components/PokemonRarity";
 import { calculateBattleRewards } from "@/lib/battle/rewards";
@@ -43,7 +39,11 @@ import ItemSprite from "@/components/ItemSprite/ItemSprite";
 import PokemonAura from "@/components/PokemonAura/PokemonAura";
 import BadgeArtwork from "@/components/Badges/BadgeArtwork";
 import { BADGE_REQUIRED_WINS } from "@/lib/badges/config";
-import { BAG_ITEM_CATALOG, getItemDefinition, getItemUsagePresentation } from "@/lib/items/catalog";
+import {
+  BAG_ITEM_CATALOG,
+  getItemDefinition,
+  getItemUsagePresentation,
+} from "@/lib/items/catalog";
 import { getStatusDefinition } from "@/lib/battle/statuses";
 import { getWagerResult } from "@/lib/battle/wager";
 import StatusIcon from "@/components/Battle/StatusIcon";
@@ -145,7 +145,8 @@ function Fighter({
             className={`battle-ability ${pokemon.hp / pokemon.maxHp <= 1 / 3 ? "is-active" : ""}`}
             title={ability.description}
           >
-            <Lightning size={13} weight="fill" aria-hidden="true" /> {ability.namePtBr}
+            <Lightning size={13} weight="fill" aria-hidden="true" />{" "}
+            {ability.namePtBr}
           </span>
         )}
         {pokemon.heldItem && (
@@ -158,7 +159,8 @@ function Fighter({
               alt=""
               className="battle-held-indicator-sprite"
             />
-            {getItemLabel(pokemon.heldItem)} <b>{heldItemPresentation?.persistenceLabel || "PRONTO"}</b>
+            {getItemLabel(pokemon.heldItem)}{" "}
+            <b>{heldItemPresentation?.persistenceLabel || "PRONTO"}</b>
           </span>
         )}
         {pokemon.status && (
@@ -202,16 +204,16 @@ function Fighter({
           variant="battle"
           className="fighter-aura"
         >
-          <motion.img
+          <PokemonImage
+            ImageComponent={motion.img}
             animate={{ y: [0, -5, 0] }}
             transition={{
               repeat: Infinity,
               duration: side === "player" ? 2.4 : 2.8,
             }}
-            src={getPokemonSprite({
-              pokemon,
-              context: SPRITE_CONTEXT.BATTLE_ACTIVE,
-            })}
+            pokemon={pokemon}
+            context={SPRITE_CONTEXT.BATTLE_ACTIVE}
+            side={side}
             alt={pokemon.name}
           />
         </PokemonAura>
@@ -237,7 +239,11 @@ function TeamStrip({ player, label }) {
             className={`team-slot ${index === player.active ? "active" : ""} ${pokemon.hp <= 0 ? "fainted" : ""} ${pokemon.status ? "has-status" : ""}`}
             aria-label={`${pokemon.name}: ${pokemon.hp <= 0 ? "desmaiado" : index === player.active ? "ativo" : "disponível"}${pokemon.status ? `, ${getStatusLabel(pokemon.status.id)}` : ""}`}
           >
-            <img src={getShowdownThumbnail(pokemon)} alt="" />
+            <PokemonImage
+              pokemon={pokemon}
+              context={SPRITE_CONTEXT.BATTLE_THUMBNAIL}
+              alt=""
+            />
             <small>
               {pokemon.hp <= 0 ? (
                 "KO"
@@ -332,20 +338,37 @@ function itemEventNotification(event) {
   if (!definition) return null;
   const presentation = getItemUsagePresentation(definition);
   const effect = event.effect || {};
-  const percent = effect.multiplier ? Math.round(Math.abs(effect.multiplier - 1) * 100) : null;
+  const percent = effect.multiplier
+    ? Math.round(Math.abs(effect.multiplier - 1) * 100)
+    : null;
   let detail = presentation.effectLabel;
-  if (effect.type === "heal_hp" && effect.amount) detail = `Recuperou ${effect.amount} HP.`;
-  if (effect.type === "regeneration") detail = `Regeneração por ${effect.ticks} turnos.`;
-  if (effect.type === "survive") detail = `Evitou o nocaute e ficou com ${effect.hp} HP${effect.nextAttackMultiplier ? ` · próximo ataque +${Math.round((effect.nextAttackMultiplier - 1) * 100)}%` : ""}.`;
-  if (effect.type === "prevent_status") detail = `${getStatusLabel(effect.status)} bloqueado${effect.healing ? ` · +${effect.healing} HP` : ""}.`;
-  if (effect.type === "cure_status") detail = `${getStatusLabel(effect.status)} removido${effect.healing ? ` · +${effect.healing} HP` : ""}.`;
-  if (effect.type === "damage_multiplier" && percent != null) detail = effect.multiplier < 1 ? `Reduziu ${percent}% do dano.` : `Ataque fortalecido em ${percent}%.`;
+  if (effect.type === "heal_hp" && effect.amount)
+    detail = `Recuperou ${effect.amount} HP.`;
+  if (effect.type === "regeneration")
+    detail = `Regeneração por ${effect.ticks} turnos.`;
+  if (effect.type === "survive")
+    detail = `Evitou o nocaute e ficou com ${effect.hp} HP${effect.nextAttackMultiplier ? ` · próximo ataque +${Math.round((effect.nextAttackMultiplier - 1) * 100)}%` : ""}.`;
+  if (effect.type === "prevent_status")
+    detail = `${getStatusLabel(effect.status)} bloqueado${effect.healing ? ` · +${effect.healing} HP` : ""}.`;
+  if (effect.type === "cure_status")
+    detail = `${getStatusLabel(effect.status)} removido${effect.healing ? ` · +${effect.healing} HP` : ""}.`;
+  if (effect.type === "damage_multiplier" && percent != null)
+    detail =
+      effect.multiplier < 1
+        ? `Reduziu ${percent}% do dano.`
+        : `Ataque fortalecido em ${percent}%.`;
   return {
     title: `${definition.name.toUpperCase()} ${event.consumed ? "ATIVADO!" : "EM EFEITO"}`,
     detail: `${detail} ${event.consumed ? "Item consumido." : "Permanece equipado."}`,
-    tone: definition.rarity === "LEGENDARY" ? "strong" : event.consumed ? "healing" : "turn",
+    tone:
+      definition.rarity === "LEGENDARY"
+        ? "strong"
+        : event.consumed
+          ? "healing"
+          : "turn",
     itemId: definition.id,
-    duration: definition.rarity === "LEGENDARY" ? 1150 : event.consumed ? 950 : 650,
+    duration:
+      definition.rarity === "LEGENDARY" ? 1150 : event.consumed ? 950 : 650,
   };
 }
 
@@ -353,14 +376,29 @@ function abilityEventNotification(event) {
   if (!event?.abilityName) return null;
   const effect = event.effect || {};
   let detail = "Habilidade ativada.";
-  if (effect.type === "status") detail = `O ataque fez contato e ${event.targetPokemonName} ficou ${getStatusLabel(effect.status).toLowerCase()}.`;
-  if (effect.type === "reflect_status") detail = `${getStatusLabel(effect.status)} foi refletido em ${event.targetPokemonName}.`;
-  if (effect.type === "absorb_and_heal") detail = `O golpe ${getTypeLabel(effect.attackType)} foi absorvido${effect.healing ? ` · +${effect.healing} HP` : ""}.`;
-  if (effect.type === "absorb_and_empower") detail = "O golpe de Fogo foi absorvido. Golpes Fire foram fortalecidos.";
-  if (effect.type === "immune") detail = `O golpe ${getTypeLabel(effect.attackType)} não causou dano.`;
-  if (effect.type === "damage_multiplier") detail = `Dano fortalecido em ${Math.round((effect.multiplier - 1) * 100)}%.`;
-  if (effect.type === "stat_stage") detail = effect.stages > 0 ? `${effect.stat === "speed" ? "Velocidade" : "Ataque"} aumentou.` : "Ataque do adversário diminuiu.";
-  return { title: `${event.abilityName.toUpperCase()}!`, detail, tone: "strong", duration: 1050 };
+  if (effect.type === "status")
+    detail = `O ataque fez contato e ${event.targetPokemonName} ficou ${getStatusLabel(effect.status).toLowerCase()}.`;
+  if (effect.type === "reflect_status")
+    detail = `${getStatusLabel(effect.status)} foi refletido em ${event.targetPokemonName}.`;
+  if (effect.type === "absorb_and_heal")
+    detail = `O golpe ${getTypeLabel(effect.attackType)} foi absorvido${effect.healing ? ` · +${effect.healing} HP` : ""}.`;
+  if (effect.type === "absorb_and_empower")
+    detail = "O golpe de Fogo foi absorvido. Golpes Fire foram fortalecidos.";
+  if (effect.type === "immune")
+    detail = `O golpe ${getTypeLabel(effect.attackType)} não causou dano.`;
+  if (effect.type === "damage_multiplier")
+    detail = `Dano fortalecido em ${Math.round((effect.multiplier - 1) * 100)}%.`;
+  if (effect.type === "stat_stage")
+    detail =
+      effect.stages > 0
+        ? `${effect.stat === "speed" ? "Velocidade" : "Ataque"} aumentou.`
+        : "Ataque do adversário diminuiu.";
+  return {
+    title: `${event.abilityName.toUpperCase()}!`,
+    detail,
+    tone: "strong",
+    duration: 1050,
+  };
 }
 
 function buildBattleNotifications(state, role, opponentName) {
@@ -420,7 +458,8 @@ function buildBattleNotifications(state, role, opponentName) {
     const notification = statusNotification(event);
     if (notification) queue.push(notification);
   }
-  const itemEvents = effect.itemEvents || (effect.heldItem ? [effect.heldItem] : []);
+  const itemEvents =
+    effect.itemEvents || (effect.heldItem ? [effect.heldItem] : []);
   for (const itemEvent of itemEvents) {
     const notification = itemEventNotification(itemEvent);
     if (notification) queue.push(notification);
@@ -1220,18 +1259,24 @@ export default function BattleArena({
                   );
                 const attackType =
                   move.type === "own" ? active.type : move.type;
-                const decision = analyzeMoveDecision({ attacker: active, defender: enemy, move });
-                const strong = decision.effectiveness > 1 && !decision.blockedByAbility;
-                const weak = decision.effectiveness < 1 && !decision.blockedByAbility;
+                const decision = analyzeMoveDecision({
+                  attacker: active,
+                  defender: enemy,
+                  move,
+                });
+                const strong =
+                  decision.effectiveness > 1 && !decision.blockedByAbility;
+                const weak =
+                  decision.effectiveness < 1 && !decision.blockedByAbility;
                 const uses = active.specialAttackUsesRemaining ?? 0;
                 const exhausted = move.special && uses <= 0;
                 const effectiveness = decision.blockedByAbility
                   ? "BLOQUEADO"
                   : strong
-                  ? "▲ FORTE"
-                  : weak
-                    ? "▼ FRACO"
-                    : "● NORMAL";
+                    ? "▲ FORTE"
+                    : weak
+                      ? "▼ FRACO"
+                      : "● NORMAL";
                 const strategistDetail =
                   active.heldItem === "strategist-eye"
                     ? ` · ×${multiplier(attackType, enemy).toFixed(2)}`
@@ -1273,10 +1318,8 @@ export default function BattleArena({
                         ) : (
                           <>
                             <span>{move.power}</span>
-                            <span>
-                              {effectiveness}
-                              {strategistDetail}
-                            </span>
+                            <span>{effectiveness}</span>
+                            <span>{strategistDetail}</span>
                           </>
                         )}
                       </small>
@@ -1288,14 +1331,49 @@ export default function BattleArena({
                           {moveStatusChance}% {moveStatus.eventName}
                         </small>
                       )}
-                      {(decision.makesContact || decision.contactRelevant) && <span className="move-contact-hint">{decision.makesContact ? "CONTATO" : "SEM CONTATO"}</span>}
-                      {decision.warnings.slice(0, 2).map((warning, warningIndex) => (
-                        <small key={`${warning.kind}-${warning.ability?.id || warningIndex}`} className={`move-decision-hint is-${warning.kind}`}>
-                          {warning.kind === "blocked" ? <WarningCircle size={12} weight="fill" aria-hidden="true" /> : warning.kind === "boost" ? <Lightning size={12} weight="fill" aria-hidden="true" /> : <WarningCircle size={12} weight="fill" aria-hidden="true" />}
-                          <span>{warning.kind === "blocked" ? warning.ability?.namePtBr?.toUpperCase() || "BLOQUEADO" : warning.kind === "boost" ? `${warning.ability.namePtBr.toUpperCase()} ATIVO` : warning.ability?.namePtBr?.toUpperCase() || warning.detail}</span>
-                          <em>{warning.detail}</em>
-                        </small>
-                      ))}
+                      {(decision.makesContact || decision.contactRelevant) && (
+                        <span className="move-contact-hint">
+                          {decision.makesContact ? "CONTATO" : "SEM CONTATO"}
+                        </span>
+                      )}
+                      {decision.warnings
+                        .slice(0, 2)
+                        .map((warning, warningIndex) => (
+                          <small
+                            key={`${warning.kind}-${warning.ability?.id || warningIndex}`}
+                            className={`move-decision-hint is-${warning.kind}`}
+                          >
+                            {warning.kind === "blocked" ? (
+                              <WarningCircle
+                                size={12}
+                                weight="fill"
+                                aria-hidden="true"
+                              />
+                            ) : warning.kind === "boost" ? (
+                              <Lightning
+                                size={12}
+                                weight="fill"
+                                aria-hidden="true"
+                              />
+                            ) : (
+                              <WarningCircle
+                                size={12}
+                                weight="fill"
+                                aria-hidden="true"
+                              />
+                            )}
+                            <span>
+                              {warning.kind === "blocked"
+                                ? warning.ability?.namePtBr?.toUpperCase() ||
+                                  "BLOQUEADO"
+                                : warning.kind === "boost"
+                                  ? `${warning.ability.namePtBr.toUpperCase()} ATIVO`
+                                  : warning.ability?.namePtBr?.toUpperCase() ||
+                                    warning.detail}
+                            </span>
+                            <em>{warning.detail}</em>
+                          </small>
+                        ))}
                     </span>
                   </button>
                 );
@@ -1354,7 +1432,11 @@ export default function BattleArena({
                             setActionMode("moves");
                           }}
                         >
-                          <img src={getReserveSprite(pokemon)} alt="" />
+                          <PokemonImage
+                            pokemon={pokemon}
+                            context={SPRITE_CONTEXT.BATTLE_THUMBNAIL}
+                            alt=""
+                          />
                           <span>
                             <strong>{pokemon.name}</strong>
                             <small>
@@ -1442,7 +1524,11 @@ export default function BattleArena({
                     }}
                     aria-label={`${pokemon.name}: ${activeSlot ? "ativo" : fainted ? "desmaiado" : "disponível para troca"}`}
                   >
-                    <img src={getReserveSprite(pokemon)} alt="" />
+                    <PokemonImage
+                      pokemon={pokemon}
+                      context={SPRITE_CONTEXT.BATTLE_THUMBNAIL}
+                      alt=""
+                    />
                     <span>
                       <strong>{pokemon.name}</strong>
                       <small>

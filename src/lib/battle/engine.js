@@ -110,10 +110,29 @@ const itemRules = (id) => getItemDefinition(id)?.rules || {};
 // Never infer an ailment from the elemental type.
 const move = (name, options = {}) => Object.freeze({ name, ...options });
 const KNOWN_CONTACT_MOVES = new Set([
-  "Tackle", "Quick Attack", "Fire Fang", "Aqua Tail", "Vine Whip", "Spark",
-  "Ice Fang", "Karate Chop", "Brick Break", "Close Combat", "Poison Sting",
-  "Bulldoze", "Peck", "Wing Attack", "Bug Bite", "X-Scissor", "Astonish",
-  "Shadow Sneak", "Dragon Claw", "Bite", "Assurance", "Metal Claw", "Iron Head",
+  "Tackle",
+  "Quick Attack",
+  "Fire Fang",
+  "Aqua Tail",
+  "Vine Whip",
+  "Spark",
+  "Ice Fang",
+  "Karate Chop",
+  "Brick Break",
+  "Close Combat",
+  "Poison Sting",
+  "Bulldoze",
+  "Peck",
+  "Wing Attack",
+  "Bug Bite",
+  "X-Scissor",
+  "Astonish",
+  "Shadow Sneak",
+  "Dragon Claw",
+  "Bite",
+  "Assurance",
+  "Metal Claw",
+  "Iron Head",
   "Draining Kiss",
 ]);
 const TYPE_MOVES = Object.freeze({
@@ -295,11 +314,27 @@ const addAbilityEvent = (effect, event) => {
   effect.abilityEvents = [...(effect.abilityEvents || []), event];
   effect.abilityEvent = event;
 };
-const abilityEvent = ({ ability, trigger, owner, source, target, eventId, effect = {} }) => ({
-  type: "ABILITY_ACTIVATED", eventId, abilityId: ability.id, abilityName: ability.namePtBr,
-  trigger, ownerPokemonId: owner?.id || null, ownerPokemonName: owner?.name || null,
-  sourcePokemonId: source?.id || null, sourcePokemonName: source?.name || null,
-  targetPokemonId: target?.id || null, targetPokemonName: target?.name || null, effect,
+const abilityEvent = ({
+  ability,
+  trigger,
+  owner,
+  source,
+  target,
+  eventId,
+  effect = {},
+}) => ({
+  type: "ABILITY_ACTIVATED",
+  eventId,
+  abilityId: ability.id,
+  abilityName: ability.namePtBr,
+  trigger,
+  ownerPokemonId: owner?.id || null,
+  ownerPokemonName: owner?.name || null,
+  sourcePokemonId: source?.id || null,
+  sourcePokemonName: source?.name || null,
+  targetPokemonId: target?.id || null,
+  targetPokemonName: target?.name || null,
+  effect,
 });
 
 function applyEnterAbility(next, ownerRole, opponentRole, effect, eventId) {
@@ -308,19 +343,73 @@ function applyEnterAbility(next, ownerRole, opponentRole, effect, eventId) {
   const definition = getEnterAbilityRule(owner);
   if (!definition || !opponent || opponent.hp <= 0) return;
   opponent.temporaryEffects.statStages ||= {};
-  opponent.temporaryEffects.statStages.attack = Math.max(-6, (opponent.temporaryEffects.statStages.attack || 0) + definition.rule.stages);
-  addAbilityEvent(effect, abilityEvent({ ability: definition, trigger: "ON_ENTER_BATTLE", owner, source: owner, target: opponent, eventId, effect: { type: "stat_stage", stat: "attack", stages: definition.rule.stages } }));
+  opponent.temporaryEffects.statStages.attack = Math.max(
+    -6,
+    (opponent.temporaryEffects.statStages.attack || 0) + definition.rule.stages,
+  );
+  addAbilityEvent(
+    effect,
+    abilityEvent({
+      ability: definition,
+      trigger: "ON_ENTER_BATTLE",
+      owner,
+      source: owner,
+      target: opponent,
+      eventId,
+      effect: {
+        type: "stat_stage",
+        stat: "attack",
+        stages: definition.rule.stages,
+      },
+    }),
+  );
 }
 
-function applySynchronize(effect, target, source, targetRole, sourceRole, eventId, turn) {
+function applySynchronize(
+  effect,
+  target,
+  source,
+  targetRole,
+  sourceRole,
+  eventId,
+  turn,
+) {
   const definition = getCatalogAbility(target?.abilityId || target?.ability);
-  const applied = (effect.statusEvents || []).find((event) => event.type === "STATUS_APPLIED" && event.targetPokemonId === target.id && definition?.rule.statuses?.includes(event.status));
+  const applied = (effect.statusEvents || []).find(
+    (event) =>
+      event.type === "STATUS_APPLIED" &&
+      event.targetPokemonId === target.id &&
+      definition?.rule.statuses?.includes(event.status),
+  );
   if (!definition || !applied || source.status || source.hp <= 0) return;
-  const reflected = applySupportedStatus(source, applied.status, {
-    sourcePokemon: target, sourceRole: targetRole, targetRole: sourceRole,
-    sourceKind: "ability", abilityId: definition.id, chance: 1, appliedTurn: turn,
-  }, effect, eventId);
-  if (reflected) addAbilityEvent(effect, abilityEvent({ ability: definition, trigger: "ON_STATUS_APPLIED", owner: target, source: target, target: source, eventId, effect: { type: "reflect_status", status: reflected } }));
+  const reflected = applySupportedStatus(
+    source,
+    applied.status,
+    {
+      sourcePokemon: target,
+      sourceRole: targetRole,
+      targetRole: sourceRole,
+      sourceKind: "ability",
+      abilityId: definition.id,
+      chance: 1,
+      appliedTurn: turn,
+    },
+    effect,
+    eventId,
+  );
+  if (reflected)
+    addAbilityEvent(
+      effect,
+      abilityEvent({
+        ability: definition,
+        trigger: "ON_STATUS_APPLIED",
+        owner: target,
+        source: target,
+        target: source,
+        eventId,
+        effect: { type: "reflect_status", status: reflected },
+      }),
+    );
 }
 
 export const getSupportedAbility = getCatalogAbility;
@@ -368,7 +457,9 @@ export function normalizeBattleMove(rawMove, fallback = {}) {
   return {
     ...normalized,
     // Unknown legacy/custom moves must never infer contact from damage class.
-    makesContact: normalized.makesContact === true || KNOWN_CONTACT_MOVES.has(normalized.name),
+    makesContact:
+      normalized.makesContact === true ||
+      KNOWN_CONTACT_MOVES.has(normalized.name),
     statusEffect: normalizeStatusEffect(normalized),
   };
 }
@@ -487,7 +578,14 @@ export function calculateDamage({ attacker, defender, move, variance = 1 }) {
       : defender.stats.defense;
   const ratio = Math.min(
     DAMAGE_BALANCE.MAX_ATTACK_RATIO,
-    Math.max(DAMAGE_BALANCE.MIN_ATTACK_RATIO, (attack * statStageMultiplier(attacker.temporaryEffects?.statStages?.attack || 0)) / Math.max(1, defense)),
+    Math.max(
+      DAMAGE_BALANCE.MIN_ATTACK_RATIO,
+      (attack *
+        statStageMultiplier(
+          attacker.temporaryEffects?.statStages?.attack || 0,
+        )) /
+        Math.max(1, defense),
+    ),
   );
   const levelFactor = Math.min(
     1.2,
@@ -502,7 +600,12 @@ export function calculateDamage({ attacker, defender, move, variance = 1 }) {
   const maximum = special
     ? DAMAGE_BALANCE.SPECIAL_MAX
     : DAMAGE_BALANCE.REGULAR_MAX;
-  const abilityRule = getDamageAbilityRule({ attacker, defender, attackType, hpRatio: hpRatio(attacker) });
+  const abilityRule = getDamageAbilityRule({
+    attacker,
+    defender,
+    attackType,
+    hpRatio: hpRatio(attacker),
+  });
   let outgoing = abilityRule?.kind === "boost" ? abilityRule.multiplier : 1;
   let incoming = 1;
   const itemTriggers = [];
@@ -686,10 +789,16 @@ export function resolveHeldItemEvent({
     const amount = heal(owner, owner.maxHp * definition.rules.healPercent);
     if (!amount) return null;
     return {
-      ...consumeHeld(owner, definition.id, eventId, {
-        type: "heal_hp",
-        amount,
-      }, ownerRole),
+      ...consumeHeld(
+        owner,
+        definition.id,
+        eventId,
+        {
+          type: "heal_hp",
+          amount,
+        },
+        ownerRole,
+      ),
       sourcePokemonId,
       beforeHp: owner.hp - amount,
       afterHp: owner.hp,
@@ -702,10 +811,16 @@ export function resolveHeldItemEvent({
       healPercent: definition.rules.healPercent,
     };
     return {
-      ...consumeHeld(owner, definition.id, eventId, {
-        type: "regeneration",
-        ticks: definition.rules.ticks,
-      }, ownerRole),
+      ...consumeHeld(
+        owner,
+        definition.id,
+        eventId,
+        {
+          type: "regeneration",
+          ticks: definition.rules.ticks,
+        },
+        ownerRole,
+      ),
       sourcePokemonId,
       trigger,
     };
@@ -757,11 +872,17 @@ function applySupportedStatus(target, statusId, context, effect, eventId) {
           )
         : 0;
     addItemEvent(effect, {
-      ...consumeHeld(target, prevention, eventId, {
-        type: "prevent_status",
-        status: statusId,
-        healing: recovery,
-      }, context.targetRole),
+      ...consumeHeld(
+        target,
+        prevention,
+        eventId,
+        {
+          type: "prevent_status",
+          status: statusId,
+          healing: recovery,
+        },
+        context.targetRole,
+      ),
       owner: context.targetRole,
     });
     addStatusEvent(effect, {
@@ -792,11 +913,17 @@ function applySupportedStatus(target, statusId, context, effect, eventId) {
       target.maxHp * (itemRules("purifier").healPercent ?? 0.25),
     );
     addItemEvent(effect, {
-      ...consumeHeld(target, "purifier", eventId, {
-        type: "cure_status",
-        status: statusId,
-        healing: recovery,
-      }, context.targetRole),
+      ...consumeHeld(
+        target,
+        "purifier",
+        eventId,
+        {
+          type: "cure_status",
+          status: statusId,
+          healing: recovery,
+        },
+        context.targetRole,
+      ),
       owner: context.targetRole,
     });
     addStatusEvent(effect, {
@@ -852,14 +979,37 @@ function finishActorTurn(next, actor, effect) {
   const ability = getEndTurnAbilityRule(fighter);
   if (fighter.hp > 0 && ability) {
     fighter.temporaryEffects.statStages ||= {};
-    fighter.temporaryEffects.statStages.speed = Math.min(6, (fighter.temporaryEffects.statStages.speed || 0) + ability.rule.stages);
-    addAbilityEvent(effect, abilityEvent({ ability, trigger: "END_OF_TURN", owner: fighter, source: fighter, target: fighter, eventId: `ability:${next.revision + 1}:${fighter.id}:speed`, effect: { type: "stat_stage", stat: "speed", stages: ability.rule.stages } }));
+    fighter.temporaryEffects.statStages.speed = Math.min(
+      6,
+      (fighter.temporaryEffects.statStages.speed || 0) + ability.rule.stages,
+    );
+    addAbilityEvent(
+      effect,
+      abilityEvent({
+        ability,
+        trigger: "END_OF_TURN",
+        owner: fighter,
+        source: fighter,
+        target: fighter,
+        eventId: `ability:${next.revision + 1}:${fighter.id}:speed`,
+        effect: {
+          type: "stat_stage",
+          stat: "speed",
+          stages: ability.rule.stages,
+        },
+      }),
+    );
   }
 }
 
 // Pure decision facts for UI and CPU. It deliberately never rolls RNG,
 // changes a fighter, or predicts final damage.
-export function analyzeMoveDecision({ attacker, defender, move, battleState = null }) {
+export function analyzeMoveDecision({
+  attacker,
+  defender,
+  move,
+  battleState = null,
+}) {
   const attackType = move?.type === "own" ? attacker?.type : move?.type;
   const effectiveness = getTypeEffectiveness(attackType, defender);
   const abilityRule = getDamageAbilityRule({
@@ -871,27 +1021,74 @@ export function analyzeMoveDecision({ attacker, defender, move, battleState = nu
   const blockedByAbility = abilityRule?.kind === "immunity";
   const contact = move?.makesContact === true;
   const defenderContactAbility = getContactAbilityPreview(defender);
-  const contactPreview = contact && !blockedByAbility ? defenderContactAbility : null;
-  const canReceiveContactStatus = !attacker?.status && contactPreview?.statuses?.some(isSupportedStatus);
-  const synchronize = getCatalogAbility(defender?.abilityId || defender?.ability);
-  const synchronizeRisk = !blockedByAbility && !attacker?.status &&
+  const contactPreview =
+    contact && !blockedByAbility ? defenderContactAbility : null;
+  const canReceiveContactStatus =
+    !attacker?.status && contactPreview?.statuses?.some(isSupportedStatus);
+  const synchronize = getCatalogAbility(
+    defender?.abilityId || defender?.ability,
+  );
+  const synchronizeRisk =
+    !blockedByAbility &&
+    !attacker?.status &&
     synchronize?.id === "synchronize" &&
     synchronize.rule.statuses?.includes(move?.statusEffect?.id);
-  const attackReduced = move?.damageClass !== "special" &&
+  const attackReduced =
+    move?.damageClass !== "special" &&
     (attacker?.temporaryEffects?.statStages?.attack || 0) < 0;
   const warnings = [];
-  if (blockedByAbility) warnings.push({ kind: "blocked", ability: abilityRule.ability, detail: abilityRule.healRatio ? "Rival pode recuperar HP" : abilityRule.activate ? "Pode fortalecer o rival" : "O golpe não atinge" });
+  if (blockedByAbility)
+    warnings.push({
+      kind: "blocked",
+      ability: abilityRule.ability,
+      detail: abilityRule.healRatio
+        ? "Rival pode recuperar HP"
+        : abilityRule.activate
+          ? "Pode fortalecer o rival"
+          : "O golpe não atinge",
+    });
   else {
-    if (abilityRule?.kind === "boost") warnings.push({ kind: "boost", ability: abilityRule.ability, multiplier: abilityRule.multiplier, detail: `+${Math.round((abilityRule.multiplier - 1) * 100)}% PODER` });
-    if (contactPreview && canReceiveContactStatus) warnings.push({ kind: "risk", ability: contactPreview.ability, statuses: contactPreview.statuses, chance: contactPreview.chance, detail: contactPreview.ability.id === "effect-spore" ? "Pode causar status" : `Pode causar ${{ poison: "veneno", paralysis: "paralisia", burn: "queimadura" }[contactPreview.statuses[0]] || "status"}` });
-    if (synchronizeRisk) warnings.push({ kind: "risk", ability: synchronize, detail: "Status pode voltar para você" });
-    if (attackReduced) warnings.push({ kind: "reduced", detail: "ATAQUE REDUZIDO" });
+    if (abilityRule?.kind === "boost")
+      warnings.push({
+        kind: "boost",
+        ability: abilityRule.ability,
+        multiplier: abilityRule.multiplier,
+        detail: `+${Math.round((abilityRule.multiplier - 1) * 100)}% PODER`,
+      });
+    if (contactPreview && canReceiveContactStatus)
+      warnings.push({
+        kind: "risk",
+        ability: contactPreview.ability,
+        statuses: contactPreview.statuses,
+        chance: contactPreview.chance,
+        detail:
+          contactPreview.ability.id === "effect-spore"
+            ? "Pode causar status"
+            : `Pode causar ${{ poison: "veneno", paralysis: "paralisia", burn: "queimadura" }[contactPreview.statuses[0]] || "status"}`,
+      });
+    if (synchronizeRisk)
+      warnings.push({
+        kind: "risk",
+        ability: synchronize,
+        detail: "Status pode voltar para você",
+      });
+    if (attackReduced)
+      warnings.push({ kind: "reduced", detail: "ATAQUE REDUZIDO" });
   }
-  warnings.sort((left, right) => ({ blocked: 0, risk: 1, boost: 2, reduced: 3 }[left.kind] - { blocked: 0, risk: 1, boost: 2, reduced: 3 }[right.kind]));
-  const primary = warnings.find((entry) => entry.kind === "blocked") ||
+  warnings.sort(
+    (left, right) =>
+      ({ blocked: 0, risk: 1, boost: 2, reduced: 3 })[left.kind] -
+      { blocked: 0, risk: 1, boost: 2, reduced: 3 }[right.kind],
+  );
+  const primary =
+    warnings.find((entry) => entry.kind === "blocked") ||
     warnings.find((entry) => entry.kind === "risk") ||
     warnings.find((entry) => entry.kind === "boost") ||
-    (effectiveness > 1 ? { kind: "positive", detail: "SUPER EFETIVO" } : effectiveness < 1 ? { kind: "weak", detail: "POUCO EFETIVO" } : { kind: "neutral", detail: "NORMAL" });
+    (effectiveness > 1
+      ? { kind: "positive", detail: "SUPER EFETIVO" }
+      : effectiveness < 1
+        ? { kind: "weak", detail: "POUCO EFETIVO" }
+        : { kind: "neutral", detail: "NORMAL" });
   return {
     attackType,
     effectiveness,
@@ -900,12 +1097,20 @@ export function analyzeMoveDecision({ attacker, defender, move, battleState = nu
     blockedByAbility: Boolean(blockedByAbility),
     absorbedByAbility: Boolean(abilityRule?.healRatio),
     attackerAbilityBoost: abilityRule?.kind === "boost" ? abilityRule : null,
-    contactRisk: contactPreview && canReceiveContactStatus ? contactPreview : null,
+    contactRisk:
+      contactPreview && canReceiveContactStatus ? contactPreview : null,
     synchronizeRisk: Boolean(synchronizeRisk),
     attackReduced,
     warnings,
     primary,
-    decisionSeverity: primary.kind === "blocked" ? "BLOCKED" : warnings.some((entry) => entry.kind === "risk") ? "RISK" : primary.kind === "positive" || primary.kind === "boost" ? "POSITIVE" : "NEUTRAL",
+    decisionSeverity:
+      primary.kind === "blocked"
+        ? "BLOCKED"
+        : warnings.some((entry) => entry.kind === "risk")
+          ? "RISK"
+          : primary.kind === "positive" || primary.kind === "boost"
+            ? "POSITIVE"
+            : "NEUTRAL",
   };
 }
 
@@ -1020,7 +1225,9 @@ function resolveBagAction(state, next, actor, enemy, action) {
     healing,
     curedStatus,
     remaining: next[actor].bag[itemId],
-    eventId: action.actionId || `${actor}:${state.revision + 1}:bag:${itemId}:${target.id}`,
+    eventId:
+      action.actionId ||
+      `${actor}:${state.revision + 1}:bag:${itemId}:${target.id}`,
     statusEvents: curedStatus
       ? [
           {
@@ -1077,7 +1284,13 @@ export function resolveAction(state, actor, action) {
     incoming.temporaryEffects.impulse =
       activeItem(incoming, "impulse-boots") || undefined;
     next.performance.players[actor].hasSwitched = true;
-    applyEnterAbility(next, actor, enemy, effect, action.actionId || `${actor}:${state.revision + 1}:switch-in`);
+    applyEnterAbility(
+      next,
+      actor,
+      enemy,
+      effect,
+      action.actionId || `${actor}:${state.revision + 1}:switch-in`,
+    );
     next.turn = enemy;
     next.log = `Vai, ${incoming.name}!`;
     next.effect = effect;
@@ -1200,7 +1413,8 @@ export function resolveAction(state, actor, action) {
     action.actionId ||
     `${actor}:${state.revision + 1}:${fighter.id}:${defender.id}:${move.id}`;
   const beforeHp = defender.hp;
-  const immunity = resolution.abilityRule?.kind === "immunity" ? resolution.abilityRule : null;
+  const immunity =
+    resolution.abilityRule?.kind === "immunity" ? resolution.abilityRule : null;
   let damage = immunity ? 0 : Math.min(beforeHp, resolution.damage);
   const effect = {
     kind: "attack",
@@ -1224,7 +1438,27 @@ export function resolveAction(state, actor, action) {
   let immunityRecovery = 0;
   if (immunity) {
     if (immunity.activate) defender.temporaryEffects.flashFire = true;
-    addAbilityEvent(effect, abilityEvent({ ability: immunity.ability, trigger: "BEFORE_DAMAGE", owner: defender, source: fighter, target: defender, eventId, effect: { type: immunity.activate ? "absorb_and_empower" : immunity.healRatio ? "absorb_and_heal" : "immune", attackType, healing: 0, activated: Boolean(immunity.activate) } }));
+    addAbilityEvent(
+      effect,
+      abilityEvent({
+        ability: immunity.ability,
+        trigger: "BEFORE_DAMAGE",
+        owner: defender,
+        source: fighter,
+        target: defender,
+        eventId,
+        effect: {
+          type: immunity.activate
+            ? "absorb_and_empower"
+            : immunity.healRatio
+              ? "absorb_and_heal"
+              : "immune",
+          attackType,
+          healing: 0,
+          activated: Boolean(immunity.activate),
+        },
+      }),
+    );
   }
   for (const trigger of resolution.itemTriggers) {
     if (trigger.temporary) {
@@ -1243,10 +1477,16 @@ export function resolveAction(state, actor, action) {
       const owner = trigger.owner === "defender" ? defender : fighter;
       const ownerRole = trigger.owner === "defender" ? enemy : actor;
       addItemEvent(effect, {
-        ...consumeHeld(owner, trigger.itemId, eventId, {
-          type: "damage_multiplier",
-          multiplier: trigger.multiplier,
-        }, ownerRole),
+        ...consumeHeld(
+          owner,
+          trigger.itemId,
+          eventId,
+          {
+            type: "damage_multiplier",
+            multiplier: trigger.multiplier,
+          },
+          ownerRole,
+        ),
         owner: ownerRole,
       });
     }
@@ -1271,14 +1511,20 @@ export function resolveAction(state, actor, action) {
     } else surviveHp = 1;
     damage = Math.max(0, beforeHp - Math.min(surviveHp, beforeHp));
     addItemEvent(effect, {
-      ...consumeHeld(defender, lethalItem, eventId, {
-        type: "survive",
-        hp: surviveHp,
-        nextAttackMultiplier:
-          lethalItem === "phoenix-heart"
-            ? (phoenixRules?.multiplier ?? 1.25)
-            : null,
-      }, enemy),
+      ...consumeHeld(
+        defender,
+        lethalItem,
+        eventId,
+        {
+          type: "survive",
+          hp: surviveHp,
+          nextAttackMultiplier:
+            lethalItem === "phoenix-heart"
+              ? (phoenixRules?.multiplier ?? 1.25)
+              : null,
+        },
+        enemy,
+      ),
       owner: enemy,
     });
   }
@@ -1287,8 +1533,10 @@ export function resolveAction(state, actor, action) {
   if (surviveHp != null) defender.hp = surviveHp;
   if (immunity?.healRatio) {
     immunityRecovery = heal(defender, defender.maxHp * immunity.healRatio);
-    if (effect.abilityEvent?.abilityId === immunity.ability.id) effect.abilityEvent.effect.healing = immunityRecovery;
-    if (effect.abilityEvents?.[0]?.abilityId === immunity.ability.id) effect.abilityEvents[0].effect.healing = immunityRecovery;
+    if (effect.abilityEvent?.abilityId === immunity.ability.id)
+      effect.abilityEvent.effect.healing = immunityRecovery;
+    if (effect.abilityEvents?.[0]?.abilityId === immunity.ability.id)
+      effect.abilityEvents[0].effect.healing = immunityRecovery;
   }
   effect.damage = damage;
   let status = null;
@@ -1329,9 +1577,10 @@ export function resolveAction(state, actor, action) {
         eventId,
       });
   }
-  const contactRule = !immunity && move.makesContact && defender.hp > 0
-    ? getContactAbilityRule(defender, nextRandom(next))
-    : null;
+  const contactRule =
+    !immunity && move.makesContact && defender.hp > 0
+      ? getContactAbilityRule(defender, nextRandom(next))
+      : null;
   if (contactRule) {
     const applied = applySupportedStatus(
       fighter,
@@ -1351,7 +1600,18 @@ export function resolveAction(state, actor, action) {
     status = applied || status;
     if (applied) {
       reactiveAbility = contactRule.ability.id;
-      addAbilityEvent(effect, abilityEvent({ ability: contactRule.ability, trigger: "AFTER_CONTACT_RECEIVED", owner: defender, source: defender, target: fighter, eventId, effect: { type: "status", status: applied, makesContact: true } }));
+      addAbilityEvent(
+        effect,
+        abilityEvent({
+          ability: contactRule.ability,
+          trigger: "AFTER_CONTACT_RECEIVED",
+          owner: defender,
+          source: defender,
+          target: fighter,
+          eventId,
+          effect: { type: "status", status: applied, makesContact: true },
+        }),
+      );
     }
   }
   if (
@@ -1398,8 +1658,24 @@ export function resolveAction(state, actor, action) {
         effect: { type: "heal_hp", amount },
       });
   }
-  applySynchronize(effect, defender, fighter, enemy, actor, eventId, state.revision + 1);
-  applySynchronize(effect, fighter, defender, actor, enemy, eventId, state.revision + 1);
+  applySynchronize(
+    effect,
+    defender,
+    fighter,
+    enemy,
+    actor,
+    eventId,
+    state.revision + 1,
+  );
+  applySynchronize(
+    effect,
+    fighter,
+    defender,
+    actor,
+    enemy,
+    eventId,
+    state.revision + 1,
+  );
   const automatic = resolveHeldItemEvent({
     trigger: HELD_ITEM_TRIGGER.AFTER_DAMAGE_RECEIVED,
     owner: defender,
@@ -1412,9 +1688,26 @@ export function resolveAction(state, actor, action) {
   if (automatic) addItemEvent(effect, { ...automatic, owner: enemy });
   effect.status = status;
   if (resolution.abilityRule?.kind === "boost") {
-    addAbilityEvent(effect, abilityEvent({ ability: resolution.abilityRule.ability, trigger: "BEFORE_DAMAGE", owner: fighter, source: fighter, target: defender, eventId, effect: { type: "damage_multiplier", multiplier: resolution.abilityRule.multiplier } }));
+    addAbilityEvent(
+      effect,
+      abilityEvent({
+        ability: resolution.abilityRule.ability,
+        trigger: "BEFORE_DAMAGE",
+        owner: fighter,
+        source: fighter,
+        target: defender,
+        eventId,
+        effect: {
+          type: "damage_multiplier",
+          multiplier: resolution.abilityRule.multiplier,
+        },
+      }),
+    );
   }
-  effect.ability = resolution.abilityRule?.kind === "boost" ? resolution.abilityRule.ability.id : reactiveAbility;
+  effect.ability =
+    resolution.abilityRule?.kind === "boost"
+      ? resolution.abilityRule.ability.id
+      : reactiveAbility;
   effect.amplifier = resolution.heldItemBonus;
   next.effect = effect;
   next.resolvedItemEventIds = [

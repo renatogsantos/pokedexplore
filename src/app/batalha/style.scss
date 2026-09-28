@@ -1166,7 +1166,8 @@
   width: clamp(155px, 27vw, 275px);
   height: clamp(155px, 27vw, 275px);
 }
-.combatant .fighter-art img {
+.combatant .fighter-art img,
+.combatant .fighter-art .pokemon-image-fallback {
   position: relative;
   z-index: 1;
   width: 100%;
@@ -1291,6 +1292,14 @@
 .battle-notification.turn {
   border-color: #7cb4f5aa;
 }
+.pokemon-image-fallback {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: center / contain no-repeat url("/pokenull.png");
+}
+.deck-pokemon .pokemon-image-fallback { width: 58px; height: 48px; }
+.deck-name-preview > span .pokemon-image-fallback { min-height: 0; }
 .battle-notification.turn .battle-notification-item { opacity: .9; }
 .battle-notification.waiting {
   opacity: 0.86;
@@ -3317,7 +3326,8 @@
   border-radius: 9px;
   background: #071323b8;
 }
-.team-slot img {
+.team-slot img,
+.team-slot .pokemon-image-fallback {
   width: 25px;
   height: 22px;
   object-fit: contain;
@@ -3359,7 +3369,8 @@
     width: 33px;
     min-height: 33px;
   }
-  .team-slot img {
+  .team-slot img,
+  .team-slot .pokemon-image-fallback {
     width: 21px;
     height: 18px;
   }
@@ -3426,7 +3437,8 @@
   min-height: 32px;
   border-radius: 50%;
 }
-.battle-page:has(.battle-arena) .team-slot img {
+.battle-page:has(.battle-arena) .team-slot img,
+.battle-page:has(.battle-arena) .team-slot .pokemon-image-fallback {
   width: 24px;
   height: 20px;
 }
@@ -4261,7 +4273,9 @@
   text-align: center;
 }
 .deck-target-list img,
-.deck-switch-list img {
+.deck-switch-list img,
+.deck-target-list .pokemon-image-fallback,
+.deck-switch-list .pokemon-image-fallback {
   width: 31px;
   height: 28px;
   object-fit: contain;

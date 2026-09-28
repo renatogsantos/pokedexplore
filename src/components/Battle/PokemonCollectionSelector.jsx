@@ -2,8 +2,10 @@
 
 import { CheckCircle, LockKey, MagnifyingGlass } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
-import { getPokemonArtwork, getPokemonType } from "@/lib/battle/pokemon";
+import { getPokemonType } from "@/lib/battle/pokemon";
 import { getPokemonLevel } from "@/lib/pokemon/progression";
+import { SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
+import PokemonImage from "@/components/PokemonImage/PokemonImage";
 import PokemonRarity, { getRarityClassName } from "@/components/PokemonRarity";
 import { pokemonData } from "@/helpers/PokemonTypes";
 import PokemonPagination from "@/components/PokemonPagination";
@@ -66,7 +68,7 @@ export default function PokemonCollectionSelector({
               <span className="battle-collection-id">#{String(pokemon.id).padStart(3, "0")}</span>
               <span className="battle-collection-level">Lv. {getPokemonLevel(pokemon)}</span>
               <PokemonRarity pokemon={pokemon} compact />
-              <PokemonAura pokemon={pokemon} variant="compact" className="battle-card-aura"><img className="battle-collection-art" src={getPokemonArtwork(pokemon)} alt="" loading="lazy" /></PokemonAura>
+              <PokemonAura pokemon={pokemon} variant="compact" className="battle-card-aura"><PokemonImage pokemon={pokemon} context={SPRITE_CONTEXT.BATTLE_ACTIVE} className="battle-collection-art" alt="" loading="lazy" /></PokemonAura>
               <strong>{pokemon.name}</strong>
               <span className="battle-collection-types">{types.map((type) => <TypeBadge key={type} type={type} />)}</span>
               {isSelected && <span className="selection-order"><CheckCircle size={17} weight="fill" /> {index + 1}</span>}
