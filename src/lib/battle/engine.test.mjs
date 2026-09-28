@@ -37,12 +37,13 @@ const engineSource = (
   )
   .replace(
     /import\s*\{[\s\S]*?normalizeAbilityId,[\s\S]*?\}\s*from\s*"@\/lib\/battle\/abilities";/,
-    "const { getContactAbilityRule, getDamageAbilityRule, getEndTurnAbilityRule, getEnterAbilityRule, getSupportedAbility: getCatalogAbility, normalizeAbilityId } = globalThis.__battleAbilities;",
+    "const { getContactAbilityRule, getContactAbilityPreview, getDamageAbilityRule, getEndTurnAbilityRule, getEnterAbilityRule, getSupportedAbility: getCatalogAbility, normalizeAbilityId } = globalThis.__battleAbilities;",
   );
 const {
   MAX_HEALS_PER_POKEMON,
   MAX_SPECIAL_ATTACK_USES,
   calculateDamage,
+  analyzeMoveDecision,
   createBattleState,
   getBattleMoves,
   resolveAction,
@@ -645,4 +646,69 @@ test("low HP boosts, field stages and Synchronize are battle-only", () => {
   assert.equal(reflected.guest.team[0].status.id, "burn");
   assert.equal(reflected.host.team[0].status.id, "burn");
   assert.equal(reflected.effect.abilityEvents.filter((event) => event.abilityId === "synchronize").length, 1);
+});
+
+test("move decision analysis exposes facts without rolling or choosing for the player", () => {
+  const attacker = pokemon(1, null, 30, 5, "fire");
+  attacker.abilityId = "blaze";
+  const defender = pokemon(2, null, 100, 5, "grass");
+  defender.abilityId = "static";
+  const contact = { ...attacker.moveset[0], type: "fire", makesContact: true };
+  const analysis = analyzeMoveDecision({ attacker, defender, move: contact });
+  assert.equal(analysis.attackerAbilityBoost.ability.id, "blaze");
+  assert.equal(analysis.contactRisk.ability.id, "static");
+  assert.equal(analysis.effectiveness > 1, true);
+  assert.equal(attacker.status, undefined);
+  defender.abilityId = "water-absorb";
+  const absorbed = analyzeMoveDecision({ attacker, defender, move: { ...contact, type: "water" } });
+  assert.equal(absorbed.blockedByAbility, true);
+  assert.equal(absorbed.primary.kind, "blocked");
+  const safe = analyzeMoveDecision({ attacker, defender: { ...defender, abilityId: "static" }, move: { ...contact, makesContact: false } });
+  assert.equal(safe.contactRisk, null);
+  assert.equal(safe.contactRelevant, true);
+});
+
+test("move decision analysis covers every V1 ability decision without treating chance as certainty", () => {
+  const attacker = pokemon(1, null, 33, 5, "fire");
+  const defender = pokemon(2, null, 100, 5, "normal");
+  const contact = { ...attacker.moveset[0], makesContact: true };
+
+  for (const [abilityId, status] of [["poison-point", "poison"], ["static", "paralysis"], ["flame-body", "burn"], ["effect-spore", "sleep"]]) {
+    defender.abilityId = abilityId;
+    const decision = analyzeMoveDecision({ attacker, defender, move: contact });
+    assert.equal(decision.contactRisk.ability.id, abilityId);
+    assert.equal(decision.contactRisk.statuses.includes(status), true);
+    assert.equal(decision.contactRisk.chance, 0.3);
+  }
+
+  for (const [abilityId, type] of [["water-absorb", "water"], ["volt-absorb", "electric"], ["levitate", "ground"], ["flash-fire", "fire"]]) {
+    defender.abilityId = abilityId;
+    const decision = analyzeMoveDecision({ attacker, defender, move: { ...contact, type } });
+    assert.equal(decision.blockedByAbility, true);
+    assert.equal(decision.primary.ability.id, abilityId);
+  }
+
+  for (const [abilityId, type] of [["overgrow", "grass"], ["blaze", "fire"], ["torrent", "water"], ["swarm", "bug"]]) {
+    attacker.abilityId = abilityId;
+    const boosted = analyzeMoveDecision({ attacker, defender: { ...defender, abilityId: null }, move: { ...contact, type } });
+    const ordinary = analyzeMoveDecision({ attacker, defender: { ...defender, abilityId: null }, move: { ...contact, type: "normal" } });
+    assert.equal(boosted.attackerAbilityBoost.ability.id, abilityId);
+    assert.equal(ordinary.attackerAbilityBoost, null);
+  }
+
+  defender.abilityId = "synchronize";
+  const synchronized = analyzeMoveDecision({ attacker, defender, move: { ...contact, statusEffect: { id: "burn", chance: 0.3 } } });
+  assert.equal(synchronized.synchronizeRisk, true);
+  const noStatusMove = analyzeMoveDecision({ attacker, defender, move: contact });
+  assert.equal(noStatusMove.synchronizeRisk, false);
+
+  attacker.temporaryEffects = { statStages: { attack: -1 } };
+  const physical = analyzeMoveDecision({ attacker, defender, move: contact });
+  const special = analyzeMoveDecision({ attacker, defender, move: { ...contact, damageClass: "special" } });
+  assert.equal(physical.attackReduced, true);
+  assert.equal(special.attackReduced, false);
+
+  attacker.abilityId = "speed-boost";
+  const speedBoost = analyzeMoveDecision({ attacker, defender: { ...defender, abilityId: null }, move: contact });
+  assert.equal(speedBoost.warnings.some((warning) => warning.ability?.id === "speed-boost"), false);
 });

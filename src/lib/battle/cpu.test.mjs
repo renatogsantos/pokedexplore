@@ -7,6 +7,7 @@ source = source
   .replace(/import \{[\s\S]*?\} from "@\/lib\/battle\/engine";/, `
     const getTypeEffectiveness = (attackType, defender) => attackType === defender.type ? 1 : attackType === "water" && defender.type === "fire" ? 2 : attackType === "grass" && defender.type === "water" ? 2 : attackType === "fire" && defender.type === "grass" ? 2 : .5;
     const calculateDamage = ({ attacker, defender, move }) => Math.round((move.power || 40) * getTypeEffectiveness(move.type === "own" ? attacker.type : move.type, defender));
+    const analyzeMoveDecision = () => ({ blockedByAbility: false, contactRisk: null });
     const getHpRatio = (hp, maxHp) => hp / maxHp;
     const getPotionHealAmount = (pokemon) => Math.min(Math.ceil(pokemon.maxHp * .4), pokemon.maxHp - pokemon.hp);
   `)

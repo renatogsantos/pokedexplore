@@ -1,5 +1,6 @@
 import {
   calculateDamage,
+  analyzeMoveDecision,
   getHpRatio,
   getPotionHealAmount,
   getTypeEffectiveness,
@@ -89,14 +90,15 @@ export function createCpuInventory(difficulty = "normal") {
 
 function scoreMove(move, attacker, defender, config) {
   const resolution = calculateDamage({ attacker, defender, move, variance: 1 });
-  const blockedByAbility = resolution.abilityRule?.kind === "immunity";
+  const analysis = analyzeMoveDecision({ attacker, defender, move });
+  const blockedByAbility = analysis.blockedByAbility;
   const damage = blockedByAbility ? 0 : resolution.damage;
   const attackType = move.type === "own" ? attacker.type : move.type;
   const effectiveness = getTypeEffectiveness(attackType, defender);
   const koBonus = damage >= defender.hp ? 180 : 0;
   const specialCost = move.special && attacker.specialAttackUsesRemaining <= 1 && damage < defender.hp ? 8 : 0;
   const statusBonus = move.statusEffect && !defender.status ? (config.id === "easy" ? 3 : 14) : 0;
-  const contactRisk = config.id === "hard" && move.makesContact && ["static", "poison-point", "flame-body", "effect-spore"].includes(defender.abilityId || defender.ability) ? 34 : 0;
+  const contactRisk = config.id === "hard" && analysis.contactRisk ? 34 : 0;
   return damage + effectiveness * (config.id === "easy" ? 5 : 22) + koBonus + statusBonus - specialCost - contactRisk - (blockedByAbility ? 400 : 0);
 }
 

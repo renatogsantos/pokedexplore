@@ -9,6 +9,7 @@ import {
 } from "@/lib/battle/statuses";
 import {
   getContactAbilityRule,
+  getContactAbilityPreview,
   getDamageAbilityRule,
   getEndTurnAbilityRule,
   getEnterAbilityRule,
@@ -854,6 +855,58 @@ function finishActorTurn(next, actor, effect) {
     fighter.temporaryEffects.statStages.speed = Math.min(6, (fighter.temporaryEffects.statStages.speed || 0) + ability.rule.stages);
     addAbilityEvent(effect, abilityEvent({ ability, trigger: "END_OF_TURN", owner: fighter, source: fighter, target: fighter, eventId: `ability:${next.revision + 1}:${fighter.id}:speed`, effect: { type: "stat_stage", stat: "speed", stages: ability.rule.stages } }));
   }
+}
+
+// Pure decision facts for UI and CPU. It deliberately never rolls RNG,
+// changes a fighter, or predicts final damage.
+export function analyzeMoveDecision({ attacker, defender, move, battleState = null }) {
+  const attackType = move?.type === "own" ? attacker?.type : move?.type;
+  const effectiveness = getTypeEffectiveness(attackType, defender);
+  const abilityRule = getDamageAbilityRule({
+    attacker,
+    defender,
+    attackType,
+    hpRatio: hpRatio(attacker),
+  });
+  const blockedByAbility = abilityRule?.kind === "immunity";
+  const contact = move?.makesContact === true;
+  const defenderContactAbility = getContactAbilityPreview(defender);
+  const contactPreview = contact && !blockedByAbility ? defenderContactAbility : null;
+  const canReceiveContactStatus = !attacker?.status && contactPreview?.statuses?.some(isSupportedStatus);
+  const synchronize = getCatalogAbility(defender?.abilityId || defender?.ability);
+  const synchronizeRisk = !blockedByAbility && !attacker?.status &&
+    synchronize?.id === "synchronize" &&
+    synchronize.rule.statuses?.includes(move?.statusEffect?.id);
+  const attackReduced = move?.damageClass !== "special" &&
+    (attacker?.temporaryEffects?.statStages?.attack || 0) < 0;
+  const warnings = [];
+  if (blockedByAbility) warnings.push({ kind: "blocked", ability: abilityRule.ability, detail: abilityRule.healRatio ? "Rival pode recuperar HP" : abilityRule.activate ? "Pode fortalecer o rival" : "O golpe não atinge" });
+  else {
+    if (abilityRule?.kind === "boost") warnings.push({ kind: "boost", ability: abilityRule.ability, multiplier: abilityRule.multiplier, detail: `+${Math.round((abilityRule.multiplier - 1) * 100)}% PODER` });
+    if (contactPreview && canReceiveContactStatus) warnings.push({ kind: "risk", ability: contactPreview.ability, statuses: contactPreview.statuses, chance: contactPreview.chance, detail: contactPreview.ability.id === "effect-spore" ? "Pode causar status" : `Pode causar ${{ poison: "veneno", paralysis: "paralisia", burn: "queimadura" }[contactPreview.statuses[0]] || "status"}` });
+    if (synchronizeRisk) warnings.push({ kind: "risk", ability: synchronize, detail: "Status pode voltar para você" });
+    if (attackReduced) warnings.push({ kind: "reduced", detail: "ATAQUE REDUZIDO" });
+  }
+  warnings.sort((left, right) => ({ blocked: 0, risk: 1, boost: 2, reduced: 3 }[left.kind] - { blocked: 0, risk: 1, boost: 2, reduced: 3 }[right.kind]));
+  const primary = warnings.find((entry) => entry.kind === "blocked") ||
+    warnings.find((entry) => entry.kind === "risk") ||
+    warnings.find((entry) => entry.kind === "boost") ||
+    (effectiveness > 1 ? { kind: "positive", detail: "SUPER EFETIVO" } : effectiveness < 1 ? { kind: "weak", detail: "POUCO EFETIVO" } : { kind: "neutral", detail: "NORMAL" });
+  return {
+    attackType,
+    effectiveness,
+    makesContact: contact,
+    contactRelevant: Boolean(defenderContactAbility),
+    blockedByAbility: Boolean(blockedByAbility),
+    absorbedByAbility: Boolean(abilityRule?.healRatio),
+    attackerAbilityBoost: abilityRule?.kind === "boost" ? abilityRule : null,
+    contactRisk: contactPreview && canReceiveContactStatus ? contactPreview : null,
+    synchronizeRisk: Boolean(synchronizeRisk),
+    attackReduced,
+    warnings,
+    primary,
+    decisionSeverity: primary.kind === "blocked" ? "BLOCKED" : warnings.some((entry) => entry.kind === "risk") ? "RISK" : primary.kind === "positive" || primary.kind === "boost" ? "POSITIVE" : "NEUTRAL",
+  };
 }
 
 export function createBattleState(host, guest, firstTurn) {

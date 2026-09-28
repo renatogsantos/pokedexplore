@@ -4876,6 +4876,15 @@
 .move-status-hint, .switch-status { display: inline-flex; align-items: center; gap: 3px; color: #ffe06a !important; font-size: .48rem !important; font-weight: 850; white-space: nowrap; }
 .move-contact-hint { display: inline-flex; align-items: center; color: #9bd9ff; font-size: .45rem; font-weight: 900; letter-spacing: .06em; white-space: nowrap; }
 .battle-ability { display: inline-flex; align-items: center; gap: 4px; }
+.move-decision-hint { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 4px; width: 100%; min-width: 0; margin-top: 2px; font-size: .48rem; font-weight: 900; letter-spacing: .035em; line-height: 1.15; }
+.move-decision-hint span { min-width: 0; overflow-wrap: anywhere; }
+.move-decision-hint em { grid-column: 2; min-width: 0; color: #d3e5f6; font-size: .43rem; font-style: normal; font-weight: 700; letter-spacing: 0; overflow-wrap: anywhere; }
+.move-decision-hint.is-blocked { color: #ffb1ab; }
+.move-decision-hint.is-blocked em { color: #ffd4d0; }
+.move-decision-hint.is-risk { color: #ffd87d; }
+.move-decision-hint.is-boost { color: #a8f4c7; }
+.attack-button.is-blocked { border-color: #d76a66 !important; box-shadow: inset 0 0 0 1px #d76a6644; }
+.attack-button.has-risk { border-color: #c9a65f; }
 .move-status-hint.is-burn, .switch-status.is-burn { color: #ffb084 !important; }
 .move-status-hint.is-poison, .switch-status.is-poison { color: #e3a5ff !important; }
 .move-status-hint.is-sleep, .switch-status.is-sleep { color: #c3c8ff !important; }

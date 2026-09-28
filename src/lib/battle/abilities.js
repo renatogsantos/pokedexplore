@@ -60,6 +60,16 @@ export function getContactAbilityRule(defender, roll) {
   return { ability, status, chance: ability.rule.chance };
 }
 
+export function getContactAbilityPreview(defender) {
+  const ability = getAbilityDefinition(defender?.abilityId || defender?.ability);
+  if (!ability?.hooks.includes(ABILITY_HOOK.AFTER_CONTACT_RECEIVED)) return null;
+  return {
+    ability,
+    statuses: ability.rule.statuses || [ability.rule.status],
+    chance: ability.rule.chance,
+  };
+}
+
 export function getEnterAbilityRule(fighter) {
   const ability = getAbilityDefinition(fighter?.abilityId || fighter?.ability);
   return ability?.hooks.includes(ABILITY_HOOK.ON_ENTER_BATTLE) ? ability : null;

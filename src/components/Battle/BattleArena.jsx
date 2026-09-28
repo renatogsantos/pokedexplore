@@ -16,6 +16,7 @@ import Link from "next/link";
 import { useSelector } from "react-redux";
 import {
   getOpponentWeaknesses,
+  analyzeMoveDecision,
   MAX_HEALS_PER_POKEMON,
   getPokemonMatchup,
   getSupportedAbility,
@@ -1219,11 +1220,14 @@ export default function BattleArena({
                   );
                 const attackType =
                   move.type === "own" ? active.type : move.type;
-                const strong = multiplier(attackType, enemy) > 1;
-                const weak = multiplier(attackType, enemy) < 1;
+                const decision = analyzeMoveDecision({ attacker: active, defender: enemy, move });
+                const strong = decision.effectiveness > 1 && !decision.blockedByAbility;
+                const weak = decision.effectiveness < 1 && !decision.blockedByAbility;
                 const uses = active.specialAttackUsesRemaining ?? 0;
                 const exhausted = move.special && uses <= 0;
-                const effectiveness = strong
+                const effectiveness = decision.blockedByAbility
+                  ? "BLOQUEADO"
+                  : strong
                   ? "▲ FORTE"
                   : weak
                     ? "▼ FRACO"
@@ -1240,7 +1244,7 @@ export default function BattleArena({
                   <button
                     type="button"
                     key={move.id}
-                    className={`attack-button ${strong ? "recommended" : ""} ${weak ? "disadvantage" : ""} ${move.special ? "is-special" : ""} ${exhausted ? "is-exhausted" : ""}`}
+                    className={`attack-button ${strong ? "recommended" : ""} ${weak ? "disadvantage" : ""} ${decision.blockedByAbility ? "is-blocked" : ""} ${decision.decisionSeverity === "RISK" ? "has-risk" : ""} ${move.special ? "is-special" : ""} ${exhausted ? "is-exhausted" : ""}`}
                     disabled={!myTurn || exhausted}
                     onClick={() => {
                       playBattleSound(
@@ -1248,7 +1252,7 @@ export default function BattleArena({
                       );
                       onAction({ type: "attack", moveId: move.id });
                     }}
-                    aria-label={`${move.name}. ${move.special ? (exhausted ? "Especial esgotado" : `Especial, ${uses} de 2 usos`) : `${move.power} de poder, ${effectiveness}${strategistDetail}`}. ${move.makesContact ? "Golpe de contato" : "Golpe sem contato"}${moveStatus ? `. ${moveStatusChance}% de chance de causar ${moveStatus.eventName}` : ""}.`}
+                    aria-label={`${move.name}. ${move.special ? (exhausted ? "Especial esgotado" : `Especial, ${uses} de 2 usos`) : `${move.power} de poder, ${effectiveness}${strategistDetail}`}.${decision.makesContact ? " Golpe de contato." : ""}${decision.warnings.map((warning) => ` ${warning.ability?.namePtBr || warning.detail}. ${warning.detail}`).join("")}${moveStatus ? `. ${moveStatusChance}% de chance de causar ${moveStatus.eventName}` : ""}.`}
                   >
                     <span className="attack-icon">
                       <PokemonTypeIcon type={attackType} size={25} decorative />
@@ -1284,7 +1288,14 @@ export default function BattleArena({
                           {moveStatusChance}% {moveStatus.eventName}
                         </small>
                       )}
-                      <span className="move-contact-hint">{move.makesContact ? "CONTATO" : "SEM CONTATO"}</span>
+                      {(decision.makesContact || decision.contactRelevant) && <span className="move-contact-hint">{decision.makesContact ? "CONTATO" : "SEM CONTATO"}</span>}
+                      {decision.warnings.slice(0, 2).map((warning, warningIndex) => (
+                        <small key={`${warning.kind}-${warning.ability?.id || warningIndex}`} className={`move-decision-hint is-${warning.kind}`}>
+                          {warning.kind === "blocked" ? <WarningCircle size={12} weight="fill" aria-hidden="true" /> : warning.kind === "boost" ? <Lightning size={12} weight="fill" aria-hidden="true" /> : <WarningCircle size={12} weight="fill" aria-hidden="true" />}
+                          <span>{warning.kind === "blocked" ? warning.ability?.namePtBr?.toUpperCase() || "BLOQUEADO" : warning.kind === "boost" ? `${warning.ability.namePtBr.toUpperCase()} ATIVO` : warning.ability?.namePtBr?.toUpperCase() || warning.detail}</span>
+                          <em>{warning.detail}</em>
+                        </small>
+                      ))}
                     </span>
                   </button>
                 );
