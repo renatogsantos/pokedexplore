@@ -593,8 +593,13 @@ function BattleNotification({ state, role, opponentName }) {
     initialAudioHydration.current = false;
     if (!isHydrating)
       (state.audioEvents || []).forEach((event) => {
-        if ((!event?.audience || event.audience === role) && audioDeduper.current.shouldPlay(state.matchId, event?.id, event?.sound))
-          playBattleSound(event.sound, event.sound === BATTLE_EVENT_SOUND.FINISH_HIM ? 1 : 0.80);
+        if (event?.audience && event.audience !== role) return;
+        const playAuthoritativeEvent = () => {
+          if (audioDeduper.current.shouldPlay(state.matchId, event?.id, event?.sound))
+            playBattleSound(event.sound, event.sound === BATTLE_EVENT_SOUND.FINISH_HIM ? 1 : 0.80);
+        };
+        if (Number(event?.delayMs) > 0) timers.push(window.setTimeout(playAuthoritativeEvent, event.delayMs));
+        else playAuthoritativeEvent();
       });
     queue.forEach((entry, index) => {
       timers.push(

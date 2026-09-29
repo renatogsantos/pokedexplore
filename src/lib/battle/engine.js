@@ -340,6 +340,20 @@ const addAbilityEvent = (effect, event) => {
   effect.abilityEvents = [...(effect.abilityEvents || []), event];
   effect.abilityEvent = event;
 };
+const addFaintEvent = (effect, { pokemon, owner, source, eventId, cause = "damage" }) => {
+  if (!pokemon || pokemon.hp > 0) return;
+  effect.faintEvents = [...(effect.faintEvents || []), {
+    type: "FAINT",
+    eventId,
+    pokemonId: pokemon.id,
+    pokemonName: pokemon.name,
+    owner,
+    sourcePokemonId: source?.id || null,
+    sourcePokemonName: source?.name || null,
+    cause,
+    finalHp: pokemon.hp,
+  }];
+};
 const addMomentumEvent = (effect, event) => {
   if (!event) return;
   effect.momentumEvents = [...(effect.momentumEvents || []), event];
@@ -1102,6 +1116,37 @@ function applySupportedStatus(target, statusId, context, effect, eventId) {
   return statusId;
 }
 
+function resolveLethalSurvival({ target, hpBefore, damage, effect, eventId, ownerRole, source }) {
+  if (!target || hpBefore <= 0 || damage < hpBefore) return null;
+  const sturdy = getCatalogAbility(target.abilityId || target.ability);
+  if (hpBefore === target.maxHp && sturdy?.rule?.surviveAtFullHp) {
+    addAbilityEvent(effect, abilityEvent({ ability: sturdy, trigger: "BEFORE_FAINT", owner: target, source, target, eventId: `${eventId}:sturdy`, effect: { type: "survive", hp: 1 } }));
+    return { hp: 1, preventedBy: "sturdy" };
+  }
+  const itemId = heldItemId(target.heldItem);
+  if (!['survival-amulet', 'phoenix-heart'].includes(itemId)) return null;
+  const rules = itemRules(itemId);
+  const recoveredHp = itemId === "phoenix-heart"
+    ? Math.max(1, Math.min(target.maxHp, Math.ceil(target.maxHp * rules.healPercent)))
+    : 1;
+  if (!Number.isFinite(recoveredHp)) return null;
+  if (itemId === "phoenix-heart") target.temporaryEffects.phoenix = true;
+  addItemEvent(effect, {
+    ...consumeHeld(target, itemId, eventId, {
+      type: "survive",
+      hp: recoveredHp,
+      hpBefore,
+      incomingDamage: damage,
+      preventedFaint: true,
+      restoredHp: recoveredHp,
+      finalHp: recoveredHp,
+      nextAttackMultiplier: itemId === "phoenix-heart" ? rules.multiplier : null,
+    }, ownerRole),
+    owner: ownerRole,
+  });
+  return { hp: recoveredHp, preventedBy: itemId };
+}
+
 function finishActorTurn(next, actor, effect) {
   const fighter = next[actor].team[next[actor].active];
   if (!fighter || fighter.hp <= 0) return;
@@ -1110,7 +1155,17 @@ function finishActorTurn(next, actor, effect) {
       1,
       Math.ceil(fighter.maxHp * STATUS_DAMAGE_PERCENTAGE),
     );
-    fighter.hp = Math.max(0, fighter.hp - damage);
+    const hpBefore = fighter.hp;
+    const survival = resolveLethalSurvival({
+      target: fighter,
+      hpBefore,
+      damage,
+      effect,
+      eventId: `status:${next.revision + 1}:${fighter.id}:${fighter.status.id}`,
+      ownerRole: actor,
+      source: null,
+    });
+    fighter.hp = survival?.hp ?? Math.max(0, hpBefore - damage);
     effect.endStatus = { status: fighter.status.id, damage };
     addStatusEvent(effect, {
       type: "STATUS_DAMAGE",
@@ -1689,53 +1744,11 @@ export function resolveAction(state, actor, action) {
       });
     }
   }
-  const lethalItem = heldItemId(defender.heldItem);
-  let surviveHp = null;
-  const sturdy = getCatalogAbility(defender.abilityId || defender.ability);
-  if (damage >= beforeHp && beforeHp === defender.maxHp && sturdy?.rule?.surviveAtFullHp) {
-    surviveHp = 1;
-    damage = Math.max(0, beforeHp - 1);
-    addAbilityEvent(effect, abilityEvent({ ability: sturdy, trigger: "BEFORE_FAINT", owner: defender, source: fighter, target: defender, eventId: `${eventId}:sturdy`, effect: { type: "survive", hp: 1 } }));
-  }
-  if (
-    surviveHp == null &&
-    damage >= beforeHp &&
-    ["survival-amulet", "phoenix-heart"].includes(lethalItem) &&
-    beforeHp > 0
-  ) {
-    const phoenixRules = HELD_ITEM_DEFINITIONS["phoenix-heart"]?.rules;
-    if (lethalItem === "phoenix-heart") {
-      defender.temporaryEffects.phoenix = true;
-      surviveHp = Math.max(
-        1,
-        Math.min(
-          defender.maxHp,
-          Math.ceil(defender.maxHp * (phoenixRules?.healPercent ?? 0.6)),
-        ),
-      );
-    } else surviveHp = 1;
-    damage = Math.max(0, beforeHp - Math.min(surviveHp, beforeHp));
-    addItemEvent(effect, {
-      ...consumeHeld(
-        defender,
-        lethalItem,
-        eventId,
-        {
-          type: "survive",
-          hp: surviveHp,
-          nextAttackMultiplier:
-            lethalItem === "phoenix-heart"
-              ? (phoenixRules?.multiplier ?? 1.25)
-              : null,
-        },
-        enemy,
-      ),
-      owner: enemy,
-    });
-  }
+  const survival = resolveLethalSurvival({ target: defender, hpBefore: beforeHp, damage, effect, eventId, ownerRole: enemy, source: fighter });
+  if (survival) damage = Math.max(0, beforeHp - survival.hp);
   if (move.special) fighter.specialAttackUsesRemaining -= 1;
   defender.hp = Math.max(0, beforeHp - damage);
-  if (surviveHp != null) defender.hp = surviveHp;
+  if (survival) defender.hp = survival.hp;
   const hpAfterDamage = defender.hp;
   if (immunity?.healRatio) {
     immunityRecovery = heal(defender, defender.maxHp * immunity.healRatio);
@@ -1854,7 +1867,9 @@ export function resolveAction(state, actor, action) {
   const contactRecoil = !immunity && move.makesContact && defender.hp > 0 ? getContactRecoilRule(defender) : null;
   if (contactRecoil && fighter.hp > 0) {
     const recoil = Math.max(1, Math.floor(fighter.maxHp * contactRecoil.ratio));
-    fighter.hp = Math.max(0, fighter.hp - recoil);
+    const hpBeforeRecoil = fighter.hp;
+    const recoilSurvival = resolveLethalSurvival({ target: fighter, hpBefore: hpBeforeRecoil, damage: recoil, effect, eventId: `${eventId}:contact-recoil`, ownerRole: actor, source: defender });
+    fighter.hp = recoilSurvival?.hp ?? Math.max(0, hpBeforeRecoil - recoil);
     reactiveAbility = contactRecoil.ability.id;
     addAbilityEvent(effect, abilityEvent({ ability: contactRecoil.ability, trigger: "AFTER_CONTACT_RECEIVED", owner: defender, source: defender, target: fighter, eventId: `${eventId}:contact-recoil`, effect: { type: "contact_recoil", damage: recoil, makesContact: true } }));
   }
@@ -1963,6 +1978,7 @@ export function resolveAction(state, actor, action) {
       ? "SUPER EFETIVO!"
       : `${fighter.name} usou ${move.name}!`;
   if (defender.hp === 0) {
+    addFaintEvent(effect, { pokemon: defender, owner: enemy, source: fighter, eventId: `${eventId}:faint:${defender.id}` });
     const faintAbility = getCatalogAbility(fighter.abilityId || fighter.ability);
     if (faintAbility?.rule?.stat && faintAbility.hooks?.includes("ON_FAINT_OPPONENT") && fighter.hp > 0) {
       applyStatStageChange(fighter, fighter, actor, actor, faintAbility.rule.stat, faintAbility.rule.stages, effect, `${eventId}:faint`);
@@ -1984,6 +2000,7 @@ export function resolveAction(state, actor, action) {
   } else {
     finishActorTurn(next, actor, effect);
     if (fighter.hp <= 0) {
+      addFaintEvent(effect, { pokemon: fighter, owner: actor, source: defender, eventId: `${eventId}:faint:${fighter.id}`, cause: effect.endStatus ? "status" : "automatic" });
       const replacement = next[actor].team.findIndex(
         (pokemon) => pokemon.hp > 0,
       );

@@ -413,7 +413,8 @@ test("survival items intercept lethal damage authoritatively", () => {
     moveId: "hit",
     actionId: "lethal-p",
   });
-  assert.equal(revived.guest.team[0].hp, 60);
+  const phoenixRecovery = Math.ceil(revived.guest.team[0].maxHp * catalog.getItemDefinition("phoenix-heart").rules.healPercent);
+  assert.equal(revived.guest.team[0].hp, phoenixRecovery);
   assert.equal(revived.guest.team[0].heldItem, null);
   assert.equal(revived.guest.team[0].temporaryEffects.phoenix, true);
 });
@@ -688,6 +689,58 @@ test("manual and automatic cures emit one traceable cure event", () => {
     ).length,
     1,
   );
+});
+
+test("Phoenix Heart resolves before a last Pokemon can lose the battle", () => {
+  const state = makeState(null, "phoenix-heart");
+  state.guest.team[0].hp = 0;
+  state.guest.team[1].hp = 0;
+  state.guest.team[2].hp = 1;
+  state.guest.team[0].heldItem = null;
+  state.guest.team[2].heldItem = "phoenix-heart";
+  state.guest.active = 2;
+  const next = resolveAction(state, "host", { type: "attack", moveId: "hit", actionId: "last-phoenix" });
+  const expectedRecovery = Math.ceil(next.guest.team[2].maxHp * catalog.getItemDefinition("phoenix-heart").rules.healPercent);
+  assert.equal(next.guest.team[2].hp, expectedRecovery);
+  assert.equal(next.guest.team[2].heldItem, null);
+  assert.notEqual(next.status, "finished");
+  assert.equal(next.winner, null);
+  assert.deepEqual(next.effect.faintEvents || [], []);
+});
+
+test("a final resolved faint emits one canonical FAINT event before battle result", () => {
+  const state = makeState();
+  state.guest.team[0].hp = 0;
+  state.guest.team[1].hp = 0;
+  state.guest.team[2].hp = 1;
+  state.guest.active = 2;
+  const next = resolveAction(state, "host", { type: "attack", moveId: "hit", actionId: "final-faint" });
+  assert.equal(next.status, "finished");
+  assert.deepEqual(next.effect.faintEvents, [{
+    type: "FAINT", eventId: "final-faint:faint:6", pokemonId: 6, pokemonName: "P6", owner: "guest",
+    sourcePokemonId: 1, sourcePokemonName: "P1", cause: "damage", finalHp: 0,
+  }]);
+});
+
+test("Phoenix Heart uses the same lethal interceptor for end-of-turn status damage", () => {
+  const state = makeState("phoenix-heart");
+  state.host.team[0].hp = 1;
+  state.host.team[0].status = { id: "poison" };
+  const next = resolveAction(state, "host", { type: "attack", moveId: "hit", actionId: "poison-phoenix" });
+  const expectedRecovery = Math.ceil(next.host.team[0].maxHp * catalog.getItemDefinition("phoenix-heart").rules.healPercent);
+  assert.equal(next.host.team[0].hp, expectedRecovery);
+  assert.equal(next.host.team[0].heldItem, null);
+  assert.notEqual(next.status, "finished");
+});
+
+test("final status damage emits the same canonical FAINT event", () => {
+  const state = makeState();
+  state.host.team[0].hp = 1;
+  state.host.team[0].status = { id: "poison" };
+  const next = resolveAction(state, "host", { type: "attack", moveId: "hit", actionId: "poison-faint" });
+  assert.equal(next.effect.faintEvents[0].type, "FAINT");
+  assert.equal(next.effect.faintEvents[0].cause, "status");
+  assert.equal(next.effect.faintEvents[0].finalHp, 0);
 });
 
 test("all V1 ability hooks resolve through the shared engine", () => {

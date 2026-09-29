@@ -7,6 +7,7 @@ export const BATTLE_ITEM_SOUND = Object.freeze({
 
 export const BATTLE_EVENT_SOUND = Object.freeze({
   START_BATTLE: "start-battle",
+  POKEMON_FAINT: "pokemon-die",
   FINISH_HIM: "finish-him",
   BRUTALITY: "brutality",
   VICTORY: "win",
@@ -140,6 +141,15 @@ function getFinishHimEvents(state) {
   });
 }
 
+export function getFaintAudioEvents(state) {
+  return (state?.effect?.faintEvents || [])
+    .filter((event) => event?.type === "FAINT" && Number(event.finalHp) <= 0 && event.eventId)
+    .map((event) => ({
+      id: `faint:${event.eventId}`,
+      sound: BATTLE_EVENT_SOUND.POKEMON_FAINT,
+    }));
+}
+
 // These events travel inside the already-authoritative battle state. The host
 // creates them once and both clients consume the same event ID, rather than
 // inferring audio separately from their React render cycle.
@@ -148,6 +158,8 @@ export function appendBattleAudioEvents(previous, next, { mode } = {}) {
   const existing = Array.isArray(next.audioEvents) ? next.audioEvents : [];
   const knownIds = new Set(existing.map((event) => event?.id));
   const additions = [];
+  const faintEvents = getFaintAudioEvents(next);
+  additions.push(...faintEvents);
   if (next.status === "playing" && previous?.status !== "playing") {
     additions.push({ id: "battle-start", sound: BATTLE_EVENT_SOUND.START_BATTLE });
     const sound = getBadgeRoundSound(mode, next.seriesBattleNumber);
@@ -156,7 +168,9 @@ export function appendBattleAudioEvents(previous, next, { mode } = {}) {
     if (journeySound) additions.push({ id: `journey-round:${next.journeyBattleNumber}`, sound: journeySound });
   }
   if (next.status === "finished" && previous?.status !== "finished") {
-    additions.push(...getBattleResultAudioEvents(next));
+    additions.push(...getBattleResultAudioEvents(next).map((event) =>
+      faintEvents.length ? { ...event, delayMs: 500 } : event,
+    ));
   } else {
     additions.push(...getFinishHimEvents(next));
   }

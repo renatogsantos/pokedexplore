@@ -8,6 +8,7 @@ import {
   getBattleResultAudioEvents,
   getBadgeRoundSound,
   getDamageReactionSound,
+  getFaintAudioEvents,
   getItemConsumptionSound,
   isOnePokemonVictory,
 } from "./sound.js";
@@ -47,6 +48,26 @@ test("item audio events are idempotent per battle and reset for a rematch", () =
   assert.equal(deduper.shouldPlay("match-1", "event-7", BATTLE_ITEM_SOUND.BAG_ITEM_USED), true);
   assert.equal(deduper.shouldPlay("match-1", "event-7", BATTLE_ITEM_SOUND.BAG_ITEM_USED), false);
   assert.equal(deduper.shouldPlay("match-2", "event-7", BATTLE_ITEM_SOUND.BAG_ITEM_USED), true);
+});
+
+test("only canonical final FAINT events produce the Pokemon faint sound", () => {
+  const finalFaint = battleState({ guest: [pokemon(0)] });
+  finalFaint.effect = { faintEvents: [{ type: "FAINT", eventId: "attack-1:faint:25", finalHp: 0 }] };
+  assert.deepEqual(getFaintAudioEvents(finalFaint), [{ id: "faint:attack-1:faint:25", sound: BATTLE_EVENT_SOUND.POKEMON_FAINT }]);
+  assert.deepEqual(getFaintAudioEvents({ effect: { faintEvents: [{ type: "FAINT", eventId: "phoenix", finalHp: 60 }] } }), []);
+});
+
+test("faint audio is shared once and precedes final result audio", () => {
+  const prior = battleState();
+  const next = battleState({ status: "finished", winner: "host", host: [pokemon(20)], guest: [pokemon(0)] });
+  next.effect = { faintEvents: [{ type: "FAINT", eventId: "last:faint:4", finalHp: 0 }] };
+  const withAudio = appendBattleAudioEvents(prior, next);
+  assert.equal(withAudio.audioEvents[0].sound, BATTLE_EVENT_SOUND.POKEMON_FAINT);
+  assert.equal(withAudio.audioEvents[1].delayMs, 500);
+  const deduper = createBattleAudioEventDeduper();
+  const faint = withAudio.audioEvents[0];
+  assert.equal(deduper.shouldPlay(withAudio.matchId, faint.id, faint.sound), true);
+  assert.equal(deduper.shouldPlay(withAudio.matchId, faint.id, faint.sound), false);
 });
 
 const battleState = ({ matchId = "match-1", host = [], guest = [], status = "playing", winner = null, seriesBattleNumber = null, hostHasSwitched = false, guestHasSwitched = false } = {}) => ({
