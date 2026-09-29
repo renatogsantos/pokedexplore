@@ -78,6 +78,10 @@ export const DAMAGE_BALANCE = Object.freeze({
   SPECIAL_MIN: 0.1,
   SPECIAL_MAX: 0.45,
   VARIANCE: 0.05,
+  // Compress the HP contribution so high-HP Pokemon gain meaningful
+  // survivability without making low-HP Pokemon unusable.
+  HP_REFERENCE: 100,
+  HP_DAMAGE_WEIGHT: 0.55,
 });
 export const HELD_ITEM_TRIGGER = Object.freeze({
   AFTER_DAMAGE_RECEIVED: "AFTER_DAMAGE",
@@ -641,7 +645,7 @@ function statStageMultiplier(stage = 0) {
 export function getMovePowerFactor(power = 40, special = false) {
   const base =
     power <= 40
-      ? 0.15
+      ? 0.13
       : power <= 60
         ? 0.18
         : power <= 80
@@ -650,6 +654,12 @@ export function getMovePowerFactor(power = 40, special = false) {
             ? 0.24
             : 0.27;
   return base * (special ? 1.25 : 1);
+}
+
+export function getEffectiveDamageHp(maxHp = DAMAGE_BALANCE.HP_REFERENCE) {
+  const hp = Math.max(1, Number(maxHp) || DAMAGE_BALANCE.HP_REFERENCE);
+  return DAMAGE_BALANCE.HP_REFERENCE +
+    (hp - DAMAGE_BALANCE.HP_REFERENCE) * DAMAGE_BALANCE.HP_DAMAGE_WEIGHT;
 }
 
 export function calculateDamage({ attacker, defender, move, variance = 1 }) {
@@ -819,21 +829,20 @@ export function calculateDamage({ attacker, defender, move, variance = 1 }) {
       multiplier,
     });
   }
+  const movePowerFactor = getMovePowerFactor(move.power, special);
+  const rawBasePercentage =
+    movePowerFactor * ratio * levelFactor * stab * effectiveness * variance;
   const basePercentage = Math.min(
     maximum,
     Math.max(
       minimum,
-      getMovePowerFactor(move.power, special) *
-        ratio *
-        levelFactor *
-        stab *
-        effectiveness *
-        variance,
+      rawBasePercentage,
     ),
   );
   const percentage = basePercentage * outgoing * incoming;
+  const effectiveDamageHp = getEffectiveDamageHp(defender.maxHp);
   return {
-    damage: Math.max(1, Math.round(defender.maxHp * percentage)),
+    damage: Math.max(1, Math.round(effectiveDamageHp * percentage)),
     percentage,
     effectiveness,
     effectivenessLabel:
@@ -845,6 +854,32 @@ export function calculateDamage({ attacker, defender, move, variance = 1 }) {
     stab: stab > 1,
     attackRatio: ratio,
     special,
+    damageBreakdown: {
+      attackType,
+      damageClass: move.damageClass,
+      attackStat,
+      defenseStat,
+      attack,
+      defense,
+      attackRatio: ratio,
+      power: move.power,
+      movePowerFactor,
+      levelFactor,
+      stabMultiplier: stab,
+      typeMultiplier: effectiveness,
+      abilityMultiplier: (abilityRule?.kind === "boost" ? abilityRule.multiplier : 1) * abilityModifiers.outgoing.filter((entry) => entry.kind !== "stab").reduce((total, entry) => total * entry.multiplier, 1),
+      itemMultiplier: outgoing / ((abilityRule?.kind === "boost" ? abilityRule.multiplier : 1) * momentumMultiplier * abilityModifiers.outgoing.filter((entry) => entry.kind !== "stab").reduce((total, entry) => total * entry.multiplier, 1)),
+      incomingMultiplier: incoming,
+      momentumMultiplier,
+      criticalMultiplier: 1,
+      variance,
+      rawBasePercentage,
+      basePercentage,
+      finalPercentage: percentage,
+      defenderMaxHp: defender.maxHp,
+      effectiveDamageHp,
+      hpDamageWeight: DAMAGE_BALANCE.HP_DAMAGE_WEIGHT,
+    },
     itemTriggers,
     abilityRule,
     abilityModifiers,
@@ -1697,6 +1732,7 @@ export function resolveAction(state, actor, action) {
   if (move.special) fighter.specialAttackUsesRemaining -= 1;
   defender.hp = Math.max(0, beforeHp - damage);
   if (surviveHp != null) defender.hp = surviveHp;
+  const hpAfterDamage = defender.hp;
   if (immunity?.healRatio) {
     immunityRecovery = heal(defender, defender.maxHp * immunity.healRatio);
     if (effect.abilityEvent?.abilityId === immunity.ability.id)
@@ -1705,6 +1741,24 @@ export function resolveAction(state, actor, action) {
       effect.abilityEvents[0].effect.healing = immunityRecovery;
   }
   effect.damage = damage;
+  effect.damageDiagnostic = {
+    eventId,
+    attacker: fighter.name,
+    defender: defender.name,
+    move: move.name,
+    ...resolution.damageBreakdown,
+    hpBefore: beforeHp,
+    hpAfterDamage,
+    hpAfter: defender.hp,
+    damageApplied: damage,
+    hpInvariantHolds: beforeHp - hpAfterDamage === damage,
+  };
+  if (
+    process.env.NODE_ENV !== "production" &&
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("debugBattle") === "1"
+  )
+    console.debug("[Battle damage]", effect.damageDiagnostic);
   // Momentum is resolved only by the authoritative action after a successful,
   // non-immune hit. It belongs to the fighter and therefore survives switching.
   const moveRole = normalizeMoveRole(move);

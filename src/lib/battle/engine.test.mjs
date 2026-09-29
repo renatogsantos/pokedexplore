@@ -791,6 +791,73 @@ test("damage preview is pure and bounds every ordinary authoritative damage roll
   }
 });
 
+test("Bulbasaur Lv.10 opening Solar Beam stays threatening without erasing Guzzlord's high-HP advantage", () => {
+  const guzzlord = {
+    id: "guzzlord", name: "Guzzlord", level: 10, type: "dark", types: ["dark", "dragon"],
+    maxHp: 323, hp: 323,
+    stats: { attack: 146, defense: 77, specialAttack: 141, specialDefense: 77, speed: 62 },
+  };
+  const bulbasaur = {
+    id: "bulbasaur", name: "Bulbasaur", level: 10, type: "grass", types: ["grass", "poison"], abilityId: "overgrow",
+    maxHp: 133, hp: 133,
+    stats: { attack: 71, defense: 71, specialAttack: 94, specialDefense: 94, speed: 65 },
+    moveset: [
+      { id: "vine-whip", name: "Vine Whip", type: "grass", power: 40, accuracy: 100, damageClass: "physical", special: false },
+      { id: "razor-leaf", name: "Razor Leaf", type: "grass", power: 60, accuracy: 100, damageClass: "physical", special: false },
+      { id: "solar-beam", name: "Solar Beam", type: "grass", power: 90, accuracy: 100, damageClass: "special", special: true },
+    ],
+  };
+  const state = createBattleState({ team: [guzzlord] }, { team: [bulbasaur] }, "guest");
+  const solarBeam = state.guest.team[0].moves.find((move) => move.id === "solar-beam");
+  const preview = getDamagePreview({ attacker: state.guest.team[0], defender: state.host.team[0], move: solarBeam });
+  const next = resolveAction(state, "guest", { type: "attack", moveId: "solar-beam", actionId: "bulbasaur-opening" });
+  const diagnostic = next.effect.damageDiagnostic;
+  assert.deepEqual([preview.minDamage, preview.maxDamage], [85, 94]);
+  assert.equal(next.effect.damage, 93);
+  assert.equal(next.host.team[0].hp, 230);
+  assert.equal(diagnostic.attackStat, "specialAttack");
+  assert.equal(diagnostic.defenseStat, "specialDefense");
+  assert.equal(diagnostic.stabMultiplier, 1.1);
+  assert.equal(diagnostic.typeMultiplier, 1);
+  assert.equal(diagnostic.abilityMultiplier, 1);
+  assert.equal(diagnostic.itemMultiplier, 1);
+  assert.equal(diagnostic.criticalMultiplier, 1);
+  assert.equal(diagnostic.effectiveDamageHp, 222.65);
+  assert.equal(diagnostic.hpInvariantHolds, true);
+  assert.equal(diagnostic.hpBefore - diagnostic.hpAfterDamage, diagnostic.damageApplied);
+  assert.ok(next.effect.damage >= preview.minDamage && next.effect.damage <= preview.maxDamage);
+});
+
+test("V2 damage curve preserves stat, power, type and HP archetype ordering", () => {
+  const attacker = { ...pokemon(301, null, 100, 5, "fire"), types: ["fire"], temporaryEffects: {} };
+  const defender = { ...pokemon(302, null, 100, 5, "normal"), types: ["normal"], temporaryEffects: {} };
+  const physical = (power) => ({ id: `physical-${power}`, name: `Physical ${power}`, type: "fire", power, accuracy: 100, damageClass: "physical", special: false });
+  const special = { id: "special", name: "Special", type: "fire", power: 90, accuracy: 100, damageClass: "special", special: true };
+  const damage = (options = {}) => calculateDamage({ attacker: options.attacker || attacker, defender: options.defender || defender, move: options.move || physical(60), variance: 1 }).damage;
+
+  assert.ok(damage({ move: physical(40) }) < damage({ move: physical(60) }));
+  assert.ok(damage({ move: physical(60) }) < damage({ move: physical(90) }));
+  assert.ok(damage({ attacker: { ...attacker, stats: { ...attacker.stats, attack: 80 } } }) > damage({ attacker: { ...attacker, stats: { ...attacker.stats, attack: 40 } } }));
+  assert.ok(damage({ defender: { ...defender, stats: { ...defender.stats, defense: 100 } } }) < damage({ defender: { ...defender, stats: { ...defender.stats, defense: 30 } } }));
+  assert.ok(damage({ attacker: { ...attacker, stats: { ...attacker.stats, specialAttack: 90 } }, move: special }) > damage({ attacker: { ...attacker, stats: { ...attacker.stats, specialAttack: 30 } }, move: special }));
+  assert.ok(damage({ defender: { ...defender, stats: { ...defender.stats, specialDefense: 100 } }, move: special }) < damage({ defender: { ...defender, stats: { ...defender.stats, specialDefense: 30 } }, move: special }));
+  assert.ok(damage({ defender: { ...defender, types: ["grass"] } }) > damage({ defender }));
+  assert.ok(damage({ defender }) > damage({ defender: { ...defender, types: ["water"] } }));
+  assert.ok(damage({ attacker: { ...attacker, types: ["normal"], type: "normal" } }) < damage());
+
+  const highHp = { ...defender, maxHp: 323, hp: 323 };
+  const lowHp = { ...defender, maxHp: 100, hp: 100 };
+  const highHpDamage = damage({ defender: highHp });
+  const lowHpDamage = damage({ defender: lowHp });
+  assert.ok(highHpDamage > lowHpDamage);
+  assert.ok(highHpDamage / highHp.maxHp < lowHpDamage / lowHp.maxHp);
+  assert.ok(highHp.maxHp / highHpDamage > lowHp.maxHp / lowHpDamage);
+
+  assert.ok(damage({ attacker: { ...attacker, level: 10 } }) > damage({ attacker: { ...attacker, level: 1 } }));
+  const degenerate = calculateDamage({ attacker: { ...attacker, stats: { attack: 0, defense: 0, specialAttack: 0, specialDefense: 0 } }, defender: { ...defender, stats: { attack: 0, defense: 0, specialAttack: 0, specialDefense: 0 } }, move: physical(40), variance: 1 });
+  assert.ok(Number.isFinite(degenerate.damage) && degenerate.damage >= 1);
+});
+
 test("Fast gains battle-local momentum and Technical consumes its exact previewed bonus", () => {
   const fast = { ...pokemon(91, null, 100, 5, "fire"), moveset: [
     { id: "fast", name: "Ember", type: "fire", power: 40, accuracy: 100, damageClass: "special", role: "FAST", special: false },

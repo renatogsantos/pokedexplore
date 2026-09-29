@@ -19,4 +19,8 @@ const cases = [
   [fighter("Charizard", "fire", 120, { attack: 84, defense: 78, specialAttack: 109, specialDefense: 85 }), fighter("Venusaur", "grass", 125, { attack: 82, defense: 83, specialAttack: 100, specialDefense: 100 }), "Flamethrower", 90, true],
   [fighter("Onix", "rock", 100, { attack: 45, defense: 160, specialAttack: 30, specialDefense: 45 }), fighter("Pikachu", "electric", 90, { attack: 55, defense: 40, specialAttack: 60, specialDefense: 50 }), "Rock Slide", 75, false],
 ];
-for (const [attacker, defender, name, power, special] of cases) { const result = calculateDamage({ attacker, defender, move: { name, type: attacker.type, power, damageClass: special ? "special" : "physical", special } }); console.log(`${attacker.name} Lv.${attacker.level} · ${name} → ${defender.name} Lv.${defender.level}: ${result.damage}/${defender.maxHp} (${Math.round(result.percentage * 100)}%) · ${Math.ceil(defender.maxHp / result.damage)} hits · ${result.effectivenessLabel}`); }
+for (const [attacker, defender, name, power, special] of cases) {
+  const result = calculateDamage({ attacker, defender, move: { name, type: attacker.type, power, damageClass: special ? "special" : "physical", special } });
+  const legacyDamage = Math.max(1, Math.round(defender.maxHp * result.percentage));
+  console.log(`${attacker.name} Lv.${attacker.level} · ${name} → ${defender.name} Lv.${defender.level}: old ${legacyDamage}/${defender.maxHp} (${Math.round((legacyDamage / defender.maxHp) * 100)}%) → new ${result.damage}/${defender.maxHp} (${Math.round((result.damage / defender.maxHp) * 100)}%) · ${Math.ceil(defender.maxHp / result.damage)} hits · ${result.effectivenessLabel}`);
+}
