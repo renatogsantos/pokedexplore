@@ -88,6 +88,136 @@
   }
 }
 
+// Compact equipment shop: scan, compare price and buy without documentation-sized cards.
+.shop-page {
+  padding-bottom: max(116px, calc(92px + env(safe-area-inset-bottom)));
+}
+
+.shop-upgrade-filters {
+  flex-wrap: nowrap;
+  margin-block: 12px 16px;
+  overflow-x: auto;
+  padding-bottom: 3px;
+  scrollbar-width: thin;
+}
+
+.shop-upgrade-filters button {
+  flex: 0 0 auto;
+  min-height: 40px;
+}
+
+.shop-upgrade-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.shop-upgrade {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  min-width: 0;
+  min-height: 204px;
+  padding: 8px;
+  overflow: hidden;
+  border-radius: 15px;
+  text-align: center;
+}
+
+.shop-upgrade-open {
+  display: grid;
+  min-width: 0;
+  place-items: center;
+  align-content: start;
+  gap: 4px;
+  padding: 2px;
+  border: 0;
+  background: transparent;
+  color: #f8fbff;
+  cursor: pointer;
+}
+
+.shop-upgrade-open:focus-visible {
+  outline: 2px solid #ffdf5d;
+  outline-offset: 3px;
+}
+
+.shop-upgrade-icon {
+  width: clamp(56px, 16vw, 78px);
+  height: clamp(56px, 16vw, 78px);
+  border-radius: 15px;
+}
+
+.shop-upgrade-icon img,
+.shop-upgrade-icon > span {
+  width: 74%;
+  height: 74%;
+  object-fit: contain;
+}
+
+.shop-upgrade-name {
+  display: -webkit-box;
+  min-height: 2.5em;
+  overflow: hidden;
+  color: #f8fbff;
+  font-size: clamp(.64rem, 2.9vw, .78rem);
+  font-weight: 900;
+  line-height: 1.25;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.shop-upgrade-rarity {
+  min-height: 1.2em;
+  color: #ffdf5d;
+  font-size: .54rem;
+  font-weight: 900;
+  letter-spacing: .06em;
+}
+
+.shop-upgrade-footer {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 6px;
+  margin-top: 5px;
+}
+
+.shop-upgrade-footer strong {
+  justify-content: center;
+  font-size: clamp(.7rem, 3vw, .84rem);
+}
+
+.shop-upgrade-footer small {
+  align-self: center;
+  color: #a9bfda;
+  font-size: .62rem;
+  white-space: nowrap;
+}
+
+.shop-upgrade-footer button {
+  min-height: 38px;
+  padding-inline: 4px;
+  font-size: clamp(.54rem, 2.5vw, .66rem);
+}
+
+@media (min-width: 600px) {
+  .shop-upgrade-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 11px; }
+  .shop-upgrade { min-height: 218px; padding: 10px; }
+}
+
+@media (min-width: 920px) {
+  .shop-upgrade-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+}
+
+@media (min-width: 1180px) {
+  .shop-upgrade-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+}
+
+@media (max-width: 430px) {
+  .shop-upgrade-filters { display: flex; grid-template-columns: none; }
+  .shop-upgrade-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+  .shop-upgrade { min-height: 190px; padding: 7px 5px; }
+  .shop-upgrade-icon { width: clamp(50px, 17vw, 66px); height: clamp(50px, 17vw, 66px); }
+  .shop-upgrade-footer button { min-height: 36px; font-size: .5rem; }
+}
+
 // Equipment is intentionally a separate shop surface: players can scan its
 // permanent TMs and consumable stock without competing with Pokémon cards.
 .shop-tabs,
@@ -298,3 +428,24 @@
     white-space: nowrap;
   }
 }
+
+// Final cascade for the compact item grid; this intentionally follows legacy shop rules.
+.shop-page { padding-bottom: max(116px, calc(92px + env(safe-area-inset-bottom))); }
+.shop-upgrade-filters { display: flex; flex-wrap: nowrap; margin-block: 12px 16px; overflow-x: auto; padding-bottom: 3px; scrollbar-width: thin; }
+.shop-upgrade-filters button { flex: 0 0 auto; min-height: 40px; }
+.shop-upgrade-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+.shop-upgrade { grid-template-columns: 1fr; grid-template-rows: 1fr auto; gap: 0; min-width: 0; min-height: 204px; padding: 8px; overflow: hidden; border-radius: 15px; text-align: center; }
+.shop-upgrade-open { display: grid; min-width: 0; place-items: center; align-content: start; gap: 4px; padding: 2px; border: 0; background: transparent; color: #f8fbff; cursor: pointer; }
+.shop-upgrade-open:focus-visible { outline: 2px solid #ffdf5d; outline-offset: 3px; }
+.shop-upgrade-icon { width: clamp(56px, 16vw, 78px); height: clamp(56px, 16vw, 78px); border-radius: 15px; }
+.shop-upgrade-icon img, .shop-upgrade-icon > span { width: 74%; height: 74%; object-fit: contain; }
+.shop-upgrade-name { display: -webkit-box; min-height: 2.5em; overflow: hidden; color: #f8fbff; font-size: clamp(.64rem, 2.9vw, .78rem); font-weight: 900; line-height: 1.25; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.shop-upgrade-rarity { min-height: 1.2em; color: #ffdf5d; font-size: .54rem; font-weight: 900; letter-spacing: .06em; }
+.shop-upgrade-footer { grid-column: auto; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 6px; margin-top: 5px; }
+.shop-upgrade-footer strong { justify-content: center; font-size: clamp(.7rem, 3vw, .84rem); }
+.shop-upgrade-footer small { align-self: center; white-space: nowrap; }
+.shop-upgrade-footer button { min-height: 38px; padding-inline: 4px; font-size: clamp(.54rem, 2.5vw, .66rem); }
+@media (min-width: 600px) { .shop-upgrade-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 11px; } .shop-upgrade { min-height: 218px; padding: 10px; } }
+@media (min-width: 920px) { .shop-upgrade-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; } }
+@media (min-width: 1180px) { .shop-upgrade-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+@media (max-width: 430px) { .shop-upgrade-filters { display: flex; grid-template-columns: none; } .shop-upgrade-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; } .shop-upgrade { min-height: 190px; padding: 7px 5px; } .shop-upgrade-icon { width: clamp(50px, 17vw, 66px); height: clamp(50px, 17vw, 66px); } .shop-upgrade-footer button { min-height: 36px; font-size: .5rem; } }

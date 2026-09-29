@@ -2,84 +2,21 @@
 
 import { CheckCircle, X } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
-import { webStore } from "@/helpers/webStore";
+import ItemDetailsModal from "@/components/ItemDetailsModal/ItemDetailsModal";
 import ItemSprite from "@/components/ItemSprite/ItemSprite";
+import { webStore } from "@/helpers/webStore";
 import { HELD_ITEM_CATALOG, getHeldItemDefinition, getHeldItemStock, toStoredHeldItem } from "@/lib/economy/heldItems";
 import styles from "./HeldItemDrawer.module.scss";
-import { getItemUsagePresentation, getRarityLabel } from "@/lib/items/catalog";
 
-const ERROR_MESSAGES = Object.freeze({
-  "not-available": "Você não possui unidades disponíveis deste item.",
-  "pokemon-not-found": "Não foi possível encontrar este Pokémon na sua coleção.",
-  "invalid-item": "Este item não pode ser equipado.",
-  persistence: "Não foi possível salvar o item. Tente novamente.",
-});
+const errors = { "not-available": "Você não possui unidades disponíveis deste item.", "pokemon-not-found": "Não foi possível encontrar este Pokémon.", "invalid-item": "Este item não pode ser equipado.", persistence: "Não foi possível salvar o item. Tente novamente." };
 
 export default function HeldItemDrawer({ pokemon, economy, collection, heldItem, open, onClose, onEquipped }) {
-  const [replacement, setReplacement] = useState(null);
-  const [feedback, setFeedback] = useState("");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [detail, setDetail] = useState(null); const [replacement, setReplacement] = useState(null); const [busy, setBusy] = useState(false); const [error, setError] = useState(""); const [feedback, setFeedback] = useState("");
   const [snapshot, setSnapshot] = useState({ economy: economy || { inventory: {} }, collection: collection || [] });
-
-  useEffect(() => {
-    if (!open) {
-      setReplacement(null);
-      setFeedback("");
-      setError("");
-      setBusy(false);
-      return undefined;
-    }
-    let active = true;
-    Promise.all([webStore.getData("Pokedex"), webStore.getEconomy()])
-      .then(([currentCollection, currentEconomy]) => {
-        if (active) setSnapshot({ collection: currentCollection, economy: currentEconomy });
-      })
-      .catch(() => { if (active) setError(ERROR_MESSAGES.persistence); });
-    return () => { active = false; };
-  }, [collection, economy, open]);
-
+  useEffect(() => { if (!open) { setDetail(null); setReplacement(null); setBusy(false); setError(""); setFeedback(""); return undefined; } let alive = true; Promise.all([webStore.getData("Pokedex"), webStore.getEconomy()]).then(([currentCollection, currentEconomy]) => alive && setSnapshot({ collection: currentCollection, economy: currentEconomy })).catch(() => alive && setError(errors.persistence)); return () => { alive = false; }; }, [open, collection, economy]);
   if (!open) return null;
-
-  async function equip(item) {
-    if (busy) return;
-    setBusy(true);
-    setError("");
-    const result = await webStore.setHeldItem(pokemon.id, item);
-    setBusy(false);
-    if (!result?.ok) {
-      setError(ERROR_MESSAGES[result?.reason] || ERROR_MESSAGES.persistence);
-      return;
-    }
-    const equipped = getHeldItemDefinition(result.pokemon.heldItem);
-    const message = equipped
-      ? `${equipped.name.toUpperCase()} EQUIPADO! ${pokemon.name} agora está com ${equipped.name}. ${equipped.shortDescription}.`
-      : "Item removido.";
-    setReplacement(null);
-    setFeedback(message);
-    setSnapshot({ collection: result.collection || snapshot.collection, economy: result.economy || snapshot.economy });
-    onEquipped(result.pokemon, message, result);
-  }
-
-  function choose(item) {
-    if (busy || item === heldItem) return;
-    if (heldItem && item) { setReplacement(item); return; }
-    void equip(item);
-  }
-
-  return <div className={styles.backdrop} role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !busy && onClose()}>
-    <aside className={styles.drawer} role="dialog" aria-modal="true" aria-labelledby="held-item-drawer-title">
-      <header><div><span>ITEM EQUIPADO</span><h2 id="held-item-drawer-title">Escolha um item</h2><p>{pokemon.name} · itens têm condições próprias de ativação.</p></div><button type="button" onClick={onClose} disabled={busy} aria-label="Fechar seletor de item"><X size={21} /></button></header>
-      {error && <div className={styles.error} role="alert">{error}</div>}
-      {feedback ? <div className={styles.feedback} role="status"><CheckCircle size={21} weight="fill" /><span>{feedback}</span></div> : <div className={styles.list}>{HELD_ITEM_CATALOG.map((item) => {
-        const stock = getHeldItemStock({ economy: snapshot.economy, collection: snapshot.collection, itemId: item.id });
-        const storedItem = toStoredHeldItem(item.id, pokemon);
-        const selected = heldItem === storedItem;
-        const presentation = getItemUsagePresentation(item);
-        return <article key={item.id} className={selected ? styles.selected : ""}><ItemSprite item={item.id} alt={item.name} /><div><strong>{item.name}</strong><small>{getRarityLabel(item.rarity)} · {presentation.usageLabel} · {presentation.persistenceLabel}</small><small>Possui: {stock.owned} · Disponível: {stock.available}</small><p>{presentation.effectLabel}</p><p className={styles.trigger}>{presentation.triggerLabel}</p><p className={styles.after}>{presentation.afterUseLabel}</p>{!selected && stock.available === 0 && <em>ESGOTADO · nenhuma unidade livre para equipar.</em>}</div><button type="button" disabled={busy || selected || stock.available === 0} onClick={() => choose(storedItem)}>{busy ? "EQUIPANDO..." : selected ? "Equipado" : stock.available === 0 ? "Esgotado" : "Equipar"}</button></article>;
-      })}</div>}
-      {!feedback && heldItem && <button type="button" className={styles.remove} disabled={busy} onClick={() => void equip(null)}>{busy ? "REMOVENDO..." : "REMOVER ITEM"}</button>}
-      {replacement && <div className={styles.confirm} role="alert"><strong>Trocar item?</strong><span>{getHeldItemDefinition(heldItem)?.name} será substituído por {getHeldItemDefinition(replacement)?.name}.</span><div><button type="button" disabled={busy} onClick={() => setReplacement(null)}>Cancelar</button><button type="button" disabled={busy} onClick={() => void equip(replacement)}>{busy ? "EQUIPANDO..." : "TROCAR ITEM"}</button></div></div>}
-    </aside>
-  </div>;
+  async function equip(item) { if (busy) return; setBusy(true); setError(""); try { const result = await webStore.setHeldItem(pokemon.id, item); if (!result?.ok) { setError(errors[result?.reason] || errors.persistence); return; } const equipped = getHeldItemDefinition(result.pokemon.heldItem); const message = equipped ? `${equipped.name.toUpperCase()} EQUIPADO!` : "Item removido."; setSnapshot({ collection: result.collection || snapshot.collection, economy: result.economy || snapshot.economy }); setDetail(null); setReplacement(null); setFeedback(message); onEquipped(result.pokemon, message, result); } catch { setError(errors.persistence); } finally { setBusy(false); } }
+  function choose(item) { if (busy) return; if (item === heldItem) { void equip(null); return; } if (heldItem) { setDetail(null); setReplacement(item); return; } void equip(item); }
+  const selectedDetail = detail && getHeldItemDefinition(detail); const detailStock = selectedDetail && getHeldItemStock({ economy: snapshot.economy, collection: snapshot.collection, itemId: detail });
+  return <div className={styles.backdrop} role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !busy && onClose()}><aside className={styles.drawer} role="dialog" aria-modal="true" aria-labelledby="held-title"><header><div><span>ITEM EQUIPADO</span><h2 id="held-title">Escolha um item</h2><p><b>EQUIPANDO EM</b> {pokemon.name}</p></div><button type="button" aria-label="Fechar seletor de item" onClick={onClose}><X size={21} /></button></header>{error && <p className={styles.error} role="alert">{error}</p>}{feedback && <p className={styles.feedback} role="status"><CheckCircle size={20} weight="fill" /> {feedback}</p>}<div className={styles.grid}>{HELD_ITEM_CATALOG.map((item) => { const stock = getHeldItemStock({ economy: snapshot.economy, collection: snapshot.collection, itemId: item.id }); const id = toStoredHeldItem(item.id); const selected = heldItem === id; const empty = !selected && stock.available === 0; return <article key={id} className={`${styles.card} ${selected ? styles.selected : ""} ${empty ? styles.empty : ""}`} role="button" tabIndex={0} aria-label={`Ver detalhes de ${item.name}`} onClick={() => setDetail(id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setDetail(id); } }}><ItemSprite item={id} alt="" /><strong>{item.name}</strong><small>×{selected ? stock.owned : stock.available}</small>{selected && <em>✓ EQUIPADO</em>}<button type="button" disabled={busy || empty} aria-label={selected ? `Desequipar ${item.name}` : `Equipar ${item.name}`} onClick={(event) => { event.stopPropagation(); choose(id); }}>{busy ? "AGUARDE" : selected ? "DESEQUIPAR" : empty ? "×0" : "EQUIPAR"}</button></article>; })}</div>{replacement && <section className={styles.confirm} role="alert"><strong>Trocar item?</strong><span>{getHeldItemDefinition(heldItem)?.name} será substituído por {getHeldItemDefinition(replacement)?.name}.</span><div><button type="button" onClick={() => setReplacement(null)}>Cancelar</button><button type="button" onClick={() => void equip(replacement)}>Trocar item</button></div></section>}{selectedDetail && <ItemDetailsModal item={selectedDetail} quantity={detailStock.owned} available={detailStock.available} actionLabel={heldItem === selectedDetail.id ? "DESEQUIPAR" : "EQUIPAR"} actionDisabled={busy || (!detailStock.available && heldItem !== selectedDetail.id)} onAction={() => choose(selectedDetail.id)} onClose={() => setDetail(null)} />}</aside></div>;
 }

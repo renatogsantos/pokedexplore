@@ -30,10 +30,11 @@ import PokemonRarity, { getRarityClassName } from "@/components/PokemonRarity";
 import CoinBalance from "@/components/CoinBalance";
 import { celebratePokemonPurchase } from "@/lib/celebration";
 import ItemSprite from "@/components/ItemSprite/ItemSprite";
+import ItemDetailsModal from "@/components/ItemDetailsModal/ItemDetailsModal";
 import { preloadItemVisuals } from "@/lib/items/visuals";
 import { getCustomPokemon } from "@/lib/pokemon/customCatalog";
 import { getPokemonSprite, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
-import { getItemUsagePresentation, getRarityLabel, getRoleLabel } from "@/lib/items/catalog";
+import { getRarityLabel } from "@/lib/items/catalog";
 
 const PAGE_SIZE = 12;
 const artwork = (pokemon) => getPokemonSprite({
@@ -218,46 +219,20 @@ function Pagination({ page, pages, disabled, onChange }) {
 
 function UpgradeCard({ upgrade, economy, balance, infiniteCoins, onBuy, onDetail, purchasing }) {
   const isTm = upgrade.category === "tm";
-  const presentation = isTm ? null : getItemUsagePresentation(upgrade);
   const quantity = isTm
     ? Number((economy.ownedTms || []).includes(upgrade.id))
     : economy.inventory?.[upgrade.id] || 0;
   return (
     <article className={`shop-upgrade shop-upgrade--${isTm ? "tm" : upgrade.rarity?.toLowerCase()}`}>
-      <div className="shop-upgrade-icon">
-        <ItemSprite item={upgrade.id} alt={upgrade.name} />
-      </div>
-      <div className="shop-upgrade-content">
-        <span>
-          {isTm ? "TM" : `${getRarityLabel(upgrade.rarity)} · ${presentation.usageLabel} · ${presentation.persistenceLabel}`}
-        </span>
-        <h2>{upgrade.name}</h2>
-        <p>{upgrade.shortDescription || upgrade.description}</p>
-        {!isTm && <small>{presentation.triggerLabel}</small>}
-        {!isTm && <button type="button" className="shop-item-detail-trigger" onClick={() => onDetail(upgrade)}>Ver detalhes</button>}
-      </div>
+      <button type="button" className="shop-upgrade-open" onClick={() => onDetail(upgrade)} aria-label={`Ver detalhes de ${upgrade.name}`}>
+        <span className="shop-upgrade-icon"><ItemSprite item={upgrade.id} alt="" /></span>
+        <span className="shop-upgrade-name">{upgrade.name}</span>
+        {!isTm && <span className="shop-upgrade-rarity">{getRarityLabel(upgrade.rarity)}</span>}
+      </button>
       <div className="shop-upgrade-footer">
-        <strong>
-          <Coin /> {formatCoins(upgrade.price)}
-        </strong>
-        <small>
-          {isTm
-            ? quantity
-              ? "Adquirida"
-              : "Ainda não adquirida"
-            : `Possui: ${quantity}`}
-        </small>
-        <button
-          type="button"
-          disabled={purchasing || (!infiniteCoins && balance < upgrade.price) || (isTm && Boolean(quantity))}
-          onClick={(event) => { event.stopPropagation(); onBuy(upgrade); }}
-        >
-          {purchasing ? "Comprando..." : isTm && quantity
-            ? "Adquirida"
-            : !infiniteCoins && balance < upgrade.price
-              ? "Sem moedas"
-              : "Comprar"}
-        </button>
+        <strong><Coin /> {formatCoins(upgrade.price)}</strong>
+        <small>{isTm && quantity ? "Adquirida" : `×${quantity}`}</small>
+        <button type="button" disabled={purchasing || (!infiniteCoins && balance < upgrade.price) || (isTm && Boolean(quantity))} aria-label={`Comprar ${upgrade.name} por ${formatCoins(upgrade.price)} moedas`} onClick={() => onBuy(upgrade)}>{purchasing ? "COMPRANDO..." : isTm && quantity ? "ADQUIRIDA" : !infiniteCoins && balance < upgrade.price ? "SEM MOEDAS" : "COMPRAR"}</button>
       </div>
     </article>
   );
@@ -686,21 +661,7 @@ export default function Shop() {
         </section>
       </div>
       <AnimatePresence>
-        {itemDetail && <motion.div className="shop-modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={(event) => event.target === event.currentTarget && setItemDetail(null)}>
-          <motion.section className={`shop-modal item-detail rarity-${itemDetail.rarity?.toLowerCase()}`} role="dialog" aria-modal="true" aria-labelledby="item-detail-title" initial={{ y: 18, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 12, opacity: 0 }}>
-            <button type="button" className="shop-modal-close" onClick={() => setItemDetail(null)} aria-label="Fechar detalhes"><X size={20} /></button>
-            <ItemSprite item={itemDetail.id} alt={itemDetail.name} />
-            <span>{getRarityLabel(itemDetail.rarity)} · {getItemUsagePresentation(itemDetail).usageLabel} · {getItemUsagePresentation(itemDetail).persistenceLabel}</span>
-            <h2 id="item-detail-title">{itemDetail.name}</h2>
-            <p>{getItemUsagePresentation(itemDetail).effectLabel}</p>
-            <p><strong>ATIVAÇÃO</strong><br />{getItemUsagePresentation(itemDetail).triggerLabel}</p>
-            <p><strong>DEPOIS</strong><br />{getItemUsagePresentation(itemDetail).afterUseLabel}</p>
-            <p><strong>IDEAL PARA</strong><br />{getRoleLabel(itemDetail.role)}</p>
-            <small>Possui: {economy.inventory?.[itemDetail.id] || 0}</small>
-            <strong><Coin /> {formatCoins(itemDetail.price)}</strong>
-            <div><button type="button" onClick={() => setItemDetail(null)}>Voltar</button><button type="button" disabled={purchasingId === itemDetail.id || (!infiniteCoins && balance < itemDetail.price)} onClick={() => void buyUpgrade(itemDetail)}>{purchasingId === itemDetail.id ? "COMPRANDO..." : !infiniteCoins && balance < itemDetail.price ? "SEM MOEDAS" : "COMPRAR"}</button></div>
-          </motion.section>
-        </motion.div>}
+        {itemDetail && <ItemDetailsModal item={itemDetail} quantity={itemDetail.category === "tm" ? Number((economy.ownedTms || []).includes(itemDetail.id)) : economy.inventory?.[itemDetail.id] || 0} actionLabel={purchasingId === itemDetail.id ? "COMPRANDO..." : itemDetail.category === "tm" && (economy.ownedTms || []).includes(itemDetail.id) ? "ADQUIRIDA" : !infiniteCoins && balance < itemDetail.price ? "SEM MOEDAS" : `COMPRAR — ${formatCoins(itemDetail.price)}`} actionDisabled={purchasingId === itemDetail.id || (!infiniteCoins && balance < itemDetail.price) || (itemDetail.category === "tm" && (economy.ownedTms || []).includes(itemDetail.id))} onAction={() => void buyUpgrade(itemDetail)} onClose={() => setItemDetail(null)} />}
         {purchase && (
           <QuantityModal
             purchase={purchase}
