@@ -214,8 +214,10 @@ function Fighter({
               alt=""
               className="battle-held-indicator-sprite"
             />
-            {getItemLabel(pokemon.heldItem)}{" "}
-            <b>{heldItemPresentation?.persistenceLabel || "PRONTO"}</b>
+            <span className="held-item-copy">
+              <span>{getItemLabel(pokemon.heldItem)}</span>
+              <b>{heldItemPresentation?.persistenceLabel || "PRONTO"}</b>
+            </span>
           </span>
         )}
         {side === "player" && matchup === "disadvantage" && (
@@ -1397,34 +1399,27 @@ export default function BattleArena({
                       );
                       onAction({ type: "attack", moveId: move.id });
                     }}
-                    aria-label={`${move.name}. ${preview.blocked ? "Nao atinge" : `${preview.minDamage}${preview.maxDamage !== preview.minDamage ? ` a ${preview.maxDamage}` : ""} de dano. ${effectiveness}`}${move.special ? (exhausted ? " Especial esgotado." : ` Especial, ${uses} de 2 usos.`) : ""}${move.role === "FAST" ? " Gera 1 Impulso." : move.role === "TECHNICAL" ? ` Usa ${active.momentum || 0} de 3 Impulso.` : ""}${decision.makesContact ? " Golpe de contato." : ""}${decision.warnings.map((warning) => ` ${warning.ability?.namePtBr || warning.detail}. ${warning.detail}`).join("")}${moveStatus ? `. ${moveStatusChance}% de chance de causar ${moveStatus.eventName}` : ""}.`}
+                    aria-label={`${move.name}. ${preview.blocked ? "Nao atinge" : `${preview.minDamage}${preview.maxDamage !== preview.minDamage ? ` a ${preview.maxDamage}` : ""} de dano. ${effectiveness}`}${move.special ? (exhausted ? " Especial esgotado." : ` Especial, ${uses} de ${MAX_SPECIAL_ATTACK_USES} usos.`) : ""}${move.role === "FAST" ? " Gera 1 Impulso." : move.role === "TECHNICAL" ? ` Usa ${active.momentum || 0} de ${MOMENTUM_CONFIG.MAX} Impulso.` : ""}${decision.makesContact ? " Golpe de contato." : ""}${decision.warnings.map((warning) => ` ${warning.ability?.namePtBr || warning.detail}. ${warning.detail}`).join("")}${moveStatus ? `. ${moveStatusChance}% de chance de causar ${moveStatus.eventName}` : ""}.`}
                   >
                     <span className="attack-icon">
                       <PokemonTypeIcon type={attackType} size={25} decorative />
                     </span>
                     <span className="attack-copy">
-                      <strong>{move.name}</strong>
+                      <span className="move-card-header"><strong>{move.name}</strong></span>
                       <span className={`damage-preview ${preview.blocked ? "is-blocked" : ""}`}>
                         {preview.blocked ? <span className="damage-blocked">NÃO ATINGE</span> : (
                           <><span className="damage-value">{preview.minDamage}{preview.maxDamage !== preview.minDamage ? `\u2013${preview.maxDamage}` : ""}</span><span className="damage-label">DANO</span><span className="move-effectiveness">{effectiveness}{strategistDetail}</span></>
                         )}
                       </span>
-                      {move.special && <small className="special-meta">{exhausted ? "ESGOTADO" : `ESPECIAL · ${uses}/2`}</small>}
-                      {!move.special && move.role === "FAST" && <small className="momentum-move"><Lightning size={11} weight="fill" aria-hidden="true" /> +1 IMPULSO</small>}
-                      {!move.special && move.role === "TECHNICAL" && <small className="momentum-move"><Lightning size={11} weight="fill" aria-hidden="true" /> {active.momentum ? `+${active.momentum * 10}% IMPULSO` : "IMPULSO 0/3"}</small>}
-                      {moveStatus && (
-                        <small
-                          className={`move-status-hint is-${moveStatus.id}`}
-                        >
-                          <StatusIcon status={moveStatus.id} size={11} />{" "}
-                          {moveStatusChance}% {moveStatus.eventName}
-                        </small>
-                      )}
-                      {(decision.makesContact || decision.contactRelevant) && !decision.contactRisk && (
-                        <span className="move-contact-hint">
-                          {decision.makesContact ? "CONTATO" : "SEM CONTATO"}
-                        </span>
-                      )}
+                      {(move.special || move.role === "FAST" || move.role === "TECHNICAL") && <span className="move-resource-row">
+                        {move.special && <small className="special-meta">{exhausted ? "ESGOTADO" : `ESPECIAL · ${uses}/${MAX_SPECIAL_ATTACK_USES}`}</small>}
+                        {!move.special && move.role === "FAST" && <small className="momentum-move"><Lightning size={11} weight="fill" aria-hidden="true" /> +1 IMPULSO</small>}
+                        {!move.special && move.role === "TECHNICAL" && <small className="momentum-move"><Lightning size={11} weight="fill" aria-hidden="true" /> {active.momentum ? `+${active.momentum * 10}% IMPULSO` : `IMPULSO 0/${MOMENTUM_CONFIG.MAX}`}</small>}
+                      </span>}
+                      {(moveStatus || ((decision.makesContact || decision.contactRelevant) && !decision.contactRisk)) && <span className="move-secondary-row">
+                        {moveStatus && <small className={`move-status-hint is-${moveStatus.id}`}><StatusIcon status={moveStatus.id} size={11} aria-hidden="true" /> <span>{moveStatusChance}% {moveStatus.eventName}</span></small>}
+                        {(decision.makesContact || decision.contactRelevant) && !decision.contactRisk && <span className="move-contact-hint">{decision.makesContact ? "CONTATO" : "SEM CONTATO"}</span>}
+                      </span>}
                       {decision.warnings
                         .slice(0, 1)
                         .map((warning, warningIndex) => (

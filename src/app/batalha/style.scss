@@ -5233,3 +5233,203 @@
     background: transparent;
   }
 }
+
+/* Mobile battle HUD: preserve the information hierarchy instead of compressing it. */
+.battle-page:has(.battle-arena) .battle-resource-list {
+  width: 100%;
+  min-width: 0;
+}
+
+.battle-page:has(.battle-arena) .battle-resource-bar {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.battle-page:has(.battle-arena) .battle-resource-bar > :last-child {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.battle-page:has(.battle-arena) .battle-ability,
+.battle-page:has(.battle-arena) .held-item-indicator,
+.battle-page:has(.battle-arena) .weakness-hint {
+  max-width: 100%;
+  min-width: 0;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+}
+
+.battle-page:has(.battle-arena) .battle-ability {
+  width: fit-content;
+  align-items: flex-start;
+  gap: 4px;
+  line-height: 1.2;
+}
+
+.battle-page:has(.battle-arena) .held-item-indicator {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  column-gap: 4px;
+  line-height: 1.2;
+}
+
+.battle-page:has(.battle-arena) .held-item-copy {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.battle-page:has(.battle-arena) .held-item-copy b {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.battle-page:has(.battle-arena) .weakness-hint,
+.battle-page:has(.battle-arena) .weakness-hint .weakness-icons {
+  flex-wrap: wrap;
+}
+
+.battle-page:has(.battle-arena) .v2-move-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  grid-auto-rows: auto !important;
+  align-items: stretch;
+  min-height: 0 !important;
+  gap: 7px !important;
+}
+
+.battle-page:has(.battle-arena) .v2-move-grid .attack-button {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-content: start;
+  align-items: start;
+  min-width: 0;
+  min-height: 98px !important;
+  height: auto;
+  padding: 8px !important;
+  gap: 7px;
+}
+
+.battle-page:has(.battle-arena) .v2-move-grid .attack-icon {
+  align-self: start;
+}
+
+.battle-page:has(.battle-arena) .v2-move-grid .attack-copy {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  min-width: 0;
+  gap: 5px;
+}
+
+.battle-page:has(.battle-arena) .v2-move-grid .move-card-header,
+.battle-page:has(.battle-arena) .v2-move-grid .move-card-header strong {
+  display: block;
+  min-width: 0;
+}
+
+.battle-page:has(.battle-arena) .v2-move-grid .move-card-header strong {
+  overflow: visible;
+  font-size: clamp(0.68rem, 2.9vw, 0.78rem);
+  line-height: 1.2;
+  text-align: left;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.battle-page:has(.battle-arena) .v2-move-grid .damage-preview {
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 7px;
+  row-gap: 1px;
+  align-items: center;
+}
+
+.battle-page:has(.battle-arena) .v2-move-grid .damage-value {
+  font-size: clamp(0.86rem, 3.8vw, 1.06rem);
+  line-height: 1;
+}
+
+.battle-page:has(.battle-arena) .v2-move-grid .damage-label,
+.battle-page:has(.battle-arena) .v2-move-grid .move-effectiveness {
+  min-width: 0;
+  line-height: 1.15;
+  white-space: normal;
+}
+
+.battle-page:has(.battle-arena) .v2-move-grid .move-resource-row,
+.battle-page:has(.battle-arena) .v2-move-grid .move-secondary-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  min-width: 0;
+  gap: 4px 7px;
+}
+
+.battle-page:has(.battle-arena) .v2-move-grid .special-meta,
+.battle-page:has(.battle-arena) .v2-move-grid .momentum-move,
+.battle-page:has(.battle-arena) .v2-move-grid .move-status-hint,
+.battle-page:has(.battle-arena) .v2-move-grid .move-contact-hint {
+  max-width: 100%;
+  min-width: 0;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+}
+
+.battle-page:has(.battle-arena) .v2-move-grid .move-decision-hint {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  width: 100%;
+  min-width: 0;
+  margin-top: 1px;
+  padding: 5px 6px;
+  column-gap: 5px;
+  row-gap: 2px;
+  line-height: 1.2;
+}
+
+.battle-page:has(.battle-arena) .v2-move-grid .move-decision-hint span,
+.battle-page:has(.battle-arena) .v2-move-grid .move-decision-hint em {
+  min-width: 0;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+}
+
+.battle-page:has(.battle-arena) .v2-move-grid .move-decision-hint em {
+  grid-column: 2;
+  margin: 0;
+}
+
+@media (max-width: 340px) {
+  .battle-page:has(.battle-arena) .v2-move-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 7px !important;
+  }
+
+  .battle-page:has(.battle-arena) .v2-move-grid .attack-button {
+    grid-template-columns: 32px minmax(0, 1fr);
+    min-height: 84px !important;
+  }
+}
+
+@media (max-width: 600px) and (max-height: 680px) {
+  .battle-page:has(.battle-arena) .weakness-hint {
+    display: flex;
+  }
+
+  .battle-page:has(.battle-arena) .battle-ability,
+  .battle-page:has(.battle-arena) .battle-status {
+    display: inline-flex;
+  }
+
+  .battle-page:has(.battle-arena) .fighter-art {
+    width: min(31vw, 124px);
+    height: min(31vw, 124px);
+  }
+}
