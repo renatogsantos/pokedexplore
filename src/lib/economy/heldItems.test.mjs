@@ -39,6 +39,7 @@ test("assignment audit reports over-reserved item ids", () => {
 
 test("elemental relics match canonical, API and legacy Pokemon type shapes", () => {
   assert.deepEqual(getPokemonTypes({ types: [], type: "water" }), ["water"]);
+  assert.deepEqual(getPokemonTypes({ types: { primary: { type: { name: "water" } } } }), ["water"]);
   assert.deepEqual(getPokemonTypes({ types: [{ type: { name: "grass" } }, { type: { name: "poison" } }] }), ["grass", "poison"]);
   assert.equal(canEquipElementalRelic({ types: [], type: "water" }, "perola-abissal").allowed, true);
   assert.equal(canEquipElementalRelic({ types: ["grass", "poison"] }, "presa-toxica").allowed, true);
