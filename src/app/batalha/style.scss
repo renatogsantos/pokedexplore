@@ -1649,7 +1649,7 @@
 .cpu-difficulty-summary small,
 .cpu-battle-brief small { color: #b7c9df; font-size: .68rem; font-weight: 750; }
 .cpu-difficulty-summary--easy, .cpu-battle-brief--easy { border-color: #64d99877; }
-.cpu-difficulty-summary--normal, .cpu-battle-brief--normal { border-color: #ffcb0577; }
+.cpu-difficulty-summary--normal, .cpu-battle-brief--normal, .cpu-difficulty-summary--medium, .cpu-battle-brief--medium { border-color: #ffcb0577; }
 .cpu-difficulty-summary--hard, .cpu-battle-brief--hard { border-color: #ff856caa; box-shadow: 0 0 18px #ff6a3a22; }
 .cpu-difficulty-summary--hard > span, .cpu-battle-brief--hard > span { color: #ffad82; }
 .cpu-battle-brief { margin: 0 0 14px; }

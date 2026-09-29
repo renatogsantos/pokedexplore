@@ -15,7 +15,12 @@ source = source
   .replace('import { CPU_ROSTER } from "@/lib/battle/pokemon";', `
     const CPU_ROSTER = [
       [1,"leaf","grass"], [2,"flame","fire"], [3,"wave","water"], [4,"spark","electric"], [5,"rock","rock"], [6,"mind","psychic"]
-    ].map(([id, name, type]) => ({ id, name, type, types: [type], baseStats: { hp: 70 + id, attack: 50 + id, defense: 45 + id, specialAttack: 48 + id, specialDefense: 45 + id, speed: 40 + id } }));
+    ].map(([id, name, type]) => ({ id, name, type, types: [type], evolutionStage: "basic", baseStats: { hp: 70 + id, attack: 50 + id, defense: 45 + id, specialAttack: 48 + id, specialDefense: 45 + id, speed: 40 + id } })).concat([
+      { id: 20, name: "evolved", type: "steel", types: ["steel"], cpuTier: "evolved", evolutionStage: "final", baseStats: { hp: 80, attack: 90, defense: 85, specialAttack: 95, specialDefense: 80, speed: 70 } },
+      { id: 21, name: "powerful", type: "dragon", types: ["dragon"], cpuTier: "powerful", evolutionStage: "final", baseStats: { hp: 90, attack: 110, defense: 90, specialAttack: 110, specialDefense: 80, speed: 60 } },
+      { id: 22, name: "legend", type: "psychic", types: ["psychic"], cpuTier: "legendary", rarity: "legendary", isLegendary: true, baseStats: { hp: 105, attack: 110, defense: 90, specialAttack: 145, specialDefense: 90, speed: 125 } },
+      { id: 23, name: "myth", type: "dark", types: ["dark"], cpuTier: "mythical", rarity: "mythical", isMythical: true, baseStats: { hp: 100, attack: 100, defense: 100, specialAttack: 100, specialDefense: 100, speed: 100 } }
+    ]);
   `)
   .replace('import { BAG_ITEM_CATALOG, ITEM_CATALOG } from "@/lib/items/catalog";', `
     const BAG_ITEM_CATALOG = [];
@@ -31,7 +36,7 @@ test("CPU difficulty rewards and level offsets are centralized", () => {
   assert.equal(cpu.getCpuDifficulty("hard").baseCoins, 60);
   const team = cpu.generateCpuTeam({ difficulty: "hard", playerTeam: [{ level: 4 }, { level: 4 }, { level: 4 }], random: () => .41 });
   assert.equal(team.length, 3);
-  assert.ok(team.every((pokemon) => pokemon.level === 5));
+  assert.ok(team.every((pokemon) => pokemon.level >= 4 && pokemon.level <= 6));
   assert.equal(new Set(team.map((pokemon) => pokemon.type)).size, 3);
 });
 
@@ -46,4 +51,26 @@ test("hard CPU spends a legal super-effective special to finish", () => {
 test("legendary is only available after hard's item-drop roll", () => {
   assert.equal(cpu.rollCpuItemDrop("easy", () => .99), null);
   assert.equal(cpu.rollCpuItemDrop("hard", (() => { const values = [.01, .01, .01]; return () => values.shift() ?? .01; })()).id, "legendary");
+});
+
+test("difficulty pools keep power ordered and rare encounters controlled", () => {
+  let seed = 19;
+  const random = () => { seed = (seed * 48271) % 2147483647; return seed / 2147483647; };
+  const metrics = Object.fromEntries(["easy", "medium", "hard"].map((difficulty) => [difficulty, { power: 0, legendary: 0, mythical: 0, teams: new Set() }]));
+  for (let index = 0; index < 600; index += 1) {
+    for (const difficulty of Object.keys(metrics)) {
+      const team = cpu.generateCpuTeam({ difficulty, playerTeam: [{ level: 7 }, { level: 7 }, { level: 7 }], random });
+      const metric = metrics[difficulty];
+      metric.power += cpu.getCpuTeamPower(team);
+      metric.legendary += team.filter((pokemon) => pokemon.isLegendary).length;
+      metric.mythical += team.filter((pokemon) => pokemon.isMythical).length;
+      metric.teams.add(team.map((pokemon) => pokemon.id).sort().join("-"));
+    }
+  }
+  assert.ok(metrics.easy.power < metrics.medium.power && metrics.medium.power < metrics.hard.power);
+  assert.equal(metrics.easy.legendary + metrics.easy.mythical, 0);
+  assert.equal(metrics.medium.legendary + metrics.medium.mythical, 0);
+  assert.ok(metrics.hard.legendary + metrics.hard.mythical > 0);
+  assert.ok(metrics.hard.legendary + metrics.hard.mythical < 620);
+  assert.ok(metrics.easy.teams.size + metrics.medium.teams.size + metrics.hard.teams.size > 3);
 });

@@ -77,7 +77,7 @@ export default function BattlePage() {
   const [inventory, setInventory] = useState({});
   const [selected, setSelected] = useState([]);
   const [mode, setMode] = useState(null);
-  const [cpuDifficulty, setCpuDifficulty] = useState("normal");
+  const [cpuDifficulty, setCpuDifficulty] = useState("medium");
   const [name, setName] = useState("Treinador");
   const [roomCode, setRoomCode] = useState("");
   const [joinCode, setJoinCode] = useState(getRoomDigits(params.get("room")));
@@ -650,7 +650,7 @@ export default function BattlePage() {
     return () => clearTimeout(cpuTimer.current);
   }, [mode, battle, cpuDifficulty, rewardFinishedBattle]);
 
-  function chooseMode(nextMode, difficulty = "normal") {
+  function chooseMode(nextMode, difficulty = "medium") {
     setMode(nextMode);
     setCpuDifficulty(difficulty);
     setSelected([]);
@@ -1129,7 +1129,7 @@ function BadgeChallengeIntro({ challenge, profile, notice, busy, onPrepare, onBa
 }
 
 function ModeScreen({ onChoose, activeTournament, onResumeTournament }) {
-  const [difficulty, setDifficulty] = useState("normal");
+  const [difficulty, setDifficulty] = useState("medium");
   const difficultyConfig = getCpuDifficulty(difficulty);
   return (
     <section className="battle-panel mode-panel">
@@ -1155,12 +1155,12 @@ function ModeScreen({ onChoose, activeTournament, onResumeTournament }) {
         </button>
       </div>
       <div className="cpu-difficulty" role="group" aria-label="Dificuldade da CPU">
-        {["easy", "normal", "hard"].map((option) => <button type="button" key={option} className={difficulty === option ? "selected" : ""} onClick={() => setDifficulty(option)} aria-pressed={difficulty === option}>{option === "easy" ? "Fácil" : option === "normal" ? "Normal" : "Difícil"}</button>)}
+        {["easy", "medium", "hard"].map((option) => <button type="button" key={option} className={difficulty === option ? "selected" : ""} onClick={() => setDifficulty(option)} aria-pressed={difficulty === option}>{option === "easy" ? "Fácil" : option === "medium" ? "Médio" : "Difícil"}</button>)}
       </div>
       <aside className={`cpu-difficulty-summary cpu-difficulty-summary--${difficultyConfig.id}`} aria-live="polite">
-        <span>{difficultyConfig.id === "easy" ? "🟢" : difficultyConfig.id === "normal" ? "🟡" : "🔴"} {difficultyConfig.label.toUpperCase()}</span>
+        <span>{difficultyConfig.id === "easy" ? "🟢" : difficultyConfig.id === "medium" ? "🟡" : "🔴"} {difficultyConfig.label.toUpperCase()}</span>
         <strong>{difficultyConfig.summary}</strong>
-        <small>🪙 {difficultyConfig.baseCoins} base · 🎁 item: {difficultyConfig.id === "easy" ? "chance baixa" : difficultyConfig.id === "normal" ? "chance média" : "até Lendário"}</small>
+        <small>🪙 {difficultyConfig.baseCoins} base · 🎁 item: {difficultyConfig.id === "easy" ? "chance baixa" : difficultyConfig.id === "medium" ? "chance média" : "até Lendário"}</small>
       </aside>
     </section>
   );
