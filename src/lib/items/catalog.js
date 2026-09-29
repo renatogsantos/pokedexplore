@@ -44,12 +44,13 @@ const item = (definition) =>
     code: definition.id.toUpperCase().replaceAll("-", "_"),
     image: `/items/${definition.id}.png`,
     purchasable: true,
+    equipmentSlot: definition.equipmentSlot || (definition.usageType === "HELD" ? "STRATEGIC" : null),
     ...definition,
     rules: Object.freeze(definition.rules || {}),
   });
 
 const elementalRelic = ({ id, name, type, description, shortDescription, rules = {}, price = 330 }) =>
-  item({ id, name, category: "ARTIFACT", usageType: "HELD", rarity: "RARE", role: "attack", shortDescription, description, effectType: "ELEMENTAL_RELIC", trigger: "DAMAGE_CALCULATION", consumable: false, price, elementalType: type, rules: { type, baseMultiplier: 1.12, ...rules } });
+  item({ id, name, category: "ARTIFACT", usageType: "HELD", equipmentSlot: "ELEMENTAL_RELIC", rarity: "RARE", role: "attack", shortDescription, description, effectType: "ELEMENTAL_RELIC", trigger: "DAMAGE_CALCULATION", consumable: false, price, elementalType: type, rules: { type, baseMultiplier: 1.12, ...rules } });
 
 // Authoritative PokédExplore item catalog. Economy, UI and battle handlers use
 // these values; tune initial balance here without changing components.

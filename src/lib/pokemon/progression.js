@@ -1,4 +1,4 @@
-import { normalizePokemonHeldItem } from "@/lib/economy/heldItems";
+import { normalizePokemonEquipment } from "@/lib/economy/heldItems";
 
 export const MAX_POKEMON_LEVEL = 10;
 export const STAT_BONUS_PER_LEVEL = 0.05;
@@ -51,6 +51,7 @@ export function normalizeCapturedPokemon(pokemon) {
   delete current.equipped_item;
   const id = current.id ?? current.instanceId ?? current.pokemonId ?? current.speciesId;
   const name = String(current.name || current.displayName || (id ? `Pokémon ${id}` : "Pokémon")).trim() || "Pokémon";
+  const equipment = normalizePokemonEquipment(pokemon);
   return {
     ...current,
     id,
@@ -62,7 +63,9 @@ export function normalizeCapturedPokemon(pokemon) {
     abilityId: resolvePokemonAbilityId(current),
     level: getPokemonLevel(pokemon),
     baseStats: getBaseStats(pokemon),
-    heldItem: normalizePokemonHeldItem(pokemon),
-    saveVersion: 5,
+    strategicItem: equipment.strategicItem,
+    elementalRelic: equipment.elementalRelic,
+    heldItem: equipment.strategicItem,
+    saveVersion: 6,
   };
 }

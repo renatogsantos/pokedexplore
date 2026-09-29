@@ -683,7 +683,7 @@ export const webStore = {
   // Compatibility for a pre-expedition battle URL. New Journey wins always use
   // settleJourneyBattle above, which owns reward ids and route completion.
   async completeJourneyNode(node) { return this.startJourneyExpedition(node?.id); },
-  async setHeldItem(pokemonId, heldItem) {
+  async setHeldItem(pokemonId, heldItem, slot) {
     try {
       return await withDatabase((database) => new Promise((resolve, reject) => {
         const transaction = database.transaction([POKEDEX_STORE, PLAYER_STORE], "readwrite");
@@ -695,7 +695,7 @@ export const webStore = {
         let economy;
         const finish = () => {
           if (!collection || !economy) return;
-          const result = planHeldItemChange({ pokemonId, requestedItem: heldItem, economy, collection });
+          const result = planHeldItemChange({ pokemonId, requestedItem: heldItem, economy, collection, slot });
           if (result.ok && !result.unchanged) pokedexStore.put(result.pokemon);
           transaction.result = result;
           if (process.env.NODE_ENV !== "production") console.info("[HeldItem]", { operation: heldItem ? "equip" : "unequip", pokemonId, itemId: heldItem || null, previousItem: result.previousHeldItem || null, owned: result.stock?.owned, reserved: result.stock?.equipped, available: result.stock?.available, result: result.ok ? "success" : result.reason });
@@ -709,6 +709,7 @@ export const webStore = {
       }));
     } catch (error) { console.error("Erro ao equipar item:", error); return { ok: false, reason: "persistence" }; }
   },
+  async setEquipmentItem(pokemonId, itemId, slot) { return this.setHeldItem(pokemonId, itemId, slot); },
   async setCoinBalance(value) {
     const coins = Math.min(Number.MAX_SAFE_INTEGER, Math.max(0, Math.floor(Number(value) || 0)));
     try {

@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const source = await readFile(new URL("./progression.js", import.meta.url), "utf8");
-const progressionSource = source.replace('import { normalizePokemonHeldItem } from "@/lib/economy/heldItems";', 'const normalizePokemonHeldItem = (pokemon) => pokemon?.heldItem ?? pokemon?.held_item ?? null;');
+const progressionSource = source.replace('import { normalizePokemonEquipment } from "@/lib/economy/heldItems";', 'const normalizePokemonEquipment = (pokemon) => ({ strategicItem: pokemon?.strategicItem ?? pokemon?.heldItem ?? pokemon?.held_item ?? null, elementalRelic: pokemon?.elementalRelic ?? null });');
 const { MAX_POKEMON_LEVEL, calculateLeveledStat, getPokemonLevel, getStatMultiplier, normalizeCapturedPokemon } = await import(`data:text/javascript;base64,${Buffer.from(progressionSource).toString("base64")}`);
 
 test("levels use base stats without compounding and clamp at level ten", () => {
@@ -30,7 +30,7 @@ test("captured Pokemon keep a deterministic non-hidden ability ID", () => {
     ],
   });
   assert.equal(captured.abilityId, "static");
-  assert.equal(captured.saveVersion, 5);
+  assert.equal(captured.saveVersion, 6);
   assert.equal(
     normalizeCapturedPokemon({ id: 1, abilities: [
       { ability: { name: "chlorophyll" }, is_hidden: true },
@@ -64,5 +64,5 @@ test("malformed legacy shapes cannot call array methods during battle normalizat
   assert.deepEqual(legacy.types, []);
   assert.deepEqual(legacy.stats, []);
   assert.deepEqual(legacy.moveset, []);
-  assert.equal(legacy.saveVersion, 5);
+  assert.equal(legacy.saveVersion, 6);
 });
