@@ -41,6 +41,7 @@ import TournamentPanel from "@/components/Tournament/TournamentPanel";
 import { ROUND } from "@/lib/tournament/config";
 import { resolveTournamentReward } from "@/lib/tournament/rewards";
 import { TOURNAMENT_MATCH_KIND, canStartTournamentPrebattle, chooseCpuVsCpuWinner, getTournamentMatchKind } from "@/lib/tournament/match";
+import { isValidTournamentCpuTeam, prepareTournamentCpuOpponent } from "@/lib/tournament/cpu";
 import { cancelTournament, completeTournamentMatch, createTournament, fillTournamentWithCpu, getOrCreateTournamentCpuTeam, getPlayerActiveTournament, getTournament, joinTournament, leaveTournament, markTournamentMatchPlaying, startTournament, subscribeTournament } from "@/lib/tournament/service";
 import BadgeArtwork from "@/components/Badges/BadgeArtwork";
 import { getBadgeCpuTeam } from "@/lib/badges/cpu";
@@ -107,6 +108,8 @@ export default function BattlePage() {
   const [tournamentCpuOpponent, setTournamentCpuOpponent] = useState(null);
   const [tournamentCpuTeam, setTournamentCpuTeam] = useState(null);
   const [tournamentCpuPreparing, setTournamentCpuPreparing] = useState(false);
+  const [tournamentCpuError, setTournamentCpuError] = useState(null);
+  const [tournamentCpuAttempt, setTournamentCpuAttempt] = useState(0);
   const [tournamentRewardReceipt, setTournamentRewardReceipt] = useState(null);
   const [tournamentCode, setTournamentCode] = useState("");
   const [tournamentBusy, setTournamentBusy] = useState(false);
@@ -447,16 +450,28 @@ export default function BattlePage() {
   }, [mode, tournament]);
 
   useEffect(() => {
-    if (mode !== "tournament" || !tournamentCpuOpponent || !tournamentMatch?.id || selected.length !== 3 || tournamentCpuTeam || tournamentCpuPreparing) return;
-    let active = true;
+    if (mode !== "tournament" || !tournamentCpuOpponent || !tournamentMatch?.id || selected.length !== 3 || isValidTournamentCpuTeam(tournamentCpuTeam)) return;
+    let cancelled = false;
     setTournamentCpuPreparing(true);
-    const generatedTeam = generateCpuTeam({ difficulty: "hard", playerTeam: selected });
-    void getOrCreateTournamentCpuTeam(tournamentMatch.id, generatedTeam)
-      .then((team) => { if (active) setTournamentCpuTeam(team); })
-      .catch((error) => { if (active) setNotice(error.message || "Não foi possível preparar a equipe da CPU."); })
-      .finally(() => { if (active) setTournamentCpuPreparing(false); });
-    return () => { active = false; };
-  }, [mode, selected, tournamentCpuOpponent, tournamentCpuPreparing, tournamentCpuTeam, tournamentMatch?.id]);
+    setTournamentCpuError(null);
+    void prepareTournamentCpuOpponent({
+      match: tournamentMatch,
+      matchKind: TOURNAMENT_MATCH_KIND.HUMAN_VS_CPU,
+      generateTeam: () => generateCpuTeam({ difficulty: "hard", playerTeam: selected }),
+      freezeTeam: (team) => getOrCreateTournamentCpuTeam(tournamentMatch.id, team),
+    }).then((result) => {
+      if (!cancelled) setTournamentCpuTeam(result.team);
+    }).catch((error) => {
+      if (!cancelled) {
+        const message = error?.message || "Não foi possível preparar o adversário CPU.";
+        setTournamentCpuError(message);
+        setNotice(message);
+      }
+    }).finally(() => {
+      if (!cancelled) setTournamentCpuPreparing(false);
+    });
+    return () => { cancelled = true; };
+  }, [mode, selected, tournamentCpuAttempt, tournamentCpuOpponent?.player_id, tournamentCpuTeam, tournamentMatch?.id]);
 
   useEffect(() => {
     if (!tournament?.id || !profile?.playerId) return;
@@ -789,7 +804,11 @@ export default function BattlePage() {
     if (mode === "tournament" && tournamentCpuOpponent && tournamentMatch) {
       const local = makePlayer(name, profile?.playerId);
       if (!canStartTournamentPrebattle({ kind: TOURNAMENT_MATCH_KIND.HUMAN_VS_CPU, localTeam: currentTeam, cpuTeam: tournamentCpuTeam })) {
-        setNotice(tournamentCpuPreparing ? "Preparando adversário CPU..." : "Selecione três Pokémon e aguarde a equipe da CPU.");
+        if (tournamentCpuError) {
+          setTournamentCpuError(null);
+          setTournamentCpuAttempt((attempt) => attempt + 1);
+          setNotice("Tentando preparar o adversário CPU novamente...");
+        } else setNotice(tournamentCpuPreparing ? "Preparando adversário CPU..." : "Selecione três Pokémon e aguarde a equipe da CPU.");
         setPreparingTeam(false);
         return;
       }
@@ -1027,7 +1046,7 @@ export default function BattlePage() {
     const currentPlayer = { id: profile.playerId, name: name.trim() || profile.displayName };
     const cpuOpponent = (tournament?.tournament_players || []).find((entry) => entry.is_cpu && participantIds.includes(entry.player_id)) || null;
     const currentRole = match.player1_id === profile.playerId ? "host" : "guest";
-    setMode("tournament"); setTournamentMatch(match); setTournamentCpuOpponent(cpuOpponent); setTournamentCpuTeam(null); setTournamentCpuPreparing(false); setPlayer(currentPlayer); setRole(cpuOpponent ? "host" : currentRole); setRoomCode(match.battle_room_code); setSelected([]); setBattle(null); setMyReady(false); setOpponentReady(false); setScreen("team");
+    setMode("tournament"); setTournamentMatch(match); setTournamentCpuOpponent(cpuOpponent); setTournamentCpuTeam(null); setTournamentCpuPreparing(false); setTournamentCpuError(null); setTournamentCpuAttempt(0); setPlayer(currentPlayer); setRole(cpuOpponent ? "host" : currentRole); setRoomCode(match.battle_room_code); setSelected([]); setBattle(null); setMyReady(false); setOpponentReady(false); setScreen("team");
     if (cpuOpponent) return;
     try { connectRoom(match.battle_room_code, currentPlayer, currentRole); }
     catch (error) { setNotice(error.message); setScreen("tournament"); }
@@ -1178,7 +1197,7 @@ export default function BattlePage() {
               wager={wager}
               role={role}
               tournamentCpuOpponent={tournamentCpuOpponent}
-              cpuReady={Array.isArray(tournamentCpuTeam) && tournamentCpuTeam.length === 3}
+              cpuReady={isValidTournamentCpuTeam(tournamentCpuTeam)}
               cpuPreparing={tournamentCpuPreparing}
               onAcceptWager={acceptWager}
               onRejectWager={rejectWager}
