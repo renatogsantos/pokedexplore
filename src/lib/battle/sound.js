@@ -104,6 +104,13 @@ function getLivingPokemon(team = []) {
   return team.filter((pokemon) => Number(pokemon?.hp) > 0);
 }
 
+// This is deliberately the same performance flag used by calculateBattleRewards
+// for the "Um Pokémon só" bonus. Do not infer it from current HP: reserves can
+// still be alive even when the player won the whole match with their lead.
+export function isOnePokemonVictory(state, winner) {
+  return state?.performance?.players?.[winner]?.hasSwitched === false;
+}
+
 // The finished engine state is the single authority for a result. Audio is
 // addressed to a battle role so a shared PvP snapshot can correctly play a
 // victory sound for one player and the loss sound for the other.
@@ -111,12 +118,12 @@ export function getBattleResultAudioEvents(state) {
   if (state?.status !== "finished" || !["host", "guest"].includes(state?.winner)) return [];
   const winner = state.winner;
   const loser = winner === "host" ? "guest" : "host";
-  const winnerHasOnePokemonRemaining = getLivingPokemon(state?.[winner]?.team).length === 1;
+  const winnerUsedOnlyOnePokemon = isOnePokemonVictory(state, winner);
   return [
     {
       id: `battle-result:${winner}`,
       audience: winner,
-      sound: winnerHasOnePokemonRemaining ? BATTLE_EVENT_SOUND.BRUTALITY : BATTLE_EVENT_SOUND.VICTORY,
+      sound: winnerUsedOnlyOnePokemon ? BATTLE_EVENT_SOUND.BRUTALITY : BATTLE_EVENT_SOUND.VICTORY,
     },
     { id: `battle-result:${loser}`, audience: loser, sound: BATTLE_EVENT_SOUND.DEFEAT },
   ];
