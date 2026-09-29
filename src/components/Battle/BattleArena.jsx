@@ -61,6 +61,7 @@ import {
 import { getStatusDefinition } from "@/lib/battle/statuses";
 import { getWagerResult } from "@/lib/battle/wager";
 import StatusIcon from "@/components/Battle/StatusIcon";
+import { getTournamentResultPresentation, TOURNAMENT_RESULT_STATE } from "@/lib/tournament/presentation";
 
 function getBagBlockLabel(reason) {
   return {
@@ -878,6 +879,16 @@ function StatusDetails({ selection, onClose }) {
   );
 }
 
+function TournamentBattleResultModal({ won, context, onContinue, actionRef }) {
+  const presentation = getTournamentResultPresentation({ round: context.round, won, mode: context.mode, receipt: context.receipt });
+  const receipt = presentation.receipt;
+  const item = receipt?.itemId ? getItemDefinition(receipt.itemId) : null;
+  const advancing = presentation.state === TOURNAMENT_RESULT_STATE.SEMIFINAL_ADVANCE;
+  const title = advancing ? "CLASSIFICADO PARA A FINAL" : presentation.state === TOURNAMENT_RESULT_STATE.FINAL_CHAMPION ? "CAMPEÃO!" : presentation.state === TOURNAMENT_RESULT_STATE.FINALIST ? "VICE-CAMPEÃO" : "DERROTA";
+  const description = advancing ? "Você venceu esta batalha. O campeonato continua." : presentation.state === TOURNAMENT_RESULT_STATE.FINAL_CHAMPION ? "Você venceu o campeonato!" : presentation.state === TOURNAMENT_RESULT_STATE.FINALIST ? "Você chegou até a final!" : "Sua jornada neste campeonato terminou.";
+  return <motion.div className="result-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><motion.section className={`result-card result-modal ${won ? "is-victory" : "is-defeat"}`} role="dialog" aria-modal="true" aria-labelledby="tournament-result-title" initial={{ opacity: 0, scale: 0.9, y: 18 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: 10 }} transition={{ type: "spring", stiffness: 320, damping: 26 }}><div className="result-modal__emblem" aria-hidden="true">{presentation.state === TOURNAMENT_RESULT_STATE.FINAL_CHAMPION ? <Crown size={32} weight="fill" /> : won ? <Trophy size={32} weight="fill" /> : <WarningCircle size={32} weight="fill" />}</div><span className="result-modal__eyebrow">CAMPEONATO{presentation.hybrid ? " HÍBRIDO · PRÊMIOS ×0,5" : ""}</span><h2 id="tournament-result-title">{title}</h2><p>{description}</p>{!advancing && (receipt ? <section className="result-modal__breakdown" aria-label="Recompensa do campeonato"><span className="result-modal__section-label">SUAS RECOMPENSAS</span><section className="result-modal__reward"><img src="/coin.png" alt="" aria-hidden="true" width="42" height="42" /><div><AnimatedReward value={receipt.coins} /><span>MOEDAS</span></div></section>{item && <div className={`cpu-result-drop rarity-${String(item.rarity).toLowerCase()}`}><span><ItemSprite item={item.id} alt="" /> {item.name}</span><strong>{item.rarity}</strong></div>}</section> : <p className="result-modal__defeat-note">Confirmando a recompensa do campeonato...</p>)}<div className="result-modal__actions"><button type="button" className="rematch-button" onClick={onContinue} ref={actionRef}><ArrowsClockwise size={20} weight="bold" aria-hidden="true" /> {advancing ? "Continuar no campeonato" : "Ver campeonato"}</button></div></motion.section></motion.div>;
+}
+
 function BattleResultModal({
   won,
   reward,
@@ -888,6 +899,11 @@ function BattleResultModal({
   wagerResult,
 }) {
   const rematchRef = useRef(null);
+  useEffect(() => {
+    const focusFrame = requestAnimationFrame(() => rematchRef.current?.focus());
+    return () => cancelAnimationFrame(focusFrame);
+  }, []);
+  if (tournamentContext) return <TournamentBattleResultModal won={won} context={tournamentContext} onContinue={onRematch} actionRef={rematchRef} />;
   const isPerfect =
     reward.bonuses.fastVictory > 0 && reward.bonuses.onePokemonVictory > 0;
   const rematchLabel =
@@ -897,11 +913,6 @@ function BattleResultModal({
         ? "Pedir revanche"
         : "Jogar novamente";
   const droppedItem = reward.itemId ? getItemDefinition(reward.itemId) : null;
-
-  useEffect(() => {
-    const focusFrame = requestAnimationFrame(() => rematchRef.current?.focus());
-    return () => cancelAnimationFrame(focusFrame);
-  }, []);
 
   return (
     <motion.div

@@ -38,9 +38,9 @@ import CoinBalance from "@/components/CoinBalance";
 import { celebrateBadgeChampionship, celebrateBattleVictory } from "@/lib/celebration";
 import { buildJourneyCpuTeam, getJourneyBattle, getJourneyNode } from "@/lib/journey";
 import TournamentPanel from "@/components/Tournament/TournamentPanel";
-import { ROUND, getTournamentReward } from "@/lib/tournament/config";
+import { ROUND } from "@/lib/tournament/config";
 import { resolveTournamentReward } from "@/lib/tournament/rewards";
-import { TOURNAMENT_MATCH_KIND, chooseCpuVsCpuWinner, getTournamentMatchKind } from "@/lib/tournament/match";
+import { TOURNAMENT_MATCH_KIND, canStartTournamentPrebattle, chooseCpuVsCpuWinner, getTournamentMatchKind } from "@/lib/tournament/match";
 import { cancelTournament, completeTournamentMatch, createTournament, fillTournamentWithCpu, getOrCreateTournamentCpuTeam, getPlayerActiveTournament, getTournament, joinTournament, leaveTournament, markTournamentMatchPlaying, startTournament, subscribeTournament } from "@/lib/tournament/service";
 import BadgeArtwork from "@/components/Badges/BadgeArtwork";
 import { getBadgeCpuTeam } from "@/lib/badges/cpu";
@@ -105,6 +105,8 @@ export default function BattlePage() {
   const [tournament, setTournament] = useState(null);
   const [tournamentMatch, setTournamentMatch] = useState(null);
   const [tournamentCpuOpponent, setTournamentCpuOpponent] = useState(null);
+  const [tournamentCpuTeam, setTournamentCpuTeam] = useState(null);
+  const [tournamentCpuPreparing, setTournamentCpuPreparing] = useState(false);
   const [tournamentRewardReceipt, setTournamentRewardReceipt] = useState(null);
   const [tournamentCode, setTournamentCode] = useState("");
   const [tournamentBusy, setTournamentBusy] = useState(false);
@@ -445,6 +447,18 @@ export default function BattlePage() {
   }, [mode, tournament]);
 
   useEffect(() => {
+    if (mode !== "tournament" || !tournamentCpuOpponent || !tournamentMatch?.id || selected.length !== 3 || tournamentCpuTeam || tournamentCpuPreparing) return;
+    let active = true;
+    setTournamentCpuPreparing(true);
+    const generatedTeam = generateCpuTeam({ difficulty: "hard", playerTeam: selected });
+    void getOrCreateTournamentCpuTeam(tournamentMatch.id, generatedTeam)
+      .then((team) => { if (active) setTournamentCpuTeam(team); })
+      .catch((error) => { if (active) setNotice(error.message || "Não foi possível preparar a equipe da CPU."); })
+      .finally(() => { if (active) setTournamentCpuPreparing(false); });
+    return () => { active = false; };
+  }, [mode, selected, tournamentCpuOpponent, tournamentCpuPreparing, tournamentCpuTeam, tournamentMatch?.id]);
+
+  useEffect(() => {
     if (!tournament?.id || !profile?.playerId) return;
     const reward = resolveTournamentReward(tournament, profile.playerId);
     if (!reward) return;
@@ -774,14 +788,17 @@ export default function BattlePage() {
     }
     if (mode === "tournament" && tournamentCpuOpponent && tournamentMatch) {
       const local = makePlayer(name, profile?.playerId);
-      const generatedTeam = generateCpuTeam({ difficulty: "hard", playerTeam: currentTeam });
+      if (!canStartTournamentPrebattle({ kind: TOURNAMENT_MATCH_KIND.HUMAN_VS_CPU, localTeam: currentTeam, cpuTeam: tournamentCpuTeam })) {
+        setNotice(tournamentCpuPreparing ? "Preparando adversário CPU..." : "Selecione três Pokémon e aguarde a equipe da CPU.");
+        setPreparingTeam(false);
+        return;
+      }
       try {
-        const cpuTeam = await getOrCreateTournamentCpuTeam(tournamentMatch.id, generatedTeam);
         setPlayer(local);
         void markTournamentMatchPlaying(tournamentMatch.id).catch(() => {});
         await startState(
           currentTeam,
-          cpuTeam,
+          tournamentCpuTeam,
           local,
           { id: tournamentCpuOpponent.player_id, name: tournamentCpuOpponent.display_name, inventory: createCpuInventory("hard") },
           { difficulty: "hard" },
@@ -1010,7 +1027,7 @@ export default function BattlePage() {
     const currentPlayer = { id: profile.playerId, name: name.trim() || profile.displayName };
     const cpuOpponent = (tournament?.tournament_players || []).find((entry) => entry.is_cpu && participantIds.includes(entry.player_id)) || null;
     const currentRole = match.player1_id === profile.playerId ? "host" : "guest";
-    setMode("tournament"); setTournamentMatch(match); setTournamentCpuOpponent(cpuOpponent); setPlayer(currentPlayer); setRole(cpuOpponent ? "host" : currentRole); setRoomCode(match.battle_room_code); setSelected([]); setBattle(null); setMyReady(false); setOpponentReady(false); setScreen("team");
+    setMode("tournament"); setTournamentMatch(match); setTournamentCpuOpponent(cpuOpponent); setTournamentCpuTeam(null); setTournamentCpuPreparing(false); setPlayer(currentPlayer); setRole(cpuOpponent ? "host" : currentRole); setRoomCode(match.battle_room_code); setSelected([]); setBattle(null); setMyReady(false); setOpponentReady(false); setScreen("team");
     if (cpuOpponent) return;
     try { connectRoom(match.battle_room_code, currentPlayer, currentRole); }
     catch (error) { setNotice(error.message); setScreen("tournament"); }
@@ -1160,6 +1177,9 @@ export default function BattlePage() {
               opponentReady={opponentReady}
               wager={wager}
               role={role}
+              tournamentCpuOpponent={tournamentCpuOpponent}
+              cpuReady={Array.isArray(tournamentCpuTeam) && tournamentCpuTeam.length === 3}
+              cpuPreparing={tournamentCpuPreparing}
               onAcceptWager={acceptWager}
               onRejectWager={rejectWager}
               onShare={shareRoom}
@@ -1169,9 +1189,9 @@ export default function BattlePage() {
               selected={selected}
               onToggle={togglePokemon}
               onReady={readyTeam}
-              waiting={myReady || preparingTeam}
-              preparing={preparingTeam}
-              canReady={["cpu", "badge-cpu"].includes(mode) || connection === "CONNECTED"}
+              waiting={myReady || preparingTeam || tournamentCpuPreparing}
+              preparing={preparingTeam || tournamentCpuPreparing}
+              canReady={["cpu", "badge-cpu"].includes(mode) || (mode === "tournament" && tournamentCpuOpponent ? true : connection === "CONNECTED")}
               onUseDeck={setSelected}
               selectionTiming={mode === "friend" ? selectionTiming : null}
               opponentReady={opponentReady}
@@ -1190,7 +1210,7 @@ export default function BattlePage() {
             inventoryStatus={inventoryStatus}
             onAction={sendAction}
             onRematch={rematch}
-            tournamentContext={mode === "tournament" && tournamentMatch ? { round: tournamentMatch.round, reward: getTournamentReward(tournamentMatch.round) } : null}
+            tournamentContext={mode === "tournament" && tournamentMatch ? { round: tournamentMatch.round, mode: tournament?.mode, receipt: tournamentRewardReceipt?.tournamentId === tournament?.id ? tournamentRewardReceipt : null } : null}
             championBonusEligible={isBadgeChampion && ["cpu", "friend"].includes(mode)}
             badgeContext={String(mode).startsWith("badge") && badgeChallenge ? { config: getBadgeConfig(badgeChallenge.badge?.code), challenge: badgeChallenge, resolution: badgeResolution, resolving: badgeResolving, error: badgeResultError, playerId: profile?.playerId } : null}
           />
@@ -1339,7 +1359,12 @@ function RoomStatus({
   role,
   onAcceptWager,
   onRejectWager,
+  tournamentCpuOpponent,
+  cpuReady,
+  cpuPreparing,
 }) {
+  if (mode === "tournament" && tournamentCpuOpponent)
+    return <div className="room-status"><div><span>TORNEIO · CPU HARD</span><strong>{tournamentCpuOpponent.display_name}</strong></div><div><small>Você: {ready ? "PRONTO ✓" : `${player?.name || "Treinador"} selecionando...`}</small><small>CPU: {cpuPreparing ? "preparando equipe..." : cpuReady ? "PRONTA ✓" : "aguardando sua equipe"}</small></div>{notice && <em>{notice}</em>}</div>;
   if (["cpu", "badge-cpu"].includes(mode))
     return (
       <div className="room-status">

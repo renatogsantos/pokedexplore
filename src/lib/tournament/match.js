@@ -24,3 +24,23 @@ export function chooseCpuVsCpuWinner(match, random = Math.random) {
   if (!match?.player1_id || !match?.player2_id) return null;
   return random() < 0.5 ? match.player1_id : match.player2_id;
 }
+
+const hasTeamOfThree = (team) => Array.isArray(team) && team.length === 3;
+
+export function canStartTournamentPrebattle({
+  kind,
+  localTeam,
+  remoteTeam,
+  realtimeConnected = false,
+  localReady = false,
+  remoteReady = false,
+  cpuTeam,
+} = {}) {
+  if (kind === TOURNAMENT_MATCH_KIND.HUMAN_VS_HUMAN) {
+    return realtimeConnected && localReady && remoteReady && hasTeamOfThree(localTeam) && hasTeamOfThree(remoteTeam);
+  }
+  if (kind === TOURNAMENT_MATCH_KIND.HUMAN_VS_CPU) {
+    return hasTeamOfThree(localTeam) && hasTeamOfThree(cpuTeam);
+  }
+  return false;
+}
