@@ -121,11 +121,11 @@ const makeState = (hostItem = null, guestItem = null) =>
     "host",
   );
 
-test("catalog exposes the complete original collection", () => {
-  assert.equal(catalog.ITEM_CATALOG.length, 28);
-  assert.equal(catalog.HELD_ITEM_CATALOG.length, 22);
-  assert.equal(catalog.BAG_ITEM_CATALOG.length, 6);
-  assert.equal(new Set(catalog.ITEM_CATALOG.map((item) => item.id)).size, 28);
+test("catalog exposes the complete expanded collection", () => {
+  assert.equal(catalog.ITEM_CATALOG.length, 58);
+  assert.equal(catalog.HELD_ITEM_CATALOG.length, 43);
+  assert.equal(catalog.BAG_ITEM_CATALOG.length, 15);
+  assert.equal(new Set(catalog.ITEM_CATALOG.map((item) => item.id)).size, 58);
 });
 
 test("legacy ids migrate once to original stable ids", () => {
