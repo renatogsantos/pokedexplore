@@ -8266,3 +8266,69 @@
     top: 31px;
   }
 }
+
+/* Tournament 2.0 prizes stay compact inside the existing mobile-first arena panel. */
+.tournament-prize-preview {
+  display: grid;
+  gap: 8px;
+  margin: 18px 0;
+  padding: 11px;
+  border: 1px solid #ffcf3540;
+  border-radius: 14px;
+  background: linear-gradient(145deg, #132943dd, #0a182be8);
+}
+
+.tournament-prize-preview > span,
+.tournament-reward-receipt > span {
+  color: #ffdf5d;
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.tournament-prize-preview > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.tournament-prize-preview article {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 5px;
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid #ffffff18;
+  border-radius: 10px;
+  background: #07142699;
+}
+
+.tournament-prize-preview article svg { grid-row: span 2; color: #ffcf35; }
+.tournament-prize-preview article strong { min-width: 0; color: #e9f3ff; font-size: 0.52rem; letter-spacing: .04em; }
+.tournament-prize-preview article b { color: #9bf0bc; font-size: 0.67rem; }
+.tournament-prize-preview article small { grid-column: 1 / -1; color: #a8c6df; font-size: 0.44rem; line-height: 1.2; }
+.tournament-prize-preview .is-champion { border-color: #ffcf3566; }
+.tournament-prize-preview .is-finalist { border-color: #b58cff55; }
+
+.tournament-reward-receipt {
+  display: grid;
+  gap: 6px;
+  margin-top: 15px;
+  padding: 12px;
+  border: 1px solid #9bf0bc66;
+  border-radius: 14px;
+  background: linear-gradient(145deg, #123d35e8, #102640e8);
+}
+
+.tournament-reward-receipt.is-legendary { border-color: #ffcf35cc; box-shadow: 0 0 20px #ffcf3538; }
+.tournament-reward-receipt > strong { color: #9bf0bc; font-size: .9rem; }
+.tournament-reward-receipt > div { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.tournament-reward-receipt img { flex: 0 0 auto; object-fit: contain; }
+.tournament-reward-receipt p { display: grid; gap: 2px; min-width: 0; margin: 0; }
+.tournament-reward-receipt p small { color: #b9d1e8; font-size: .53rem; }
+.tournament-reward-receipt p b { color: #fff; overflow-wrap: anywhere; }
+
+@media (max-width: 340px) {
+  .tournament-prize-preview > div { grid-template-columns: 1fr; }
+  .tournament-prize-preview article small { grid-column: 2; }
+}

@@ -7,6 +7,7 @@ import { getJourneyRoute, isJourneyNodeUnlocked, JOURNEY_MEDALS, resolveJourneyL
 import { normalizePlayerStats, recordCompletedBattle } from "@/lib/profile/progression";
 import { DEFAULT_PLAYER_AVATAR_ID, normalizePlayerAvatarId } from "@/lib/profile/avatars";
 import { getItemDefinition, ITEM_CATALOG, ITEM_SYSTEM_VERSION, migrateItemInventory } from "@/lib/items/catalog";
+import { applyTournamentRewardReceipt } from "@/lib/tournament/rewards";
 
 const DATABASE_NAME = "PokedExploreDB";
 const DATABASE_VERSION = 4;
@@ -18,7 +19,7 @@ const ECONOMY_KEY = "economy";
 const TRAINER_PROFILE_KEY = "trainer-profile";
 const DECKS_KEY = "pokemon-decks";
 const EMPTY_CREATOR_MODE = { infiniteCoins: false };
-const EMPTY_ECONOMY = { key: ECONOMY_KEY, coins: 0, wagerReservations: {}, settledWagerIds: [], rewardedMatchIds: [], secretRewards: {}, inventory: {}, ownedTms: [], consumedItemActionIds: [], itemSystemVersion: ITEM_SYSTEM_VERSION, creatorMode: EMPTY_CREATOR_MODE };
+const EMPTY_ECONOMY = { key: ECONOMY_KEY, coins: 0, wagerReservations: {}, settledWagerIds: [], rewardedMatchIds: [], tournamentRewardReceipts: [], secretRewards: {}, inventory: {}, ownedTms: [], consumedItemActionIds: [], itemSystemVersion: ITEM_SYSTEM_VERSION, creatorMode: EMPTY_CREATOR_MODE };
 const EMPTY_PROGRESS = { achievements: {}, streak: 0, bestStreak: 0, wins: 0, totalBattles: 0, processedOutcomeMatchIds: [], journeyCompleted: [], badges: [], journeyMedals: [], journeyPerfectRoutes: [], journeyRewardIds: [], activeExpedition: null, lastJourneyResult: null, trainerXp: 0, playerStats: null };
 const normalizeEconomy = (economy) => {
   const savedProgress = economy?.progress || {};
@@ -38,7 +39,10 @@ const normalizeEconomy = (economy) => {
   progress.journeyRewardIds = [...new Set(savedProgress.journeyRewardIds || [])].slice(-240);
   const legacy = Number(economy?.itemSystemVersion || 1) < ITEM_SYSTEM_VERSION;
   const rawInventory = Object.fromEntries(Object.entries(economy?.inventory || {}).filter(([, quantity]) => Number(quantity) > 0).map(([id, quantity]) => [id, Math.floor(Number(quantity))]));
-  return { ...EMPTY_ECONOMY, ...(economy || {}), itemSystemVersion: ITEM_SYSTEM_VERSION, secretRewards: { ...EMPTY_ECONOMY.secretRewards, ...(economy?.secretRewards || {}) }, inventory: legacy ? migrateItemInventory(rawInventory) : rawInventory, ownedTms: [...new Set(economy?.ownedTms || [])], creatorMode: { ...EMPTY_CREATOR_MODE, ...(economy?.creatorMode || {}), infiniteCoins: Boolean(economy?.creatorMode?.infiniteCoins) }, progress };
+  const tournamentRewardReceipts = Array.isArray(economy?.tournamentRewardReceipts)
+    ? economy.tournamentRewardReceipts.filter((receipt) => receipt?.id && receipt?.tournamentId && receipt?.playerId).slice(-240)
+    : [];
+  return { ...EMPTY_ECONOMY, ...(economy || {}), itemSystemVersion: ITEM_SYSTEM_VERSION, tournamentRewardReceipts, secretRewards: { ...EMPTY_ECONOMY.secretRewards, ...(economy?.secretRewards || {}) }, inventory: legacy ? migrateItemInventory(rawInventory) : rawInventory, ownedTms: [...new Set(economy?.ownedTms || [])], creatorMode: { ...EMPTY_CREATOR_MODE, ...(economy?.creatorMode || {}), infiniteCoins: Boolean(economy?.creatorMode?.infiniteCoins) }, progress };
 };
 
 function openDatabase() {
@@ -388,6 +392,30 @@ export const webStore = {
       request.onsuccess = () => { const existing = request.result ? normalizeCapturedPokemon(request.result) : null; const previousLevel = existing?.level || 0; const maxLevel = Boolean(existing && existing.level >= MAX_POKEMON_LEVEL); const next = existing ? { ...existing, level: Math.min(MAX_POKEMON_LEVEL, existing.level + 1) } : normalizeCapturedPokemon(pokemon); store.put(next); transaction.result = { pokemon: next, duplicate: Boolean(existing), previousLevel, maxLevel }; };
       transaction.oncomplete = () => resolve(transaction.result); transaction.onerror = () => reject(transaction.error); request.onerror = () => reject(request.error);
     })); } catch (error) { console.error("Erro ao capturar Pokémon:", error); return null; }
+  },
+  async settleTournamentReward(reward) {
+    if (!reward?.id || !reward?.tournamentId || !reward?.playerId) return { rewarded: false, coins: 0, receipt: null };
+    try {
+      return await withDatabase((database) => new Promise((resolve, reject) => {
+        const transaction = database.transaction(PLAYER_STORE, "readwrite");
+        const store = transaction.objectStore(PLAYER_STORE);
+        const request = store.get(ECONOMY_KEY);
+        request.onsuccess = () => {
+          const economy = normalizeEconomy(request.result);
+          const settled = applyTournamentRewardReceipt(economy, reward);
+          if (settled.applied) store.put(settled.economy);
+          transaction.result = {
+            rewarded: settled.applied,
+            coins: settled.economy.coins,
+            inventory: settled.economy.inventory,
+            receipt: settled.receipt,
+          };
+        };
+        transaction.oncomplete = () => resolve(transaction.result || { rewarded: false, coins: 0, receipt: null });
+        transaction.onerror = () => reject(transaction.error);
+        request.onerror = () => reject(request.error);
+      }));
+    } catch (error) { console.error("Erro ao liquidar recompensa do campeonato:", error); return { rewarded: false, coins: 0, receipt: null }; }
   },
   async reserveWager(wagerId, amount) {
     const wager = Math.max(0, Math.floor(Number(amount) || 0));

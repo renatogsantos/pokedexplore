@@ -1,7 +1,11 @@
 export const TOURNAMENT_CONFIG = Object.freeze({
   playerCount: 4,
   codePrefix: "PKC",
-  rewards: Object.freeze({ semifinal: 10000, final: 25000 }),
+  rewards: Object.freeze({
+    semifinalist: Object.freeze({ coins: 45, rarityLabel: "COMUM ou RARO" }),
+    finalist: Object.freeze({ coins: 125, rarityLabel: "RARO ou ÉPICO" }),
+    champion: Object.freeze({ coins: 320, rarityLabel: "ÉPICO garantido · 8% LENDÁRIO" }),
+  }),
 });
 
 export const TOURNAMENT_STATUS = Object.freeze({
@@ -19,9 +23,18 @@ export const MATCH_STATUS = Object.freeze({
 });
 export const ROUND = Object.freeze({ SEMIFINAL: "SEMIFINAL", FINAL: "FINAL" });
 
+export const TOURNAMENT_PLACEMENT = Object.freeze({
+  SEMIFINALIST: "SEMIFINALIST",
+  FINALIST: "FINALIST",
+  CHAMPION: "CHAMPION",
+});
+
+export const getTournamentRewardTier = (placement) =>
+  TOURNAMENT_CONFIG.rewards[String(placement || "").toLowerCase()] || null;
+
 export const getTournamentReward = (round) =>
   round === ROUND.FINAL
-    ? TOURNAMENT_CONFIG.rewards.final
-    : TOURNAMENT_CONFIG.rewards.semifinal;
+    ? TOURNAMENT_CONFIG.rewards.champion.coins
+    : TOURNAMENT_CONFIG.rewards.finalist.coins;
 export const getTournamentRewardId = (tournamentId, matchId, playerId) =>
   `tournament:${tournamentId}:match:${matchId}:winner:${playerId}`;

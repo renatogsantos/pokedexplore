@@ -39,6 +39,7 @@ import { celebrateBadgeChampionship, celebrateBattleVictory } from "@/lib/celebr
 import { buildJourneyCpuTeam, getJourneyBattle, getJourneyNode } from "@/lib/journey";
 import TournamentPanel from "@/components/Tournament/TournamentPanel";
 import { ROUND, getTournamentReward } from "@/lib/tournament/config";
+import { resolveTournamentReward } from "@/lib/tournament/rewards";
 import { cancelTournament, completeTournamentMatch, createTournament, getPlayerActiveTournament, getTournament, joinTournament, leaveTournament, markTournamentMatchPlaying, startTournament, subscribeTournament } from "@/lib/tournament/service";
 import BadgeArtwork from "@/components/Badges/BadgeArtwork";
 import { getBadgeCpuTeam } from "@/lib/badges/cpu";
@@ -95,11 +96,13 @@ export default function BattlePage() {
   const battleSnapshot = useRef(null);
   const selectionTimingSnapshot = useRef(null);
   const autoSelectionSessions = useRef(new Set());
+  const processedTournamentResults = useRef(new Set());
   const [preparingTeam, setPreparingTeam] = useState(false);
   const [connection, setConnection] = useState("CONNECTING");
   const [profile, setProfile] = useState(null);
   const [tournament, setTournament] = useState(null);
   const [tournamentMatch, setTournamentMatch] = useState(null);
+  const [tournamentRewardReceipt, setTournamentRewardReceipt] = useState(null);
   const [tournamentCode, setTournamentCode] = useState("");
   const [tournamentBusy, setTournamentBusy] = useState(false);
   const [badgeChallenge, setBadgeChallenge] = useState(null);
@@ -137,12 +140,6 @@ export default function BattlePage() {
   useEffect(() => {
     void loadArenaBackgrounds();
   }, [loadArenaBackgrounds]);
-
-  useEffect(() => {
-    if (mode !== "tournament" || battle?.status !== "finished" || role !== "host" || !tournamentMatch) return;
-    const winnerId = battle.winner === "host" ? tournamentMatch.player1_id : tournamentMatch.player2_id;
-    void completeTournamentMatch(tournamentMatch.id, winnerId).then(setTournament).catch((error) => setNotice(error.message));
-  }, [battle?.status, battle?.winner, mode, role, tournamentMatch]);
 
   useEffect(() => {
     webStore.getData("Pokedex").then(setCollection);
@@ -405,14 +402,37 @@ export default function BattlePage() {
 
   useEffect(() => {
     if (mode !== "tournament" || battle?.status !== "finished" || battle.winner !== role || !tournamentMatch || !profile) return;
-    const rewardId = `tournament:${tournamentMatch.tournament_id}:match:${tournamentMatch.id}:winner:${profile.playerId}`;
-    void completeTournamentMatch(tournamentMatch.id, profile.playerId).then(async (updated) => {
-      setTournament(updated);
-      const reward = await awardVictory(rewardId, getTournamentReward(tournamentMatch.round));
-      if (reward.rewarded) setNotice(`${tournamentMatch.round === ROUND.FINAL ? "CAMPEÃO!" : "SEMIFINAL VENCIDA!"} +${getTournamentReward(tournamentMatch.round)} moedas`);
-      celebrateBattleVictory();
-    }).catch((error) => setNotice(error.message));
-  }, [battle?.status, battle?.winner, mode, profile, role, tournamentMatch, awardVictory]);
+    const resultKey = `${tournamentMatch.id}:${battle.matchId || battle.revision || "finished"}`;
+    if (processedTournamentResults.current.has(resultKey)) return;
+    processedTournamentResults.current.add(resultKey);
+    void completeTournamentMatch(tournamentMatch.id, profile.playerId)
+      .then((updated) => {
+        setTournament(updated);
+        celebrateBattleVictory();
+      })
+      .catch((error) => {
+        processedTournamentResults.current.delete(resultKey);
+        setNotice(error.message);
+      });
+  }, [battle?.matchId, battle?.revision, battle?.status, battle?.winner, mode, profile, role, tournamentMatch]);
+
+  useEffect(() => {
+    if (!tournament?.id || !profile?.playerId) return;
+    const reward = resolveTournamentReward(tournament, profile.playerId);
+    if (!reward) return;
+    let cancelled = false;
+    void webStore.settleTournamentReward(reward).then((result) => {
+      if (cancelled || !result?.receipt) return;
+      setTournamentRewardReceipt(result.receipt);
+      setInventory(result.inventory || {});
+      dispatch(actCoins(result.coins));
+      if (result.rewarded) {
+        const placement = result.receipt.placement === "CHAMPION" ? "CAMPEÃO" : result.receipt.placement === "FINALIST" ? "FINALISTA" : "PARTICIPAÇÃO";
+        setNotice(`${placement}! +${result.receipt.coins} moedas e ${result.receipt.rarity}.`);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [dispatch, profile?.playerId, tournament]);
 
   useEffect(() => {
     if (!tournament?.id || !["LOBBY", "SEMIFINALS", "FINAL"].includes(tournament.status)) return undefined;
@@ -1036,7 +1056,7 @@ export default function BattlePage() {
           </span>
         </header>
         {screen === "mode" && <ModeScreen onChoose={chooseMode} activeTournament={tournament} onResumeTournament={() => { setMode("tournament"); setScreen("tournament"); }} />}
-        {screen === "tournament" && <TournamentPanel tournament={tournament} profile={profile || {}} name={name} setName={setName} code={tournamentCode} setCode={setTournamentCode} notice={notice} busy={tournamentBusy} onCreate={createTournamentFlow} onJoin={joinTournamentFlow} onResetIdentity={resetTournamentIdentity} onStart={startTournamentFlow} onCancel={cancelTournamentFlow} onLeave={leaveTournamentFlow} onEnterMatch={enterTournamentMatch} onBack={() => setScreen("mode")} />}
+        {screen === "tournament" && <TournamentPanel tournament={tournament} profile={profile || {}} rewardReceipt={tournamentRewardReceipt} name={name} setName={setName} code={tournamentCode} setCode={setTournamentCode} notice={notice} busy={tournamentBusy} onCreate={createTournamentFlow} onJoin={joinTournamentFlow} onResetIdentity={resetTournamentIdentity} onStart={startTournamentFlow} onCancel={cancelTournamentFlow} onLeave={leaveTournamentFlow} onEnterMatch={enterTournamentMatch} onBack={() => setScreen("mode")} />}
         {screen === "friend" && (
           <FriendScreen
             name={name}

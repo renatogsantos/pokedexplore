@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import PlayerAvatar from "@/components/PlayerAvatar";
 import { ROUND, TOURNAMENT_CONFIG, TOURNAMENT_STATUS } from "@/lib/tournament/config";
 import { celebrateBattleVictory } from "@/lib/celebration";
+import { getItemDefinition, getRarityLabel } from "@/lib/items/catalog";
 
 const playerById = (tournament, id) => tournament?.tournament_players?.find((player) => player.player_id === id) || null;
 const playerName = (tournament, id) => playerById(tournament, id)?.display_name || "Aguardando";
@@ -29,7 +30,7 @@ function MatchCard({ tournament, match, playerId, onEnter, final = false, index 
   const playing = match?.status === "PLAYING";
   const one = playerById(tournament, match?.player1_id);
   const two = playerById(tournament, match?.player2_id);
-  const reward = final ? TOURNAMENT_CONFIG.rewards.final : TOURNAMENT_CONFIG.rewards.semifinal;
+  const reward = final ? TOURNAMENT_CONFIG.rewards.champion.coins : TOURNAMENT_CONFIG.rewards.finalist.coins;
   const label = mine && !finished ? final ? "SUA FINAL" : "SUA SEMIFINAL" : final ? "FINAL" : `SEMIFINAL ${index + 1}`;
   const enterLabel = final ? `Entrar na final contra ${playerName(tournament, match?.player1_id === playerId ? match?.player2_id : match?.player1_id)}` : `Entrar na semifinal contra ${playerName(tournament, match?.player1_id === playerId ? match?.player2_id : match?.player1_id)}`;
   return <article className={`arena-match ${final ? "is-final" : ""} ${mine && !finished ? "is-current" : ""} ${finished ? "is-finished" : ""} ${playing ? "is-playing" : ""}`}>
@@ -42,6 +43,33 @@ function MatchCard({ tournament, match, playerId, onEnter, final = false, index 
     <footer>{final ? <Crown size={16} weight="fill" aria-hidden="true" /> : <Trophy size={16} weight="fill" aria-hidden="true" />} +{reward}</footer>
     {mine && !finished && <button type="button" onClick={() => onEnter(match)} aria-label={enterLabel}><Play size={18} weight="fill" aria-hidden="true" /> {final ? "Entrar na final" : "Entrar na batalha"}</button>}
   </article>;
+}
+
+function TournamentRewardsPreview() {
+  const tiers = [
+    { key: "champion", label: "CAMPEÃO", icon: Crown },
+    { key: "finalist", label: "FINALISTA", icon: Trophy },
+    { key: "semifinalist", label: "PARTICIPAÇÃO", icon: Users },
+  ];
+  return <section className="tournament-prize-preview" aria-label="Prêmios do campeonato">
+    <span>PRÊMIOS</span>
+    <div>{tiers.map(({ key, label, icon: Icon }) => {
+      const tier = TOURNAMENT_CONFIG.rewards[key];
+      return <article key={key} className={`is-${key}`}><Icon size={17} weight="fill" aria-hidden="true" /><strong>{label}</strong><b>+{tier.coins}</b><small>{tier.rarityLabel}</small></article>;
+    })}</div>
+  </section>;
+}
+
+function TournamentRewardReceipt({ receipt }) {
+  if (!receipt) return null;
+  const item = getItemDefinition(receipt.itemId);
+  if (!item) return null;
+  const placement = receipt.placement === "CHAMPION" ? "CAMPEÃO" : receipt.placement === "FINALIST" ? "FINALISTA" : "PARTICIPAÇÃO";
+  return <section className={`tournament-reward-receipt is-${String(receipt.rarity || "").toLowerCase()}`} aria-live="polite">
+    <span>{placement}</span>
+    <strong>+{receipt.coins} MOEDAS</strong>
+    <div><img src={item.image} alt="" width="42" height="42" /><p><small>ITEM RECEBIDO · {getRarityLabel(item.rarity)}</small><b>{item.name}</b></p></div>
+  </section>;
 }
 
 function Champion({ champion, code, playerId }) {
@@ -75,7 +103,7 @@ function TournamentOptions({ canCancel, mine, status, busy, onCancel, onLeave })
   </section>;
 }
 
-export default function TournamentPanel({ tournament, profile = {}, name, setName, code, setCode, notice, busy, onCreate, onJoin, onResetIdentity, onStart, onCancel, onLeave, onEnterMatch, onBack }) {
+export default function TournamentPanel({ tournament, profile = {}, rewardReceipt = null, name, setName, code, setCode, notice, busy, onCreate, onJoin, onResetIdentity, onStart, onCancel, onLeave, onEnterMatch, onBack }) {
   const [confirmingStart, setConfirmingStart] = useState(false);
   const announcedChampion = useRef(null);
   const champion = (Array.isArray(tournament?.tournament_players) ? tournament.tournament_players : []).find((player) => player.status === "CHAMPION");
@@ -86,7 +114,7 @@ export default function TournamentPanel({ tournament, profile = {}, name, setNam
   }, [champion?.player_id, profile?.playerId]);
   if (!tournament) return <section className="battle-panel friend-panel tournament-panel">
     <span className="eyebrow">CAMPEONATO ONLINE</span><h2>Entre com seu treinador</h2><p>4 jogadores · 2 semifinais · 1 final</p>
-    <div className="tournament-rewards"><span><Trophy size={20} weight="fill" aria-hidden="true" /> Semifinal <b>+{TOURNAMENT_CONFIG.rewards.semifinal}</b></span><span><Crown size={20} weight="fill" aria-hidden="true" /> Final <b>+{TOURNAMENT_CONFIG.rewards.final}</b></span></div>
+    <TournamentRewardsPreview />
     <label>Seu nome<input maxLength="18" value={name} onChange={(event) => setName(event.target.value)} placeholder="Ex.: Renato" /></label>
     <div className="friend-actions tournament-entry"><button type="button" onClick={onCreate} disabled={busy}><LinkSimple size={24} aria-hidden="true" /> Criar campeonato</button><div><label>Código do campeonato<span className="room-code-input"><b aria-hidden="true">PKC-</b><input value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 4))} inputMode="numeric" maxLength="4" placeholder="1234" aria-label="Quatro números do código do campeonato" /></span></label><button type="button" onClick={onJoin} disabled={busy}>Entrar</button></div></div>
     {process.env.NODE_ENV !== "production" && <button type="button" className="tournament-back" onClick={onResetIdentity}>Gerar nova identidade local</button>}{notice && <p className="setup-notice" role="status">{notice}</p>}<button type="button" className="tournament-back" onClick={onBack}>Voltar</button>
@@ -101,6 +129,7 @@ export default function TournamentPanel({ tournament, profile = {}, name, setNam
     {[TOURNAMENT_STATUS.SEMIFINALS, TOURNAMENT_STATUS.FINAL, TOURNAMENT_STATUS.FINISHED].includes(tournament.status) && <TournamentBracket tournament={tournament} playerId={profile.playerId} onEnterMatch={onEnterMatch} />}
     {mine?.status === "ELIMINATED" && <p className="tournament-status"><WarningCircle size={18} aria-hidden="true" /> Eliminado. Acompanhe o desfecho da chave.</p>}
     {tournament.status === TOURNAMENT_STATUS.CANCELLED && <p className="tournament-status"><XCircle size={18} aria-hidden="true" /> {tournament.cancellation_reason === "INACTIVITY" ? "Campeonato encerrado por inatividade." : "Campeonato cancelado pelo organizador."}</p>}
+    <TournamentRewardReceipt receipt={rewardReceipt} />
     <TournamentOptions canCancel={canCancel} mine={mine} status={tournament.status} busy={busy} onCancel={onCancel} onLeave={onLeave} />
     {notice && <p className="setup-notice" role="status">{notice}</p>}<button type="button" className="tournament-back" onClick={onBack}>Voltar ao hub</button>
   </section>;
