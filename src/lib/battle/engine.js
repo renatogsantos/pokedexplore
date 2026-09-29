@@ -1301,6 +1301,7 @@ export function createBattleState(host, guest, firstTurn) {
     );
     return {
       ...player,
+      privateBag: Boolean(player.privateBag),
       active: 0,
       bag,
       initialBag: { ...bag },
@@ -1352,7 +1353,7 @@ function resolveBagAction(state, next, actor, enemy, action) {
     !definition ||
     definition.usageType !== "BAG" ||
     !target ||
-    !quantity ||
+    (!next[actor].privateBag && !quantity) ||
     target.hp <= 0
   )
     return state;
@@ -1381,7 +1382,10 @@ function resolveBagAction(state, next, actor, enemy, action) {
     total: usage.totalUsed + 1,
     byItem: { ...(target.bagUsage?.byItem || {}), [itemId]: usage.itemUsed + 1 },
   };
-  next[actor].bag[itemId] = quantity - 1;
+  // A PvP participant's persistent Bag is intentionally private. The host
+  // validates shared battle rules and the actor validates local stock before
+  // sending intent; only public/CPU inventories live in battle state.
+  if (!next[actor].privateBag) next[actor].bag[itemId] = quantity - 1;
   next[actor].potionsRemaining = next[actor].bag["vital-potion"] || 0;
   next.turn = enemy;
   next.log = `${definition.name} usado em ${target.name}!`;
@@ -1397,7 +1401,7 @@ function resolveBagAction(state, next, actor, enemy, action) {
     targetIndex,
     healing,
     curedStatus,
-    remaining: next[actor].bag[itemId],
+    remaining: next[actor].privateBag ? null : next[actor].bag[itemId],
     itemUsageCount: usage.itemUsed + 1,
     itemUsageLimit: usage.itemLimit,
     totalBagUsageCount: usage.totalUsed + 1,

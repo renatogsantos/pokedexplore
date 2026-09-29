@@ -275,6 +275,35 @@ test("Fruto Vital and Nucleo de Cura trigger only after qualifying received dama
   assert.equal(resolvePostDamageHeldItem(core).effect.amount, 50);
 });
 
+test("private PvP Bags do not share stock yet accept a legal guest item intent", () => {
+  const state = createBattleState(
+    { id: "h", name: "Host", privateBag: true, inventory: {}, team: [pokemon(1), pokemon(2), pokemon(3)] },
+    { id: "g", name: "Guest", privateBag: true, inventory: {}, team: [pokemon(4, null, 20), pokemon(5), pokemon(6)] },
+    "guest",
+  );
+  const next = resolveAction(state, "guest", { type: "item", itemId: "vital-potion", targetPokemonId: 4, actionId: "guest-potion" });
+  assert.equal(next.guest.team[0].hp, 60);
+  assert.equal(next.guest.privateBag, true);
+  assert.equal(next.guest.bag["vital-potion"], 0);
+  assert.equal(next.effect.remaining, null);
+  assert.equal(next.effect.eventId, "guest-potion");
+});
+
+test("private Bags preserve independent per-battle limits for either PvP side", () => {
+  for (const actor of ["host", "guest"]) {
+    const state = createBattleState(
+      { id: "challenger", name: "Challenger", privateBag: true, inventory: {}, team: [pokemon(1, null, 20), pokemon(2), pokemon(3)] },
+      { id: "defender", name: "Defender", privateBag: true, inventory: {}, team: [pokemon(4, null, 20), pokemon(5), pokemon(6)] },
+      actor,
+    );
+    const targetPokemonId = actor === "host" ? 1 : 4;
+    const next = resolveAction(state, actor, { type: "item", itemId: "vital-potion", targetPokemonId, actionId: `${actor}-badge-item` });
+    assert.equal(next.effect.actor, actor);
+    assert.equal(next[actor].team[0].bagUsage.total, 1);
+    assert.equal(next[actor === "host" ? "guest" : "host"].team[0].bagUsage.total, 0);
+  }
+});
+
 test("Bag item limits and the five-use budget are authoritative per Pokemon", () => {
   let state = makeState();
   state.host.team[0].hp = 10;

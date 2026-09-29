@@ -48,7 +48,6 @@ import { acceptBadgeChallenge, getBadgeChallenge, getCompetitiveStatus, hasBadge
 import { getBadgeTeamErrorMessage, validateBadgeTeam } from "@/lib/badges/rules";
 import { preloadBattlePokemonSprites } from "@/lib/pokemon/sprites";
 import { validateHeldItemAssignments } from "@/lib/economy/heldItems";
-import { BAG_ITEM_CATALOG } from "@/lib/items/catalog";
 import { getItemConsumptionEvents } from "@/lib/battle/itemConsumption";
 import "./style.scss";
 
@@ -76,6 +75,7 @@ export default function BattlePage() {
   const [screen, setScreen] = useState("mode");
   const [collection, setCollection] = useState([]);
   const [inventory, setInventory] = useState({});
+  const [inventoryStatus, setInventoryStatus] = useState("loading");
   const [selected, setSelected] = useState([]);
   const [mode, setMode] = useState(null);
   const [cpuDifficulty, setCpuDifficulty] = useState("medium");
@@ -143,7 +143,12 @@ export default function BattlePage() {
 
   useEffect(() => {
     webStore.getData("Pokedex").then(setCollection);
-    webStore.getEconomy().then((economy) => setInventory(economy.inventory || {}));
+    webStore.getEconomy()
+      .then((economy) => {
+        setInventory(economy.inventory || {});
+        setInventoryStatus("ready");
+      })
+      .catch(() => setInventoryStatus("error"));
     webStore.getLocalPlayerProfile().then((savedProfile) => { setProfile(savedProfile); setName((currentName) => currentName === "Treinador" ? savedProfile.displayName : currentName); void getPlayerActiveTournament(savedProfile.playerId).then(setTournament).catch(() => {}); });
     return () => {
       realtime.current?.leave();
@@ -276,9 +281,14 @@ export default function BattlePage() {
         }
       }
       const backgrounds = await loadArenaBackgrounds();
+      // Persistent Bag stock is private IndexedDB data. Realtime state carries
+      // only shared battle legality/results; each client overlays its own stock.
+      // In particular, a host must never use its local inventory to validate a
+      // guest action or depend on a guest inventory snapshot arriving in READY.
+      const privateBagInventory = ["friend", "tournament", "badge-pvp"].includes(mode);
       const next = createBattleState(
-        { ...host, inventory: Object.fromEntries(BAG_ITEM_CATALOG.map((item) => [item.id, inventory[item.id] || 0])), team: hostTeam.map(toBattlePokemon) },
-        { ...guest, inventory: guest.inventory || {}, team: guestTeam.map(toBattlePokemon) },
+        { ...host, inventory: privateBagInventory ? {} : inventory, privateBag: privateBagInventory, team: hostTeam.map(toBattlePokemon) },
+        { ...guest, inventory: privateBagInventory ? {} : (guest.inventory || {}), privateBag: privateBagInventory, team: guestTeam.map(toBattlePokemon) },
       );
       next.matchId = makeMatchId();
       if (mode === "friend" && wager?.status === "LOCKED") next.wager = wager;
@@ -753,7 +763,9 @@ export default function BattlePage() {
     }
     const currentInventory = currentEconomy.inventory || {};
     const battleTeam = currentTeam.map(toBattlePokemon);
-    const teamPayload = { player: { ...player, inventory: Object.fromEntries(BAG_ITEM_CATALOG.map((item) => [item.id, currentInventory[item.id] || 0])) }, team: battleTeam };
+    // Never publish Bag quantities: the other client owns neither this local
+    // IndexedDB record nor the right to inspect it.
+    const teamPayload = { player: { ...player }, team: battleTeam };
     try {
       // Update Presence so the opponent sees our ready state immediately
       await realtime.current.updatePresence({ ready: true, team: battleTeam });
@@ -954,6 +966,21 @@ export default function BattlePage() {
     catch (error) { setNotice(error.message); setScreen("tournament"); }
   }
   function sendAction(action) {
+    const localBagIsPrivate = ["friend", "tournament", "badge-pvp"].includes(mode);
+    if (action.type === "item" && localBagIsPrivate) {
+      if (inventoryStatus === "loading") {
+        setNotice("Carregando itens da mochila...");
+        return;
+      }
+      if (inventoryStatus === "error") {
+        setNotice("NÃ£o foi possÃ­vel carregar os itens da mochila.");
+        return;
+      }
+      if (!(Number(inventory[action.itemId]) > 0)) {
+        setNotice("Sem itens na mochila.");
+        return;
+      }
+    }
     const resolveAndPersist = (current, actor) => {
       const next = appendBattleAudioEvents(current, resolveAction(current, actor, action), { mode });
       persistBattleConsumables(next, role);
@@ -1108,6 +1135,8 @@ export default function BattlePage() {
             state={battle}
             role={role}
             mode={mode}
+            inventory={inventory}
+            inventoryStatus={inventoryStatus}
             onAction={sendAction}
             onRematch={rematch}
             tournamentContext={mode === "tournament" && tournamentMatch ? { round: tournamentMatch.round, reward: getTournamentReward(tournamentMatch.round) } : null}

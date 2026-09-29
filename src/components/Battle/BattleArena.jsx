@@ -1121,6 +1121,8 @@ export default function BattleArena({
   state,
   role,
   mode,
+  inventory = {},
+  inventoryStatus = "ready",
   onAction,
   onRematch,
   tournamentContext = null,
@@ -1142,11 +1144,29 @@ export default function BattleArena({
       .find((event) => event.type !== "STATUS_ATTEMPTED") || null;
   const active = me.team[me.active];
   const enemy = opponent.team[opponent.active];
-  const bag = me.bag || {};
+  // PvP battle state deliberately excludes both players' persistent Bag
+  // quantities. Render the owning browser's hydrated IndexedDB inventory
+  // instead; CPU state continues to use the public engine bag.
+  const bag = me.privateBag ? inventory : (me.bag || {});
+  const inventoryLoading = me.privateBag && inventoryStatus === "loading";
+  const inventoryError = me.privateBag && inventoryStatus === "error";
   const itemCount = Object.values(bag).reduce(
     (total, amount) => total + amount,
     0,
   );
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
+    console.info("[Battle Items]", {
+      localPlayerId: me.id,
+      localSide: role,
+      hostPlayerId: state.host?.id,
+      guestPlayerId: state.guest?.id,
+      inventoryStatus,
+      inventoryItemCount: Object.values(bag).reduce((total, amount) => total + Number(amount || 0), 0),
+      availableBagItems: Object.entries(bag).filter(([, amount]) => Number(amount) > 0).map(([itemId]) => itemId),
+      battleUsage: active?.bagUsage,
+    });
+  }, [active?.bagUsage, bag, inventoryStatus, me.id, role, state.guest?.id, state.host?.id]);
   const activeMatchup = getPokemonMatchup(active, enemy);
   const elapsed = useBattleElapsed(
     state.performance?.startedAt,
@@ -1467,7 +1487,7 @@ export default function BattleArena({
               role="tabpanel"
               aria-label="Itens de batalha"
             >
-              {selectedItem ? (
+              {inventoryLoading ? <p className="battle-items-state" role="status">Carregando itens...</p> : inventoryError ? <p className="battle-items-state is-error" role="alert">NÃ£o foi possÃ­vel carregar os itens da mochila.</p> : selectedItem ? (
                 <>
                   {(() => {
                     const definition = getItemDefinition(selectedItem);
