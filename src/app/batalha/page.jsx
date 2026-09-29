@@ -1058,6 +1058,7 @@ export default function BattlePage() {
   return (
     <main
       className="battle-page"
+      data-battle-context={screen === "battle" && battle ? "active" : undefined}
       style={
         battle?.arenaBackground
           ? { "--battle-background": `url("${battle.arenaBackground}")` }

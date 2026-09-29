@@ -4,6 +4,7 @@ export const BATTLE_ITEM_SOUND = Object.freeze({
   BAG_ITEM_USED: "power-up",
   HELD_ITEM_CONSUMED: "item-consumed",
 });
+export const UI_SOUND = Object.freeze({ CLICK: "click" });
 
 export const BATTLE_EVENT_SOUND = Object.freeze({
   START_BATTLE: "start-battle",
@@ -197,4 +198,11 @@ export function playBattleSound(name, volume = 0.55) {
   } catch {
     // Audio is presentation only; an unavailable asset must not affect battle.
   }
+}
+
+// UI feedback intentionally shares the application's only audio cache and
+// playback path with battle SFX. This keeps future mute/volume preferences in
+// one place instead of creating a competing audio manager.
+export function playUiSound(name = UI_SOUND.CLICK) {
+  playBattleSound(name, 0.35);
 }
