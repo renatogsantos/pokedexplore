@@ -6,6 +6,7 @@ export const BATTLE_ITEM_SOUND = Object.freeze({
 });
 
 export const BATTLE_EVENT_SOUND = Object.freeze({
+  START_BATTLE: "start-battle",
   FINISH_HIM: "finish-him",
   BRUTALITY: "brutality",
   VICTORY: "win",
@@ -114,6 +115,7 @@ export function appendBattleAudioEvents(previous, next, { mode } = {}) {
   const knownIds = new Set(existing.map((event) => event?.id));
   const additions = [];
   if (next.status === "playing" && previous?.status !== "playing") {
+    additions.push({ id: "battle-start", sound: BATTLE_EVENT_SOUND.START_BATTLE });
     const sound = getBadgeRoundSound(mode, next.seriesBattleNumber);
     if (sound) additions.push({ id: `badge-round:${next.seriesBattleNumber}`, sound });
   }

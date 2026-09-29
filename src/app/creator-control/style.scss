@@ -197,11 +197,15 @@
 .creator-shared-warning strong { display: block; }
 .creator-shared-warning p { margin: 3px 0 0; color: #aad6c2; font-size: .76rem; }
 .creator-badge-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
-.creator-badge-grid article { min-width: 0; display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 9px; align-items: center; padding: 11px; border: 1px solid color-mix(in srgb, var(--badge-color) 38%, #29445f); border-radius: 12px; background: linear-gradient(145deg, color-mix(in srgb, var(--badge-color) 10%, #0b192b), #07111f); }
-.creator-badge-grid article > :first-child { width: 66px; height: 66px; object-fit: contain; }
+.creator-badge-grid article { min-width: 0; max-width: 100%; box-sizing: border-box; overflow: hidden; display: grid; grid-template-columns: clamp(48px, 5vw, 66px) minmax(0, 1fr); gap: 9px; align-items: center; padding: 11px; border: 1px solid color-mix(in srgb, var(--badge-color) 38%, #29445f); border-radius: 12px; background: linear-gradient(145deg, color-mix(in srgb, var(--badge-color) 10%, #0b192b), #07111f); }
+/* The public badge artwork is intentionally decorative and large. Creator
+   Control uses this bounded thumbnail variant so assets never escape a card. */
+.creator-badge-grid .competitive-badge-artwork--compact { position: relative; display: grid; width: clamp(48px, 5vw, 66px); height: clamp(48px, 5vw, 66px); min-width: 0; max-width: 100%; place-items: center; overflow: hidden; aspect-ratio: 1; filter: drop-shadow(0 5px 7px #0008); }
+.creator-badge-grid .competitive-badge-artwork--compact::before { inset: 10%; }
+.creator-badge-grid .competitive-badge-artwork--compact img { display: block; width: 100%; height: 100%; max-width: 100%; max-height: 100%; object-fit: contain; object-position: center; }
 .creator-badge-grid article div { min-width: 0; display: grid; }
 .creator-badge-grid span { color: var(--badge-color); font: 800 .54rem/1.2 ui-monospace, SFMono-Regular, Consolas, monospace; text-transform: uppercase; }
-.creator-badge-grid h3 { overflow: hidden; margin: 2px 0; font-size: .75rem; text-overflow: ellipsis; white-space: nowrap; }
+.creator-badge-grid h3 { display: -webkit-box; overflow: hidden; margin: 2px 0; font-size: .75rem; line-height: 1.18; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .creator-badge-grid p { overflow: hidden; margin: 0; color: #bfcede; font-size: .66rem; text-overflow: ellipsis; white-space: nowrap; }
 .creator-badge-grid small { color: #8098af; font-size: .56rem; }
 .creator-badge-grid em { width: fit-content; margin-top: 4px; padding: 3px 6px; border-radius: 99px; background: #ffd34e22; color: #ffe48d; font-size: .52rem; font-style: normal; font-weight: 800; }
@@ -305,8 +309,8 @@
   .creator-coins-form { grid-template-columns: 1fr; }
   .creator-coins-form input { grid-column: auto; }
   .creator-item-card dl { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .creator-badge-grid article { grid-template-columns: 62px minmax(0, 1fr); }
-  .creator-badge-grid article > :first-child { width: 56px; height: 56px; }
+  .creator-badge-grid article { grid-template-columns: 56px minmax(0, 1fr); }
+  .creator-badge-grid .competitive-badge-artwork--compact { width: 56px; height: 56px; }
   .creator-danger-zone > div .creator-button { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) {

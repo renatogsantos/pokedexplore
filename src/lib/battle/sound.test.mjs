@@ -88,5 +88,17 @@ test("badge round sounds use the authoritative series battle number only", () =>
   assert.equal(getBadgeRoundSound("friend", 2), null);
   assert.equal(getBadgeRoundSound("tournament", 3), null);
   const start = appendBattleAudioEvents(battleState({ status: "countdown", seriesBattleNumber: 3 }), battleState({ status: "playing", seriesBattleNumber: 3 }), { mode: "badge-pvp" });
-  assert.deepEqual(start.audioEvents, [{ id: "badge-round:3", sound: BATTLE_EVENT_SOUND.FINAL_ROUND }]);
+  assert.deepEqual(start.audioEvents, [
+    { id: "battle-start", sound: BATTLE_EVENT_SOUND.START_BATTLE },
+    { id: "badge-round:3", sound: BATTLE_EVENT_SOUND.FINAL_ROUND },
+  ]);
+});
+
+test("every playable battle start emits one shared start-battle event", () => {
+  const start = appendBattleAudioEvents(
+    battleState({ status: "countdown" }),
+    battleState({ status: "playing" }),
+    { mode: "friend" },
+  );
+  assert.deepEqual(start.audioEvents, [{ id: "battle-start", sound: BATTLE_EVENT_SOUND.START_BATTLE }]);
 });
