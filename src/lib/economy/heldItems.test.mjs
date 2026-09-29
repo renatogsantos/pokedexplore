@@ -5,7 +5,7 @@ import { readFile } from "node:fs/promises";
 const catalogSource = await readFile(new URL("../items/catalog.js", import.meta.url), "utf8");
 globalThis.__itemCatalog = await import(`data:text/javascript;base64,${Buffer.from(catalogSource).toString("base64")}`);
 const source = (await readFile(new URL("./heldItems.js", import.meta.url), "utf8")).replace('import { HELD_ITEM_CATALOG, getItemDefinition, migrateLegacyItemId } from "@/lib/items/catalog";', "const { HELD_ITEM_CATALOG, getItemDefinition, migrateLegacyItemId } = globalThis.__itemCatalog;");
-const { getHeldItemStock, normalizePokemonHeldItem, planHeldItemChange, validateHeldItemAssignments } = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
+const { EQUIPMENT_SLOT, canEquipElementalRelic, getEquipableItemsForSlot, getHeldItemStock, getPokemonTypes, normalizePokemonHeldItem, planHeldItemChange, validateHeldItemAssignments } = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
 const pokemon = (id, heldItem = null) => ({ id, name: `pokemon-${id}`, heldItem });
 const economy = (inventory) => ({ inventory });
 
@@ -35,4 +35,15 @@ test("Bag items cannot be equipped and legacy held fields migrate", () => {
 test("assignment audit reports over-reserved item ids", () => {
   const invalid = validateHeldItemAssignments({ economy: economy({ "fruit-vital": 1 }), collection: [pokemon(25, "fruit-vital"), pokemon(6, "fruit-vital")] });
   assert.deepEqual(invalid.map((item) => item.itemId), ["fruit-vital"]);
+});
+
+test("elemental relics match canonical, API and legacy Pokemon type shapes", () => {
+  assert.deepEqual(getPokemonTypes({ types: [], type: "water" }), ["water"]);
+  assert.deepEqual(getPokemonTypes({ types: [{ type: { name: "grass" } }, { type: { name: "poison" } }] }), ["grass", "poison"]);
+  assert.equal(canEquipElementalRelic({ types: [], type: "water" }, "perola-abissal").allowed, true);
+  assert.equal(canEquipElementalRelic({ types: ["grass", "poison"] }, "presa-toxica").allowed, true);
+  assert.equal(canEquipElementalRelic({ types: ["grass", "poison"] }, "brasa-primordial").allowed, false);
+  const relics = getEquipableItemsForSlot({ pokemon: { types: [], type: "water" }, slot: EQUIPMENT_SLOT.ELEMENTAL_RELIC });
+  assert.deepEqual(relics.map((item) => item.id), ["perola-abissal"]);
+  assert.equal(getEquipableItemsForSlot({ pokemon: { type: "water" }, slot: EQUIPMENT_SLOT.STRATEGIC }).some((item) => item.id === "perola-abissal"), false);
 });
