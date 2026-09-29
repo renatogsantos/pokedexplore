@@ -276,16 +276,13 @@ function Fighter({
   );
 }
 
-function TeamStrip({ player, label }) {
+function TeamStrip({ player, label, side }) {
   const remaining = player.team.filter((pokemon) => pokemon.hp > 0).length;
   return (
     <div
-      className="team-strip"
+      className={`team-strip team-strip--${side}`}
       aria-label={`${label}: ${remaining} Pokémon disponíveis`}
     >
-      <span>
-        {label} · {remaining}/3
-      </span>
       <div>
         {player.team.map((pokemon, index) => (
           <div
@@ -1225,8 +1222,9 @@ export default function BattleArena({
           <TeamStrip
             player={opponent}
             label={opponent.name === "CPU" ? "CPU" : opponent.name}
+            side="opponent"
           />
-          <TeamStrip player={me} label="VOCÊ" />
+          <TeamStrip player={me} label="VOCÊ" side="player" />
         </div>
         <div className="arena-stage">
           <Fighter
@@ -1402,7 +1400,7 @@ export default function BattleArena({
                     aria-label={`${move.name}. ${preview.blocked ? "Nao atinge" : `${preview.minDamage}${preview.maxDamage !== preview.minDamage ? ` a ${preview.maxDamage}` : ""} de dano. ${effectiveness}`}${move.special ? (exhausted ? " Especial esgotado." : ` Especial, ${uses} de ${MAX_SPECIAL_ATTACK_USES} usos.`) : ""}${move.role === "FAST" ? " Gera 1 Impulso." : move.role === "TECHNICAL" ? ` Usa ${active.momentum || 0} de ${MOMENTUM_CONFIG.MAX} Impulso.` : ""}${decision.makesContact ? " Golpe de contato." : ""}${decision.warnings.map((warning) => ` ${warning.ability?.namePtBr || warning.detail}. ${warning.detail}`).join("")}${moveStatus ? `. ${moveStatusChance}% de chance de causar ${moveStatus.eventName}` : ""}.`}
                   >
                     <span className="attack-icon">
-                      <PokemonTypeIcon type={attackType} size={25} decorative />
+                      <PokemonTypeIcon type={attackType} size={22} decorative />
                     </span>
                     <span className="attack-copy">
                       <span className="move-card-header"><strong>{move.name}</strong></span>
@@ -1411,12 +1409,10 @@ export default function BattleArena({
                           <><span className="damage-value">{preview.minDamage}{preview.maxDamage !== preview.minDamage ? `\u2013${preview.maxDamage}` : ""}</span><span className="damage-label">DANO</span><span className="move-effectiveness">{effectiveness}{strategistDetail}</span></>
                         )}
                       </span>
-                      {(move.special || move.role === "FAST" || move.role === "TECHNICAL") && <span className="move-resource-row">
+                      {(move.special || move.role === "FAST" || move.role === "TECHNICAL" || moveStatus || ((decision.makesContact || decision.contactRelevant) && !decision.contactRisk)) && <span className="move-tactical-row">
                         {move.special && <small className="special-meta">{exhausted ? "ESGOTADO" : `ESPECIAL · ${uses}/${MAX_SPECIAL_ATTACK_USES}`}</small>}
                         {!move.special && move.role === "FAST" && <small className="momentum-move"><Lightning size={11} weight="fill" aria-hidden="true" /> +1 IMPULSO</small>}
                         {!move.special && move.role === "TECHNICAL" && <small className="momentum-move"><Lightning size={11} weight="fill" aria-hidden="true" /> {active.momentum ? `+${active.momentum * 10}% IMPULSO` : `IMPULSO 0/${MOMENTUM_CONFIG.MAX}`}</small>}
-                      </span>}
-                      {(moveStatus || ((decision.makesContact || decision.contactRelevant) && !decision.contactRisk)) && <span className="move-secondary-row">
                         {moveStatus && <small className={`move-status-hint is-${moveStatus.id}`}><StatusIcon status={moveStatus.id} size={11} aria-hidden="true" /> <span>{moveStatusChance}% {moveStatus.eventName}</span></small>}
                         {(decision.makesContact || decision.contactRelevant) && !decision.contactRisk && <span className="move-contact-hint">{decision.makesContact ? "CONTATO" : "SEM CONTATO"}</span>}
                       </span>}
