@@ -14,6 +14,7 @@ import { getTypeLabel } from "@/lib/localization/ptBR";
 import { getBadgeTeamErrorMessage, validateBadgeTeam } from "@/lib/badges/rules";
 import { getItemDefinition } from "@/lib/items/catalog";
 import { getSelectionTimerState } from "@/lib/battle/selectionTimer";
+import { EQUIPMENT_SLOT, getPokemonElementalRelic, getPokemonStrategicItem } from "@/lib/economy/heldItems";
 
 function HeldItemBadge({ item, compact = false }) {
   if (!item) return compact ? null : <span className="battle-held-item empty">SEM ITEM</span>;
