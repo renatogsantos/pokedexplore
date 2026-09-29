@@ -31,6 +31,7 @@ export function getItemConsumptionEvents(state, localRole) {
       ownerPlayerId,
       itemId: item.itemId,
       pokemonInstanceId: item.pokemonId,
+      equipmentSlot: item.equipmentSlot || "STRATEGIC",
       eventId,
       consumptionId: `${state.matchId}:held:${localRole}:${item.pokemonId}:${item.itemId}:${eventId}`,
     });

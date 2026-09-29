@@ -5,7 +5,7 @@ import { readFile } from "node:fs/promises";
 const catalogSource = await readFile(new URL("../items/catalog.js", import.meta.url), "utf8");
 globalThis.__itemCatalog = await import(`data:text/javascript;base64,${Buffer.from(catalogSource).toString("base64")}`);
 const source = (await readFile(new URL("./heldItems.js", import.meta.url), "utf8")).replace('import { HELD_ITEM_CATALOG, getItemDefinition, migrateLegacyItemId } from "@/lib/items/catalog";', "const { HELD_ITEM_CATALOG, getItemDefinition, migrateLegacyItemId } = globalThis.__itemCatalog;");
-const { EQUIPMENT_SLOT, canEquipElementalRelic, getEquipableItemsForSlot, getHeldItemStock, getPokemonTypes, normalizePokemonHeldItem, planHeldItemChange, validateHeldItemAssignments } = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
+const { EQUIPMENT_SLOT, canEquipElementalRelic, getEquipableItemsForSlot, getEquipmentInventoryState, getHeldItemStock, getPokemonTypes, normalizePokemonEquipment, normalizePokemonHeldItem, planHeldItemChange, validateHeldItemAssignments } = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
 const pokemon = (id, heldItem = null) => ({ id, name: `pokemon-${id}`, heldItem });
 const economy = (inventory) => ({ inventory });
 
@@ -47,4 +47,32 @@ test("elemental relics match canonical, API and legacy Pokemon type shapes", () 
   const relics = getEquipableItemsForSlot({ pokemon: { types: [], type: "water" }, slot: EQUIPMENT_SLOT.ELEMENTAL_RELIC });
   assert.deepEqual(relics.map((item) => item.id), ["perola-abissal"]);
   assert.equal(getEquipableItemsForSlot({ pokemon: { type: "water" }, slot: EQUIPMENT_SLOT.STRATEGIC }).some((item) => item.id === "perola-abissal"), false);
+});
+
+test("catalog keeps the three item concepts and all eighteen elemental types", () => {
+  const items = globalThis.__itemCatalog.ITEM_CATALOG;
+  const relics = items.filter((item) => item.equipmentSlot === EQUIPMENT_SLOT.ELEMENTAL_RELIC);
+  assert.equal(relics.length, 18);
+  assert.equal(new Set(relics.map((item) => item.elementalType)).size, 18);
+  assert.ok(items.some((item) => item.usageType === "BAG"));
+  assert.ok(items.some((item) => item.usageType === "HELD" && item.equipmentSlot === EQUIPMENT_SLOT.STRATEGIC));
+  assert.ok(relics.every((item) => item.usageType === "HELD" && item.consumable === false && item.effectType === "ELEMENTAL_RELIC"));
+});
+
+test("relic inventory keeps the current assignment visible without duplicating it", () => {
+  const collection = [{ id: 1, types: ["grass", "poison"], elementalRelic: "semente-ancestral" }, { id: 2, types: ["grass"], elementalRelic: null }];
+  const current = getEquipmentInventoryState({ economy: economy({ "semente-ancestral": 1 }), collection, pokemonId: 1, itemId: "semente-ancestral" });
+  const other = getEquipmentInventoryState({ economy: economy({ "semente-ancestral": 1 }), collection, pokemonId: 2, itemId: "semente-ancestral" });
+  assert.equal(current.state, "CURRENTLY_EQUIPPED");
+  assert.equal(current.available, 0);
+  assert.equal(other.state, "ALL_RESERVED");
+  assert.equal(other.available, 0);
+});
+
+test("legacy relic ids migrate to the relic slot while strategic equipment stays independent", () => {
+  assert.deepEqual(normalizePokemonEquipment({ heldItem: "semente-ancestral", strategicItem: "fruit-vital" }), { strategicItem: "fruit-vital", elementalRelic: "semente-ancestral" });
+  const changed = planHeldItemChange({ pokemonId: 1, requestedItem: "presa-toxica", slot: EQUIPMENT_SLOT.ELEMENTAL_RELIC, economy: economy({ "semente-ancestral": 1, "presa-toxica": 1 }), collection: [{ id: 1, types: ["grass", "poison"], strategicItem: "fruit-vital", elementalRelic: "semente-ancestral" }] });
+  assert.equal(changed.ok, true);
+  assert.equal(changed.pokemon.strategicItem, "fruit-vital");
+  assert.equal(changed.pokemon.elementalRelic, "presa-toxica");
 });

@@ -554,12 +554,14 @@ export const webStore = {
           const pokemon = collection.find((entry) => String(entry.id) === String(pokemonId));
           if (!pokemon) { transaction.result = { ok: false, reason: "pokemon-not-found", economy }; return; }
           if (consumptionId && economy.consumedItemActionIds?.includes(consumptionId)) { transaction.result = { ok: true, duplicate: true, economy, pokemon }; return; }
-          if (pokemon.heldItem !== heldItem) { transaction.result = { ok: false, reason: "not-equipped", economy, pokemon }; return; }
+          if ((pokemon.strategicItem || pokemon.heldItem) !== inventoryId) { transaction.result = { ok: false, reason: "not-equipped", economy, pokemon }; return; }
           const inventory = { ...economy.inventory };
           inventory[inventoryId] = Math.max(0, (inventory[inventoryId] || 0) - 1);
           if (!inventory[inventoryId]) delete inventory[inventoryId];
           const nextEconomy = { ...economy, inventory, consumedItemActionIds: consumptionId ? [...(economy.consumedItemActionIds || []), consumptionId].slice(-100) : economy.consumedItemActionIds };
-          const nextPokemon = { ...pokemon, heldItem: null };
+          // A consumed automatic item is always strategic.  Keep the relic
+          // reference intact so a later normalization cannot resurrect the item.
+          const nextPokemon = { ...pokemon, strategicItem: null, heldItem: null };
           pokedexStore.put(nextPokemon);
           playerStore.put(nextEconomy);
           transaction.result = { ok: true, economy: nextEconomy, pokemon: nextPokemon };
@@ -579,7 +581,7 @@ export const webStore = {
     const definition = getItemDefinition(event.itemId);
     if (!definition?.consumable || definition.usageType !== event.usageType)
       return { ok: false, reason: "invalid-consumption" };
-    if (event.usageType === "HELD")
+    if (event.usageType === "HELD" && (!event.equipmentSlot || event.equipmentSlot === "STRATEGIC"))
       return this.consumeHeldItem(event.pokemonInstanceId, event.itemId, event.consumptionId);
     if (event.usageType === "BAG")
       return this.consumeInventory({ [event.itemId]: 1 }, event.consumptionId);

@@ -221,6 +221,12 @@ function Fighter({
             </span>
           </span>
         )}
+        {pokemon.elementalRelic && (
+          <span className="held-item-indicator" title={`Relíquia · ${getItemLabel(pokemon.elementalRelic)}`}>
+            <ItemSprite item={pokemon.elementalRelic} alt="" className="battle-held-indicator-sprite" />
+            <span className="held-item-copy"><span>{getItemLabel(pokemon.elementalRelic)}</span><b>RELÍQUIA</b></span>
+          </span>
+        )}
         {side === "player" && matchup === "disadvantage" && (
           <small className="matchup-warning">⚠ Desvantagem</small>
         )}

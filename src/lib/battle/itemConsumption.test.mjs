@@ -22,7 +22,7 @@ test("only authoritative consumptions owned by this player are settled", () => {
   assert.deepEqual(getItemConsumptionEvents(state, "host"), []);
   assert.deepEqual(getItemConsumptionEvents(state, "guest"), [{
     type: "ITEM_CONSUMED", usageType: "HELD", ownerRole: "guest", ownerPlayerId: "guest-player",
-    itemId: "healing-core", pokemonInstanceId: 25, eventId: "core-1",
+    itemId: "healing-core", pokemonInstanceId: 25, equipmentSlot: "STRATEGIC", eventId: "core-1",
     consumptionId: "match-1:held:guest:25:healing-core:core-1",
   }]);
 });

@@ -958,3 +958,17 @@ test("Fast gains battle-local momentum and Technical consumes its exact previewe
   assert.equal(state.host.team[0].momentum, 0);
   assert.equal(state.effect.momentumEvent.type, "MOMENTUM_CONSUMED");
 });
+
+test("elemental relic hydration and the canonical preview apply its configured bonus once", () => {
+  const attacker = { ...pokemon(401, null, 100, 5, "grass"), types: ["grass", "poison"], elementalRelic: "semente-ancestral", temporaryEffects: {} };
+  const defender = { ...pokemon(402, null, 100, 5, "water"), types: ["water"], temporaryEffects: {} };
+  const move = { id: "leaf", name: "Leaf", type: "grass", power: 60, accuracy: 100, damageClass: "special", special: true };
+  const withRelic = calculateDamage({ attacker, defender, move, variance: 1 });
+  const withoutRelic = calculateDamage({ attacker: { ...attacker, elementalRelic: null }, defender, move, variance: 1 });
+  const expectedMultiplier = globalThis.__itemCatalog.getItemDefinition("semente-ancestral").rules.baseMultiplier;
+  assert.equal(withRelic.itemTriggers.filter((entry) => entry.itemId === "semente-ancestral").length, 1);
+  assert.equal(withRelic.itemTriggers[0].multiplier, expectedMultiplier);
+  assert.ok(withRelic.damage > withoutRelic.damage);
+  const preview = getDamagePreview({ attacker, defender, move });
+  assert.ok(preview.expectedDamage >= withoutRelic.damage);
+});

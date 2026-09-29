@@ -1,5 +1,6 @@
 import { getPokemonSprite, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
 import { resolvePokemonAbilityId } from "@/lib/pokemon/progression";
+import { getPokemonElementalRelic, getPokemonStrategicItem } from "@/lib/economy/heldItems";
 
 export function getPokemonArtwork(pokemon) { return getPokemonSprite({ pokemon, context: SPRITE_CONTEXT.GENERAL }); }
 
@@ -58,7 +59,11 @@ export function toBattlePokemon(pokemon) {
     rarity: pokemon.rarity || "normal",
     abilityId: resolvePokemonAbilityId(pokemon),
     ability: resolvePokemonAbilityId(pokemon),
-    heldItem: pokemon.heldItem || null,
+    // heldItem stays as a compatibility alias for the strategic slot only.
+    // Never collapse the permanent elemental relic into it.
+    strategicItem: getPokemonStrategicItem(pokemon),
+    elementalRelic: getPokemonElementalRelic(pokemon),
+    heldItem: getPokemonStrategicItem(pokemon),
     moveset: pokemon.moveset || [],
     maxHp,
     hp: maxHp,

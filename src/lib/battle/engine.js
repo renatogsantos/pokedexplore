@@ -298,6 +298,10 @@ const normalizeTypes = (value) =>
       : [value?.type || value].filter(Boolean);
 const heldItemId = (value) => migrateLegacyItemId(value);
 const activeItem = (fighter, id) => heldItemId(fighter?.heldItem) === id;
+const activeRelic = (fighter) => {
+  const definition = getItemDefinition(heldItemId(fighter?.elementalRelic));
+  return definition?.equipmentSlot === "ELEMENTAL_RELIC" ? definition : null;
+};
 const nextRandom = (state) => {
   const seed = ((state.rng || 123456789) * 1664525 + 1013904223) >>> 0;
   state.rng = seed;
@@ -314,6 +318,7 @@ const heal = (fighter, amount) => {
 };
 const consumeHeld = (fighter, itemId, eventId, effect = {}, owner = null) => {
   fighter.heldItem = null;
+  fighter.strategicItem = null;
   return {
     type: "ITEM_CONSUMED",
     itemId,
@@ -321,6 +326,7 @@ const consumeHeld = (fighter, itemId, eventId, effect = {}, owner = null) => {
     targetPokemonId: fighter.id,
     eventId,
     owner,
+    equipmentSlot: "STRATEGIC",
     effect,
     consumed: true,
   };
@@ -598,6 +604,8 @@ function prepareFighter(pokemon) {
           ].slice(0, 4),
     status: pokemon.status || null,
     heldItem: heldItemId(pokemon.heldItem),
+    strategicItem: heldItemId(pokemon.strategicItem || pokemon.heldItem),
+    elementalRelic: heldItemId(pokemon.elementalRelic),
     abilityId: normalizeAbilityId(pokemon.abilityId || pokemon.ability),
     ability: normalizeAbilityId(pokemon.abilityId || pokemon.ability),
     specialAttackUsesRemaining: MAX_SPECIAL_ATTACK_USES,
@@ -724,6 +732,12 @@ export function calculateDamage({ attacker, defender, move, variance = 1 }) {
   for (const modifier of abilityModifiers.outgoing) if (modifier.kind !== "stab") outgoing *= modifier.multiplier;
   for (const modifier of abilityModifiers.incoming) incoming *= modifier.multiplier;
   const itemTriggers = [];
+  const relic = activeRelic(attacker);
+  if (relic && attacker.types.includes(relic.elementalType) && attackType === relic.elementalType) {
+    const multiplier = Number(relic.rules?.baseMultiplier) || 1;
+    outgoing *= multiplier;
+    itemTriggers.push({ itemId: relic.id, equipmentSlot: "ELEMENTAL_RELIC", consumed: false, multiplier, owner: "attacker" });
+  }
   if (activeItem(attacker, "power-claw"))
     outgoing *= itemRules("power-claw").dealtMultiplier ?? 1.2;
   if (

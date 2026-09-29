@@ -26,6 +26,7 @@ export default function ItemDetailsModal({
   if (!item) return null;
   const presentation = getItemUsagePresentation(item);
   const isTm = item.category === "tm";
+  const isRelic = item.equipmentSlot === "ELEMENTAL_RELIC";
   const classifications = presentation
     ? `${getRarityLabel(item.rarity)} · ${presentation.usageLabel} · ${presentation.persistenceLabel}`
     : `TM · ${item.quantityLabel || "PERMANENTE"}`;
@@ -41,6 +42,7 @@ export default function ItemDetailsModal({
         <DetailRow label="EFEITO" value={presentation?.effectLabel || item.description || item.shortDescription} />
         <DetailRow label="ATIVAÇÃO" value={presentation?.triggerLabel || (isTm ? "Ensina este golpe permanentemente à sua coleção." : null)} />
         <DetailRow label="CONSUMO" value={presentation?.afterUseLabel || (isTm ? "Depois de adquirida, a TM permanece na sua coleção." : null)} />
+        {isRelic && <DetailRow label="RELÍQUIA DE TIPO" value={`Tipo: ${item.elementalType}`} />}
         {item.role && <DetailRow label="IDEAL PARA" value={getRoleLabel(item.role)} />}
         {onAction && <button type="button" className={styles.action} disabled={actionDisabled} onClick={onAction}>{actionLabel}</button>}
       </section>
