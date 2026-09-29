@@ -10,6 +10,7 @@ export const BATTLE_EVENT_SOUND = Object.freeze({
   FINISH_HIM: "finish-him",
   BRUTALITY: "brutality",
   VICTORY: "win",
+  DEFEAT: "lost",
   ROUND_ONE: "round-one",
   ROUND_TWO: "round-two",
   FINAL_ROUND: "final-round",
@@ -91,8 +92,34 @@ export function getBadgeRoundSound(mode, battleNumber) {
   }[Number(battleNumber)] || null;
 }
 
+export function getRoundStartSound(battleNumber) {
+  return {
+    1: BATTLE_EVENT_SOUND.ROUND_ONE,
+    2: BATTLE_EVENT_SOUND.ROUND_TWO,
+    3: BATTLE_EVENT_SOUND.FINAL_ROUND,
+  }[Number(battleNumber)] || null;
+}
+
 function getLivingPokemon(team = []) {
   return team.filter((pokemon) => Number(pokemon?.hp) > 0);
+}
+
+// The finished engine state is the single authority for a result. Audio is
+// addressed to a battle role so a shared PvP snapshot can correctly play a
+// victory sound for one player and the loss sound for the other.
+export function getBattleResultAudioEvents(state) {
+  if (state?.status !== "finished" || !["host", "guest"].includes(state?.winner)) return [];
+  const winner = state.winner;
+  const loser = winner === "host" ? "guest" : "host";
+  const winnerHasOnePokemonRemaining = getLivingPokemon(state?.[winner]?.team).length === 1;
+  return [
+    {
+      id: `battle-result:${winner}`,
+      audience: winner,
+      sound: winnerHasOnePokemonRemaining ? BATTLE_EVENT_SOUND.BRUTALITY : BATTLE_EVENT_SOUND.VICTORY,
+    },
+    { id: `battle-result:${loser}`, audience: loser, sound: BATTLE_EVENT_SOUND.DEFEAT },
+  ];
 }
 
 function getFinishHimEvents(state) {
@@ -118,13 +145,11 @@ export function appendBattleAudioEvents(previous, next, { mode } = {}) {
     additions.push({ id: "battle-start", sound: BATTLE_EVENT_SOUND.START_BATTLE });
     const sound = getBadgeRoundSound(mode, next.seriesBattleNumber);
     if (sound) additions.push({ id: `badge-round:${next.seriesBattleNumber}`, sound });
+    const journeySound = next.journeyRouteId ? getRoundStartSound(next.journeyBattleNumber) : null;
+    if (journeySound) additions.push({ id: `journey-round:${next.journeyBattleNumber}`, sound: journeySound });
   }
   if (next.status === "finished" && previous?.status !== "finished") {
-    const usedOnlyOnePokemon = !next?.performance?.players?.[next.winner]?.hasSwitched;
-    additions.push({
-      id: "battle-result",
-      sound: usedOnlyOnePokemon ? BATTLE_EVENT_SOUND.BRUTALITY : BATTLE_EVENT_SOUND.VICTORY,
-    });
+    additions.push(...getBattleResultAudioEvents(next));
   } else {
     additions.push(...getFinishHimEvents(next));
   }

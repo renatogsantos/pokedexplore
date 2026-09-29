@@ -1,70 +1,69 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Crown, Fire, Lightning, LockKey, MapTrifold, Medal, ShieldCheck, Trophy } from "@phosphor-icons/react";
-import BadgeArtwork from "@/components/Badges/BadgeArtwork";
-import { BADGE_CONFIG } from "@/lib/badges/config";
-import { hasBadgeServiceConfig, listBadges, registerCompetitivePlayer, subscribeBadges } from "@/lib/badges/service";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowRight, Check, Crown, LockKey, MapTrifold, Medal, Play, Sparkle, Trophy } from "@phosphor-icons/react";
 import { webStore } from "@/helpers/webStore";
-import { JOURNEY_NODES, isJourneyNodeUnlocked } from "@/lib/journey";
-import { ACHIEVEMENTS } from "@/lib/journey/achievements";
+import { JOURNEY_CHAPTERS, JOURNEY_MEDALS, JOURNEY_ROUTES, getJourneyRoute, isJourneyNodeUnlocked } from "@/lib/journey";
+import { getItemDefinition } from "@/lib/items/catalog";
 import "./style.scss";
 
-const achievementIcon = { trophy: Trophy, lightning: Lightning, shield: ShieldCheck, fire: Fire };
+const EMPTY_PROGRESS = { journeyCompleted: [], journeyMedals: [], journeyPerfectRoutes: [], activeExpedition: null, wins: 0, trainerXp: 0 };
+
+function RouteStatus({ route, progress, onStart, busy }) {
+  const completed = progress.journeyCompleted.includes(route.id);
+  const unlocked = isJourneyNodeUnlocked(route.id, progress.journeyCompleted, progress.journeyMedals);
+  const active = progress.activeExpedition?.routeId === route.id && progress.activeExpedition?.status !== "completed";
+  const battle = active ? progress.activeExpedition.currentBattle : 1;
+  const perfect = progress.journeyPerfectRoutes.includes(route.id);
+  const action = active ? "Continuar expedição" : completed ? "Repetir rota" : "Iniciar expedição";
+  return <article className={`journey-map-node ${completed ? "is-complete" : ""} ${active ? "is-active" : ""} ${!unlocked ? "is-locked" : ""}`}>
+    <div className="journey-map-node__marker" aria-hidden="true">{!unlocked ? <LockKey weight="fill" /> : route.medalId ? <Medal weight="fill" /> : route.champion ? <Crown weight="fill" /> : completed ? <Check weight="bold" /> : <MapTrifold weight="fill" />}</div>
+    <div className="journey-map-node__content">
+      <span>{route.champion ? "DESAFIO FINAL" : route.medalId ? "GINÁSIO" : `ROTA · CAPÍTULO ${route.chapter}`}</span>
+      <h2>{route.title}</h2><p>{route.subtitle}</p>
+      <ul aria-label={`Recompensas de ${route.title}`}><li>3 batalhas</li><li>{completed ? "Recompensas de repetição" : "Baú no chefe"}</li>{perfect && <li>Rota perfeita</li>}</ul>
+      {active && <strong className="journey-map-node__progress">EXPEDIÇÃO EM ANDAMENTO · BATALHA {battle}/3</strong>}
+    </div>
+    {unlocked ? <button type="button" onClick={() => onStart(route.id)} disabled={busy} aria-label={`${action}: ${route.title}`}>{busy ? "Preparando..." : <>{action} <ArrowRight weight="bold" /></>}</button> : <span className="journey-map-node__locked">{route.champion ? "3 medalhas necessárias" : "Conclua a rota anterior"}</span>}
+  </article>;
+}
+
+function ExpeditionPanel({ active, onContinue, busy }) {
+  const route = getJourneyRoute(active?.routeId); if (!route) return null;
+  const earned = active.completedBattles || [];
+  return <section className="journey-expedition-panel" aria-labelledby="expedition-title">
+    <div><span className="eyebrow">EXPEDIÇÃO ATIVA</span><h2 id="expedition-title">{route.title}</h2><p>Você pode ajustar seu time, usar um deck e trocar itens equipados antes da próxima batalha.</p></div>
+    <ol aria-label="Progresso da expedição">{route.battles.map((battle) => <li key={battle.index} className={earned.includes(battle.index) ? "done" : battle.index === active.currentBattle ? "next" : ""}><span>{earned.includes(battle.index) ? <Check weight="bold" /> : battle.index}</span><strong>{battle.index === 3 ? "BATALHA FINAL" : `BATALHA ${battle.index}`} · {battle.label}</strong></li>)}</ol>
+    <button type="button" onClick={onContinue} disabled={busy}><Play weight="fill" /> Continuar na batalha {active.currentBattle}/3</button>
+  </section>;
+}
 
 export default function JourneyPage() {
-  const [progress, setProgress] = useState({ journeyCompleted: [], badges: [], achievements: {}, streak: 0, bestStreak: 0, wins: 0, totalBattles: 0 });
-  const [competitiveBadges, setCompetitiveBadges] = useState(null);
-  const restoreInput = useRef(null);
-  const refreshProgress = async () => { const economy = await webStore.getEconomy(); setProgress(economy.progress); };
-  const refreshCompetitive = useCallback(async () => {
-    if (!hasBadgeServiceConfig()) return setCompetitiveBadges(null);
-    try { setCompetitiveBadges(await listBadges()); } catch { setCompetitiveBadges(null); }
-  }, []);
-
-  useEffect(() => {
-    let unsubscribe;
-    void refreshProgress();
-    if (hasBadgeServiceConfig()) void webStore.getLocalPlayerProfile().then(async (profile) => {
-      try { await registerCompetitivePlayer(profile); await refreshCompetitive(); unsubscribe = subscribeBadges(() => { void refreshCompetitive(); }); } catch {}
-    });
-    return () => unsubscribe?.();
-  }, [refreshCompetitive]);
-
-  async function downloadBackup() {
-    const backup = await webStore.exportBackup();
-    const url = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" }));
-    const link = document.createElement("a"); link.href = url; link.download = "pokedexplore-backup.json"; link.click(); URL.revokeObjectURL(url);
+  const router = useRouter(); const params = useSearchParams();
+  const [progress, setProgress] = useState(EMPTY_PROGRESS); const [busy, setBusy] = useState(false); const [feedback, setFeedback] = useState("");
+  const refresh = async () => { const economy = await webStore.getEconomy(); setProgress(economy.progress || EMPTY_PROGRESS); };
+  useEffect(() => { void refresh(); }, []);
+  const chapter = useMemo(() => JOURNEY_CHAPTERS.find((item) => item.routeIds.some((id) => !progress.journeyCompleted.includes(id))) || JOURNEY_CHAPTERS.at(-1), [progress.journeyCompleted]);
+  const active = progress.activeExpedition?.status !== "completed" ? progress.activeExpedition : null;
+  useEffect(() => { if (params.get("expedition") && active) setFeedback("Sua expedição foi salva. Prepare-se para a próxima batalha."); }, [active, params]);
+  async function launch(routeId) {
+    if (active && active.routeId !== routeId) { setFeedback("Conclua ou retome a expedição atual antes de iniciar outra rota."); return; }
+    setBusy(true); setFeedback("");
+    const result = await webStore.startJourneyExpedition(routeId); setBusy(false);
+    if (!result.ok) { setFeedback("Não foi possível preparar esta expedição agora."); return; }
+    setProgress((current) => ({ ...current, activeExpedition: result.active }));
+    router.push(`/batalha?journey=${routeId}&journeyBattle=${result.active.currentBattle}`);
   }
-
-  async function restoreBackup(event) {
-    const file = event.target.files?.[0]; if (!file) return;
-    try { await webStore.importBackup(JSON.parse(await file.text())); await refreshProgress(); }
-    catch { window.alert("Não foi possível restaurar este backup."); }
-    finally { event.target.value = ""; }
-  }
-
-  const badges = progress.badges || [];
-  const gymBadges = JOURNEY_NODES.filter((node) => node.badge);
-  const unlockedAchievements = Object.keys(progress.achievements || {}).filter((id) => progress.achievements[id]).length;
-  const champions = competitiveBadges?.filter((badge) => badge.owner_player_id).length || 0;
-  const disputed = competitiveBadges?.filter((badge) => badge.status === "CHALLENGED").length || 0;
-  const previewBadges = competitiveBadges?.slice(0, 5) || BADGE_CONFIG.slice(0, 5);
-
-  return (
-    <main className="journey-page">
-      <section className="journey-shell">
-        <header className="journey-heading"><div><span className="eyebrow">JORNADA</span><h1>Seu próximo desafio</h1><p>Vença encontros, mantenha a sequência e transforme cada vitória em progresso.</p></div><section className="backup-actions" aria-label="Backup da progressão"><button type="button" onClick={downloadBackup}>Baixar backup</button><button type="button" onClick={() => restoreInput.current?.click()}>Restaurar backup</button><input ref={restoreInput} type="file" accept="application/json" onChange={restoreBackup} /></section></header>
-        <section className="journey-summary" aria-label="Resumo de batalha"><article><Trophy weight="fill" /><strong>{progress.wins || 0}</strong><span>vitórias</span></article><article><Fire weight="fill" /><strong>{progress.streak || 0}</strong><span>sequência atual</span></article><article><Lightning weight="fill" /><strong>{progress.bestStreak || 0}</strong><span>melhor sequência</span></article><article><Medal weight="fill" /><strong>{unlockedAchievements}/{ACHIEVEMENTS.length}</strong><span>conquistas</span></article></section>
-        <section className="competitive-badges-preview" aria-labelledby="competitive-badges-title">
-          <div className="competitive-badges-preview__copy"><span className="eyebrow">CAMPEONATO COMPETITIVO</span><h2 id="competitive-badges-title">Insígnias</h2><p>Títulos únicos disputados entre os jogadores. Conquiste quatro vitórias seguidas e defenda seu reinado.</p><div className="competitive-badges-preview__status">{competitiveBadges ? <><span><Crown weight="fill" /> {champions} com campeão</span><span><ShieldCheck weight="fill" /> {disputed} em disputa</span></> : <span>Status compartilhado disponível com o serviço online.</span>}</div><Link href="/jornada/insignias">Ver Insígnias</Link></div>
-          <div className="competitive-badges-preview__art" aria-hidden="true">{previewBadges.map((badge, index) => <BadgeArtwork key={badge.code || badge.type} badge={badge} decorative className={`preview-badge preview-badge-${index + 1}`} />)}</div>
-        </section>
-        <section className="achievement-case" aria-labelledby="achievement-title"><div className="section-title"><span className="eyebrow">CONQUISTAS</span><h2 id="achievement-title">Metas de treinador</h2><p>Cada conquista paga a recompensa apenas uma vez.</p></div><div className="achievement-grid">{ACHIEVEMENTS.map((achievement) => { const earned = Boolean(progress.achievements?.[achievement.id]); const Icon = achievementIcon[achievement.icon] || Trophy; return <article key={achievement.id} className={earned ? "achievement earned" : "achievement"}><div><Icon size={22} weight={earned ? "fill" : "regular"} /></div><section><strong>{achievement.name}</strong><p>{achievement.description}</p><small>{earned ? "Conquistada" : "Em progresso"} · +{achievement.reward} moedas</small></section>{!earned && <LockKey className="achievement-lock" size={17} />}</article>; })}</div></section>
-        <section className="badge-case" aria-labelledby="badge-title"><div><span className="eyebrow">INSÍGNIAS DA JORNADA</span><h2 id="badge-title">{badges.length}/{gymBadges.length} conquistadas</h2></div><div className="badge-list">{gymBadges.map((node) => { const earned = badges.includes(node.badge); return <div key={node.badge} className={earned ? "badge earned" : "badge"} aria-label={earned ? node.badge + " conquistada" : node.badge + " bloqueada"}><Medal size={24} weight={earned ? "fill" : "regular"} /><span>{node.badge}</span></div>; })}</div></section>
-        <div className="journey-path">{JOURNEY_NODES.map((node) => { const completed = progress.journeyCompleted?.includes(node.id); const unlocked = isJourneyNodeUnlocked(node.id, progress.journeyCompleted); return <article key={node.id} className={`journey-node ${completed ? "completed" : ""}${!unlocked ? " locked" : ""}`}><div className="journey-node-icon">{!unlocked ? <LockKey size={25} /> : node.badge ? <Medal size={25} weight="fill" /> : <MapTrifold size={25} weight="fill" />}</div><div><span>{node.badge ? "GINÁSIO" : "ENCONTRO"} · Nv. {node.level}</span><h2>{node.title}</h2><p>{node.subtitle} · +{node.reward} moedas</p>{node.badge && <small>Insígnia: {node.badge}</small>}</div>{unlocked && <Link href={`/batalha?journey=${node.id}`}>{completed ? "Repetir" : "Desafiar"}</Link>}</article>; })}</div>
-      </section>
-    </main>
-  );
+  const lastResult = progress.lastJourneyResult;
+  return <main className="journey-page"><section className="journey-shell">
+    <header className="journey-hero"><div><span className="eyebrow">JORNADA</span><h1>{chapter?.title}</h1><p>Complete expedições de três batalhas, vença chefes e fortaleça sua equipe para os desafios competitivos.</p></div><Link href="/jornada/insignias" className="journey-competitive-link"><Crown weight="fill" /> Insígnias competitivas</Link></header>
+    <section className="journey-status" aria-label="Resumo da Jornada"><article><MapTrifold weight="fill" /><strong>{progress.journeyCompleted.length}/{JOURNEY_ROUTES.length - 1}</strong><span>rotas concluídas</span></article><article><Medal weight="fill" /><strong>{progress.journeyMedals.length}/3</strong><span>medalhas da Jornada</span></article><article><Sparkle weight="fill" /><strong>{progress.journeyPerfectRoutes.length}</strong><span>rotas perfeitas</span></article></section>
+    {feedback && <p className="journey-feedback" role="status">{feedback}</p>}
+    {active && <ExpeditionPanel active={active} busy={busy} onContinue={() => launch(active.routeId)} />}
+    {lastResult && !active && <section className="journey-reward-panel" aria-labelledby="journey-reward-title"><Trophy weight="fill" aria-hidden="true" /><div><span className="eyebrow">BAÚ DA JORNADA</span><h2 id="journey-reward-title">Expedição concluída</h2><p>+{lastResult.reward.coins + lastResult.chest.coins} moedas{lastResult.chest.itemId ? ` · ${getItemDefinition(lastResult.chest.itemId)?.name || "item encontrado"}` : ""}{lastResult.perfect ? " · Rota perfeita" : ""}</p></div>{lastResult.medal && <strong><Medal weight="fill" /> Medalha conquistada</strong>}</section>}
+    <section className="journey-medals" aria-labelledby="journey-medals-title"><div><span className="eyebrow">PROGRESSO PESSOAL</span><h2 id="journey-medals-title">Medalhas da Jornada</h2><p>São permanentes, pessoais e independentes das Insígnias competitivas.</p></div><div>{JOURNEY_MEDALS.map((medal) => { const earned = progress.journeyMedals.includes(medal.id); return <article key={medal.id} className={earned ? "earned" : ""}><Medal weight={earned ? "fill" : "regular"} /><span>{medal.name}</span><small>{earned ? "Conquistada" : "Bloqueada"}</small></article>; })}</div></section>
+    <section className="journey-map" aria-label="Mapa de expedições"><header><span className="eyebrow">MAPA DA AVENTURA</span><h2>Seu próximo destino</h2><p>Rota perfeita: complete as três batalhas sem nenhum Pokémon desmaiar para melhorar o baú.</p></header>{JOURNEY_CHAPTERS.map((chapterItem) => <section className="journey-chapter" key={chapterItem.id} aria-label={`Capítulo ${chapterItem.id}: ${chapterItem.title}`}><h3>CAPÍTULO {chapterItem.id} · {chapterItem.title}</h3>{chapterItem.routeIds.map((routeId) => <RouteStatus key={routeId} route={getJourneyRoute(routeId)} progress={progress} onStart={launch} busy={busy} />)}</section>)}</section>
+  </section></main>;
 }

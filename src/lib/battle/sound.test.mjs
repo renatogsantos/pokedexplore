@@ -5,6 +5,7 @@ import {
   BATTLE_EVENT_SOUND,
   appendBattleAudioEvents,
   createBattleAudioEventDeduper,
+  getBattleResultAudioEvents,
   getBadgeRoundSound,
   getDamageReactionSound,
   getItemConsumptionSound,
@@ -47,8 +48,8 @@ test("item audio events are idempotent per battle and reset for a rematch", () =
   assert.equal(deduper.shouldPlay("match-2", "event-7", BATTLE_ITEM_SOUND.BAG_ITEM_USED), true);
 });
 
-const battleState = ({ host = [], guest = [], status = "playing", winner = null, seriesBattleNumber = null, hostHasSwitched = false, guestHasSwitched = false } = {}) => ({
-  matchId: "match-1",
+const battleState = ({ matchId = "match-1", host = [], guest = [], status = "playing", winner = null, seriesBattleNumber = null, hostHasSwitched = false, guestHasSwitched = false } = {}) => ({
+  matchId,
   status,
   winner,
   seriesBattleNumber,
@@ -70,14 +71,44 @@ test("finish him is emitted only for an alive final Pokemon below 20 percent", (
   assert.deepEqual(withEvent.audioEvents, [{ id: "finish-him:host", sound: BATTLE_EVENT_SOUND.FINISH_HIM }]);
   const lowerHp = battleState({ host: [pokemon(0), pokemon(0), pokemon(8)], guest: [pokemon(100)], });
   assert.deepEqual(appendBattleAudioEvents(withEvent, { ...lowerHp, audioEvents: withEvent.audioEvents }).audioEvents, withEvent.audioEvents);
-  const fainted = battleState({ host: [pokemon(0), pokemon(0), pokemon(0)], status: "finished", winner: "guest" });
-  assert.deepEqual(appendBattleAudioEvents(prior, fainted).audioEvents, [{ id: "battle-result", sound: BATTLE_EVENT_SOUND.BRUTALITY }]);
+  const fainted = battleState({ host: [pokemon(0), pokemon(0), pokemon(0)], guest: [pokemon(30)], status: "finished", winner: "guest" });
+  assert.deepEqual(appendBattleAudioEvents(prior, fainted).audioEvents, [
+    { id: "battle-result:guest", audience: "guest", sound: BATTLE_EVENT_SOUND.BRUTALITY },
+    { id: "battle-result:host", audience: "host", sound: BATTLE_EVENT_SOUND.DEFEAT },
+  ]);
 });
 
-test("result sound uses brutality only for the same no-switch condition that grants the one-Pokemon reward", () => {
-  const previous = battleState();
-  assert.equal(appendBattleAudioEvents(previous, battleState({ host: [pokemon(100), pokemon(100), pokemon(100)], status: "finished", winner: "host" })).audioEvents[0].sound, BATTLE_EVENT_SOUND.BRUTALITY);
-  assert.equal(appendBattleAudioEvents(previous, battleState({ host: [pokemon(0), pokemon(0), pokemon(1)], status: "finished", winner: "host", hostHasSwitched: true })).audioEvents[0].sound, BATTLE_EVENT_SOUND.VICTORY);
+test("authoritative final result selects victory, brutality, defeat, or no result audio", () => {
+  const prior = battleState();
+  const victory = appendBattleAudioEvents(prior, battleState({ status: "finished", winner: "host", host: [pokemon(40), pokemon(30)], guest: [pokemon(0), pokemon(0)] }));
+  assert.deepEqual(victory.audioEvents, [
+    { id: "battle-result:host", audience: "host", sound: BATTLE_EVENT_SOUND.VICTORY },
+    { id: "battle-result:guest", audience: "guest", sound: BATTLE_EVENT_SOUND.DEFEAT },
+  ]);
+  const brutality = appendBattleAudioEvents(prior, battleState({ status: "finished", winner: "host", host: [pokemon(0), pokemon(1)], guest: [pokemon(0), pokemon(0)] }));
+  assert.equal(brutality.audioEvents.find((event) => event.audience === "host").sound, BATTLE_EVENT_SOUND.BRUTALITY);
+  assert.equal(brutality.audioEvents.some((event) => event.sound === BATTLE_EVENT_SOUND.VICTORY), false);
+  const defeat = getBattleResultAudioEvents(battleState({ status: "finished", winner: "guest", host: [pokemon(0), pokemon(0)], guest: [pokemon(20), pokemon(20)] }));
+  assert.deepEqual(defeat, [
+    { id: "battle-result:guest", audience: "guest", sound: BATTLE_EVENT_SOUND.VICTORY },
+    { id: "battle-result:host", audience: "host", sound: BATTLE_EVENT_SOUND.DEFEAT },
+  ]);
+  assert.equal(defeat.some((event) => event.audience === "host" && event.sound === BATTLE_EVENT_SOUND.VICTORY), false);
+  assert.equal(defeat.some((event) => event.audience === "host" && event.sound === BATTLE_EVENT_SOUND.BRUTALITY), false);
+  assert.deepEqual(getBattleResultAudioEvents(battleState({ status: "finished", winner: null })), []);
+});
+
+test("result audio is idempotent for rerenders and resets for a rematch", () => {
+  const prior = battleState();
+  const finished = appendBattleAudioEvents(prior, battleState({ status: "finished", winner: "host", host: [pokemon(12)], guest: [pokemon(0)] }));
+  assert.equal(appendBattleAudioEvents(finished, finished).audioEvents.length, 2);
+  const deduper = createBattleAudioEventDeduper();
+  const hostResult = finished.audioEvents.find((event) => event.audience === "host");
+  assert.equal(deduper.shouldPlay(finished.matchId, hostResult.id, hostResult.sound), true);
+  assert.equal(deduper.shouldPlay(finished.matchId, hostResult.id, hostResult.sound), false);
+  const rematch = appendBattleAudioEvents(battleState({ matchId: "match-2" }), battleState({ matchId: "match-2", status: "finished", winner: "host", host: [pokemon(50), pokemon(20)], guest: [pokemon(0)] }));
+  const rematchResult = rematch.audioEvents.find((event) => event.audience === "host");
+  assert.equal(deduper.shouldPlay(rematch.matchId, rematchResult.id, rematchResult.sound), true);
 });
 
 test("badge round sounds use the authoritative series battle number only", () => {

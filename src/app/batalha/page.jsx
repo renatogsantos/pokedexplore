@@ -36,7 +36,7 @@ import { calculateBattleRewards } from "@/lib/battle/rewards";
 import { actCoins } from "@/redux/economy";
 import CoinBalance from "@/components/CoinBalance";
 import { celebrateBadgeChampionship, celebrateBattleVictory } from "@/lib/celebration";
-import { getJourneyNode } from "@/lib/journey";
+import { buildJourneyCpuTeam, getJourneyBattle, getJourneyNode } from "@/lib/journey";
 import TournamentPanel from "@/components/Tournament/TournamentPanel";
 import { ROUND, getTournamentReward } from "@/lib/tournament/config";
 import { cancelTournament, completeTournamentMatch, createTournament, getPlayerActiveTournament, getTournament, joinTournament, leaveTournament, markTournamentMatchPlaying, startTournament, subscribeTournament } from "@/lib/tournament/service";
@@ -66,6 +66,8 @@ export default function BattlePage() {
   const router = useRouter();
   const params = useSearchParams();
   const journeyNode = getJourneyNode(params.get("journey"));
+  const journeyBattleIndex = Math.min(3, Math.max(1, Number(params.get("journeyBattle")) || 1));
+  const journeyBattle = journeyNode ? getJourneyBattle(journeyNode.id, journeyBattleIndex) : null;
   const badgeChallengeId = params.get("badgeChallenge");
   const realtime = useRef(null);
   const cpuTimer = useRef(null);
@@ -288,6 +290,10 @@ export default function BattlePage() {
         next.badgeChallengeId = badgeChallenge.id;
         next.seriesBattleNumber = badgeChallenge.current_battle;
       }
+      if (journeyNode) {
+        next.journeyRouteId = journeyNode.id;
+        next.journeyBattleNumber = journeyBattleIndex;
+      }
       if (backgrounds.length) next.arenaBackground = backgrounds[Math.floor(Math.random() * backgrounds.length)];
       next.status = "countdown";
       next.log = "3 · 2 · 1 · BATALHA!";
@@ -307,7 +313,7 @@ export default function BattlePage() {
         broadcast(BATTLE_EVENTS.STATE, playing);
       }, 1650);
     },
-    [badgeChallenge, broadcast, inventory, loadArenaBackgrounds, mode, profile?.playerId, wager],
+    [badgeChallenge, broadcast, inventory, journeyBattleIndex, journeyNode, loadArenaBackgrounds, mode, profile?.playerId, wager],
   );
   const awardVictory = useCallback(
     async (matchId, amount, itemId = null) => {
@@ -320,7 +326,7 @@ export default function BattlePage() {
   const rewardFinishedBattle = useCallback(
     (previous, next, localRole) => {
       const justFinished = previous?.status !== "finished" && next?.status === "finished";
-      if (justFinished && mode === "cpu" && next.winner === localRole && !next.cpuReward)
+      if (justFinished && mode === "cpu" && !journeyNode && next.winner === localRole && !next.cpuReward)
         next.cpuReward = createCpuVictoryReward(next.cpuDifficulty || cpuDifficulty);
       if (justFinished && mode === "friend" && next.wager?.id) {
         void webStore.settleWager(next.wager.id, { won: next.winner === localRole, refund: !next.winner }).then((result) => { if (result.settled) dispatch(actCoins(result.coins)); });
@@ -340,7 +346,18 @@ export default function BattlePage() {
           if (result.rewardCoins) dispatch(actCoins(result.coins));
           if (result.unlocked?.length) setNotice("CONQUISTA DESBLOQUEADA: " + result.unlocked.join(", ").toUpperCase() + (result.rewardCoins ? ` +${result.rewardCoins} moedas` : ""));
         });
-        if (journeyNode && won) void webStore.completeJourneyNode(journeyNode).then((result) => { if (result.completed) setNotice(journeyNode.badge ? "INSÍGNIA CONQUISTADA: " + journeyNode.badge : "ROTA CONCLUÍDA! +" + journeyNode.reward + " moedas"); });
+        if (journeyNode && journeyBattle) {
+          const noPokemonFainted = !next[localRole]?.team?.some((pokemon) => Number(pokemon.hp) <= 0);
+          void webStore.settleJourneyBattle({ routeId: journeyNode.id, battleIndex: journeyBattleIndex, matchId: next.matchId, won, perfectEligible: noPokemonFainted }).then((result) => {
+            if (!result.settled) return;
+            if (result.won) {
+              dispatch(actCoins(result.coins));
+              const itemText = result.reward?.itemId ? " + item encontrado" : "";
+              setNotice(result.chest ? `BAÚ DA JORNADA ABERTO! +${result.reward.coins + result.chest.coins} moedas${itemText}` : `VITÓRIA NA ${journeyBattle.label}! +${result.reward.coins} moedas${itemText}`);
+            } else setNotice("A expedição continua. Ajuste sua equipe e tente esta batalha novamente.");
+            window.setTimeout(() => router.push(`/jornada?expedition=${journeyNode.id}`), 1100);
+          });
+        }
       }
       if (justFinished && (mode === "tournament" || String(mode).startsWith("badge"))) {
         void webStore.recordPlayerBattleResult(next.matchId, { won: next.winner === localRole, mode });
@@ -368,7 +385,7 @@ export default function BattlePage() {
       if (
         justFinished &&
         next.winner === localRole &&
-        ["cpu", "friend"].includes(mode)
+        ["cpu", "friend"].includes(mode) && !journeyNode
       ) {
         const performance = next.performance || {};
         const reward = calculateBattleRewards({
@@ -383,7 +400,7 @@ export default function BattlePage() {
       }
       return next;
     },
-    [awardVictory, badgeChallenge, cpuDifficulty, dispatch, isBadgeChampion, journeyNode, mode, profile],
+    [awardVictory, badgeChallenge, cpuDifficulty, dispatch, isBadgeChampion, journeyBattle, journeyBattleIndex, journeyNode, mode, profile, router],
   );
 
   useEffect(() => {
@@ -701,9 +718,9 @@ export default function BattlePage() {
       setPlayer(local);
       const journeyTeam = mode === "badge-cpu"
         ? getBadgeCpuTeam(badgeConfig.type, badgeChallenge.current_battle)
-        : journeyNode ? journeyNode.team.map((entry) => { const rosterEntry = CPU_ROSTER.find((pokemon) => pokemon.id === (entry.id || entry)) || CPU_TEAM[0]; return { ...rosterEntry, level: entry.level || rosterEntry.level }; }) : generateCpuTeam({ difficulty: cpuDifficulty, playerTeam: currentTeam, recentTeams: recentCpuTeams.current });
+        : journeyNode ? buildJourneyCpuTeam(journeyNode.id, journeyBattleIndex, CPU_ROSTER) : generateCpuTeam({ difficulty: cpuDifficulty, playerTeam: currentTeam, recentTeams: recentCpuTeams.current });
       if (mode === "cpu" && !journeyNode) recentCpuTeams.current = [...recentCpuTeams.current, journeyTeam].slice(-3);
-      await startState(currentTeam, journeyTeam, local, { id: "cpu", name: mode === "badge-cpu" ? badgeConfig.leaderName : journeyNode?.badge ? "Líder do Ginásio" : journeyNode ? journeyNode.title : "CPU", inventory: mode === "badge-cpu" ? {} : createCpuInventory(cpuDifficulty) }, mode === "cpu" ? { difficulty: cpuDifficulty } : null);
+      await startState(currentTeam, journeyTeam, local, { id: "cpu", name: mode === "badge-cpu" ? badgeConfig.leaderName : journeyNode?.medalId ? "Líder da Jornada" : journeyNode ? journeyNode.title : "CPU", inventory: mode === "badge-cpu" ? {} : createCpuInventory(journeyBattle?.difficulty || cpuDifficulty) }, mode === "cpu" ? { difficulty: journeyBattle?.difficulty || cpuDifficulty } : null);
       setPreparingTeam(false);
       return;
     }

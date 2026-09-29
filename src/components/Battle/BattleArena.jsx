@@ -568,7 +568,7 @@ function BattleNotification({ state, role, opponentName }) {
     initialAudioHydration.current = false;
     if (!isHydrating)
       (state.audioEvents || []).forEach((event) => {
-        if (audioDeduper.current.shouldPlay(state.matchId, event?.id, event?.sound))
+        if ((!event?.audience || event.audience === role) && audioDeduper.current.shouldPlay(state.matchId, event?.id, event?.sound))
           playBattleSound(event.sound, event.sound === BATTLE_EVENT_SOUND.FINISH_HIM ? 1 : 0.80);
       });
     queue.forEach((entry, index) => {

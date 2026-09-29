@@ -3,6 +3,7 @@ import { enrichPokemonRarity, hasResolvedPokemonRarity } from "@/lib/pokemon/rar
 import { getShopUpgrade } from "@/lib/economy/gameItems";
 import { getHeldItemInventoryId, planHeldItemChange } from "@/lib/economy/heldItems";
 import { getAchievement } from "@/lib/journey/achievements";
+import { getJourneyRoute, isJourneyNodeUnlocked, JOURNEY_MEDALS, resolveJourneyLoot } from "@/lib/journey";
 import { normalizePlayerStats, recordCompletedBattle } from "@/lib/profile/progression";
 import { DEFAULT_PLAYER_AVATAR_ID, normalizePlayerAvatarId } from "@/lib/profile/avatars";
 import { getItemDefinition, ITEM_CATALOG, ITEM_SYSTEM_VERSION, migrateItemInventory } from "@/lib/items/catalog";
@@ -18,7 +19,7 @@ const TRAINER_PROFILE_KEY = "trainer-profile";
 const DECKS_KEY = "pokemon-decks";
 const EMPTY_CREATOR_MODE = { infiniteCoins: false };
 const EMPTY_ECONOMY = { key: ECONOMY_KEY, coins: 0, wagerReservations: {}, settledWagerIds: [], rewardedMatchIds: [], secretRewards: {}, inventory: {}, ownedTms: [], consumedItemActionIds: [], itemSystemVersion: ITEM_SYSTEM_VERSION, creatorMode: EMPTY_CREATOR_MODE };
-const EMPTY_PROGRESS = { achievements: {}, streak: 0, bestStreak: 0, wins: 0, totalBattles: 0, processedOutcomeMatchIds: [], journeyCompleted: [], badges: [], trainerXp: 0, playerStats: null };
+const EMPTY_PROGRESS = { achievements: {}, streak: 0, bestStreak: 0, wins: 0, totalBattles: 0, processedOutcomeMatchIds: [], journeyCompleted: [], badges: [], journeyMedals: [], journeyPerfectRoutes: [], journeyRewardIds: [], activeExpedition: null, lastJourneyResult: null, trainerXp: 0, playerStats: null };
 const normalizeEconomy = (economy) => {
   const savedProgress = economy?.progress || {};
   const progress = {
@@ -28,6 +29,13 @@ const normalizeEconomy = (economy) => {
     achievements: { ...EMPTY_PROGRESS.achievements, ...(savedProgress.achievements || {}) },
     playerStats: normalizePlayerStats(savedProgress.playerStats, { legacyWins: savedProgress.wins, legacyBattles: savedProgress.totalBattles }),
   };
+  // Version-1 Journey used "badges" locally. Convert only known Journey names;
+  // competitive badges are a separate remote system and never enter this path.
+  const legacyMedals = JOURNEY_MEDALS.filter((medal) => (savedProgress.journeyCompleted || []).includes(medal.routeId)).map((medal) => medal.id);
+  progress.journeyMedals = [...new Set([...(savedProgress.journeyMedals || []), ...legacyMedals])];
+  progress.journeyCompleted = [...new Set(savedProgress.journeyCompleted || [])];
+  progress.journeyPerfectRoutes = [...new Set(savedProgress.journeyPerfectRoutes || [])];
+  progress.journeyRewardIds = [...new Set(savedProgress.journeyRewardIds || [])].slice(-240);
   const legacy = Number(economy?.itemSystemVersion || 1) < ITEM_SYSTEM_VERSION;
   const rawInventory = Object.fromEntries(Object.entries(economy?.inventory || {}).filter(([, quantity]) => Number(quantity) > 0).map(([id, quantity]) => [id, Math.floor(Number(quantity))]));
   return { ...EMPTY_ECONOMY, ...(economy || {}), itemSystemVersion: ITEM_SYSTEM_VERSION, secretRewards: { ...EMPTY_ECONOMY.secretRewards, ...(economy?.secretRewards || {}) }, inventory: legacy ? migrateItemInventory(rawInventory) : rawInventory, ownedTms: [...new Set(economy?.ownedTms || [])], creatorMode: { ...EMPTY_CREATOR_MODE, ...(economy?.creatorMode || {}), infiniteCoins: Boolean(economy?.creatorMode?.infiniteCoins) }, progress };
@@ -593,13 +601,60 @@ export const webStore = {
       return { recorded: false, stats: normalizePlayerStats(), earnedXp: 0, trainerXp: 0 };
     }
   },
-  async completeJourneyNode(node) {
+  async startJourneyExpedition(routeId) {
+    const route = getJourneyRoute(routeId);
+    if (!route) return { ok: false, reason: "route" };
     try { return await withDatabase((database) => new Promise((resolve, reject) => {
       const transaction = database.transaction(PLAYER_STORE, "readwrite"); const store = transaction.objectStore(PLAYER_STORE); const request = store.get(ECONOMY_KEY);
-      request.onsuccess = () => { const economy = normalizeEconomy(request.result); const progress = economy.progress; const completed = progress.journeyCompleted || []; const alreadyCompleted = completed.includes(node.id); const badges = node.badge && !progress.badges.includes(node.badge) ? [...progress.badges, node.badge] : progress.badges; const nextProgress = { ...progress, journeyCompleted: alreadyCompleted ? completed : [...completed, node.id], badges }; const next = { ...economy, coins: alreadyCompleted ? economy.coins : economy.coins + node.reward, progress: nextProgress }; store.put(next); transaction.result = { completed: !alreadyCompleted, coins: next.coins, progress: nextProgress, badge: node.badge || null }; };
+      request.onsuccess = () => {
+        const economy = normalizeEconomy(request.result); const previous = economy.progress.activeExpedition;
+        if (!isJourneyNodeUnlocked(routeId, economy.progress.journeyCompleted, economy.progress.journeyMedals)) { transaction.result = { ok: false, reason: "locked" }; return; }
+        const active = previous?.routeId === routeId && previous?.status !== "completed" ? previous : {
+          runId: `journey_${crypto.randomUUID()}`, routeId, currentBattle: 1, completedBattles: [], perfectRouteEligible: true, settledRewards: [], startedAt: Date.now(), status: "ready",
+        };
+        const next = { ...economy, progress: { ...economy.progress, activeExpedition: active } }; store.put(next); transaction.result = { ok: true, active };
+      };
       transaction.oncomplete = () => resolve(transaction.result); transaction.onerror = () => reject(transaction.error); request.onerror = () => reject(request.error);
-    })); } catch (error) { console.error("Erro ao concluir jornada:", error); return { completed: false }; }
+    })); } catch (error) { console.error("Erro ao iniciar expedição:", error); return { ok: false, reason: "persistence" }; }
   },
+  async settleJourneyBattle({ routeId, battleIndex, matchId, won, perfectEligible = true }) {
+    const route = getJourneyRoute(routeId); if (!route || !matchId) return { settled: false, reason: "invalid" };
+    try { return await withDatabase((database) => new Promise((resolve, reject) => {
+      const transaction = database.transaction(PLAYER_STORE, "readwrite"); const store = transaction.objectStore(PLAYER_STORE); const request = store.get(ECONOMY_KEY);
+      request.onsuccess = () => {
+        const economy = normalizeEconomy(request.result); const progress = economy.progress; const active = progress.activeExpedition;
+        if (!active || active.routeId !== routeId || Number(active.currentBattle) !== Number(battleIndex)) { transaction.result = { settled: false, reason: "stale" }; return; }
+        const battleKey = `journey-battle:${active.runId}:${battleIndex}`;
+        if ((active.settledRewards || []).includes(battleKey)) { transaction.result = { settled: false, reason: "duplicate", active }; return; }
+        const nextPerfect = Boolean(active.perfectRouteEligible && perfectEligible);
+        if (!won) {
+          const nextActive = { ...active, perfectRouteEligible: false, status: "ready" };
+          const next = { ...economy, progress: { ...progress, activeExpedition: nextActive } }; store.put(next); transaction.result = { settled: true, won: false, active: nextActive }; return;
+        }
+        const firstClear = !progress.journeyCompleted.includes(routeId);
+        const reward = resolveJourneyLoot({ route, battleIndex, runId: active.runId, firstClear });
+        const inventory = { ...economy.inventory }; if (reward.itemId) inventory[reward.itemId] = (inventory[reward.itemId] || 0) + 1;
+        const completedBattles = [...new Set([...(active.completedBattles || []), Number(battleIndex)])];
+        let nextProgress = { ...progress, journeyRewardIds: [...progress.journeyRewardIds, reward.id].slice(-240) };
+        let nextActive = { ...active, completedBattles, currentBattle: Number(battleIndex) + 1, perfectRouteEligible: nextPerfect, settledRewards: [...active.settledRewards, battleKey], status: Number(battleIndex) === 3 ? "chest" : "between-battles" };
+        let chest = null; let medal = null;
+        if (Number(battleIndex) === 3) {
+          chest = resolveJourneyLoot({ route, battleIndex, runId: active.runId, firstClear, chest: true, perfect: nextPerfect });
+          if (chest.itemId) inventory[chest.itemId] = (inventory[chest.itemId] || 0) + 1;
+          nextProgress = { ...nextProgress, journeyCompleted: firstClear ? [...progress.journeyCompleted, routeId] : progress.journeyCompleted, journeyPerfectRoutes: nextPerfect && !progress.journeyPerfectRoutes.includes(routeId) ? [...progress.journeyPerfectRoutes, routeId] : progress.journeyPerfectRoutes, journeyRewardIds: [...nextProgress.journeyRewardIds, chest.id].slice(-240), lastJourneyResult: { routeId, reward, chest, perfect: nextPerfect, completedAt: Date.now() } };
+          medal = route.medalId && !progress.journeyMedals.includes(route.medalId) ? route.medalId : null;
+          if (medal) { nextProgress.journeyMedals = [...progress.journeyMedals, medal]; nextProgress.lastJourneyResult.medal = medal; }
+          nextActive = { ...nextActive, status: "completed", completedAt: Date.now() };
+        }
+        const next = { ...economy, coins: economy.coins + reward.coins + (chest?.coins || 0), inventory, progress: { ...nextProgress, activeExpedition: nextActive } }; store.put(next);
+        transaction.result = { settled: true, won: true, reward, chest, medal, active: nextActive, coins: next.coins };
+      };
+      transaction.oncomplete = () => resolve(transaction.result); transaction.onerror = () => reject(transaction.error); request.onerror = () => reject(request.error);
+    })); } catch (error) { console.error("Erro ao salvar recompensa da Jornada:", error); return { settled: false, reason: "persistence" }; }
+  },
+  // Compatibility for a pre-expedition battle URL. New Journey wins always use
+  // settleJourneyBattle above, which owns reward ids and route completion.
+  async completeJourneyNode(node) { return this.startJourneyExpedition(node?.id); },
   async setHeldItem(pokemonId, heldItem) {
     try {
       return await withDatabase((database) => new Promise((resolve, reject) => {
