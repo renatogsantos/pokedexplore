@@ -3,9 +3,10 @@
 import { Crown, LinkSimple, Play, Trophy, Users, WarningCircle, XCircle } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import PlayerAvatar from "@/components/PlayerAvatar";
-import { ROUND, TOURNAMENT_CONFIG, TOURNAMENT_STATUS } from "@/lib/tournament/config";
+import { ROUND, TOURNAMENT_CONFIG, TOURNAMENT_MODE, TOURNAMENT_STATUS } from "@/lib/tournament/config";
 import { celebrateBattleVictory } from "@/lib/celebration";
 import { getItemDefinition, getRarityLabel } from "@/lib/items/catalog";
+import { getTournamentRewardPreview } from "@/lib/tournament/rewards";
 
 const playerById = (tournament, id) => tournament?.tournament_players?.find((player) => player.player_id === id) || null;
 const playerName = (tournament, id) => playerById(tournament, id)?.display_name || "Aguardando";
@@ -18,6 +19,7 @@ function ArenaPlayer({ player, localId, winnerId, compact = false }) {
   return <div className={`arena-player ${isLocal ? "is-local" : ""} ${isWinner ? "is-winner" : ""} ${compact ? "is-compact" : ""}`}>
     <PlayerAvatar avatarId={player.avatar_id} eager alt={`Avatar de ${player.display_name}`} className="arena-player__avatar" />
     <strong title={player.display_name}>{player.display_name}</strong>
+    {player.is_cpu && <small>CPU</small>}
     {isLocal && <small>VOCÊ</small>}
     {isWinner && <small>VENCEDOR</small>}
   </div>;
@@ -45,7 +47,8 @@ function MatchCard({ tournament, match, playerId, onEnter, final = false, index 
   </article>;
 }
 
-function TournamentRewardsPreview() {
+function TournamentRewardsPreview({ mode = TOURNAMENT_MODE.NORMAL }) {
+  const rewards = getTournamentRewardPreview(mode);
   const tiers = [
     { key: "champion", label: "CAMPEÃO", icon: Crown },
     { key: "finalist", label: "FINALISTA", icon: Trophy },
@@ -54,7 +57,7 @@ function TournamentRewardsPreview() {
   return <section className="tournament-prize-preview" aria-label="Prêmios do campeonato">
     <span>PRÊMIOS</span>
     <div>{tiers.map(({ key, label, icon: Icon }) => {
-      const tier = TOURNAMENT_CONFIG.rewards[key];
+      const tier = rewards[key];
       return <article key={key} className={`is-${key}`}><Icon size={17} weight="fill" aria-hidden="true" /><strong>{label}</strong><b>+{tier.coins}</b><small>{tier.rarityLabel}</small></article>;
     })}</div>
   </section>;
@@ -103,7 +106,7 @@ function TournamentOptions({ canCancel, mine, status, busy, onCancel, onLeave })
   </section>;
 }
 
-export default function TournamentPanel({ tournament, profile = {}, rewardReceipt = null, name, setName, code, setCode, notice, busy, onCreate, onJoin, onResetIdentity, onStart, onCancel, onLeave, onEnterMatch, onBack }) {
+export default function TournamentPanel({ tournament, profile = {}, rewardReceipt = null, name, setName, code, setCode, notice, busy, onCreate, onJoin, onResetIdentity, onStart, onFillWithCpu, onCancel, onLeave, onEnterMatch, onBack }) {
   const [confirmingStart, setConfirmingStart] = useState(false);
   const announcedChampion = useRef(null);
   const champion = (Array.isArray(tournament?.tournament_players) ? tournament.tournament_players : []).find((player) => player.status === "CHAMPION");
@@ -120,12 +123,16 @@ export default function TournamentPanel({ tournament, profile = {}, rewardReceip
     {process.env.NODE_ENV !== "production" && <button type="button" className="tournament-back" onClick={onResetIdentity}>Gerar nova identidade local</button>}{notice && <p className="setup-notice" role="status">{notice}</p>}<button type="button" className="tournament-back" onClick={onBack}>Voltar</button>
   </section>;
 
-  const players = Array.isArray(tournament.tournament_players) ? tournament.tournament_players : []; const isOrganizer = tournament.created_by_player_id === profile.playerId; const mine = players.find((player) => player.player_id === profile.playerId);
+  const players = Array.isArray(tournament.tournament_players) ? tournament.tournament_players : []; const isOrganizer = tournament.created_by_player_id === profile.playerId; const mine = players.find((player) => player.player_id === profile.playerId); const humanCount = players.filter((player) => !player.is_cpu).length; const isHybrid = tournament.mode === TOURNAMENT_MODE.HYBRID;
   const canCancel = isOrganizer && [TOURNAMENT_STATUS.LOBBY, TOURNAMENT_STATUS.SEMIFINALS, TOURNAMENT_STATUS.FINAL].includes(tournament.status);
+  const canFillWithCpu = tournament.status === TOURNAMENT_STATUS.LOBBY && isOrganizer && !isHybrid && humanCount === 2;
   const status = tournament.status === TOURNAMENT_STATUS.SEMIFINALS ? "SEMIFINAIS" : tournament.status === TOURNAMENT_STATUS.FINAL ? "FINAL" : tournament.status === TOURNAMENT_STATUS.FINISHED ? "FINALIZADO" : tournament.status === TOURNAMENT_STATUS.CANCELLED ? "CANCELADO" : "AGUARDANDO";
   return <section className="battle-panel tournament-panel tournament-lobby">
     <header className="tournament-arena-header"><div><span className="eyebrow"><Trophy size={15} weight="fill" aria-hidden="true" /> CAMPEONATO</span><h2>{tournament.code}</h2><small>{status} · {players.length}/4 JOGADORES</small></div><span className="tournament-count"><Users size={18} weight="fill" aria-hidden="true" /> {players.length}/4</span></header>
     {tournament.status === TOURNAMENT_STATUS.LOBBY && <section className="tournament-lobby-roster"><h3>{isOrganizer ? players.length === 4 ? "Arena pronta" : "Aguardando treinadores" : "Aguardando o início"}</h3><div>{[1, 2, 3, 4].map((slot) => { const player = players.find((entry) => entry.slot === slot); return player ? <ArenaPlayer key={slot} player={player} localId={profile.playerId} compact /> : <ArenaPlayer key={slot} compact />; })}</div>{isOrganizer && (confirmingStart ? <div className="tournament-confirm"><p>Iniciar bloqueia os 4 participantes e cria a chave.</p><button type="button" className="tournament-primary" disabled={busy} onClick={onStart}>Confirmar início</button><button type="button" className="tournament-back" onClick={() => setConfirmingStart(false)}>Voltar</button></div> : <button type="button" className="tournament-primary" disabled={players.length !== 4 || busy} onClick={() => setConfirmingStart(true)}>Iniciar campeonato</button>)}</section>}
+    {isHybrid && <p className="tournament-status">CAMPEONATO HÍBRIDO · 2 JOGADORES · 2 CPU · PRÊMIOS ×0,5</p>}
+    {canFillWithCpu && <button type="button" className="tournament-primary" disabled={busy} onClick={onFillWithCpu}>Completar com 2 CPUs</button>}
+    {isHybrid && <TournamentRewardsPreview mode={TOURNAMENT_MODE.HYBRID} />}
     {[TOURNAMENT_STATUS.SEMIFINALS, TOURNAMENT_STATUS.FINAL, TOURNAMENT_STATUS.FINISHED].includes(tournament.status) && <TournamentBracket tournament={tournament} playerId={profile.playerId} onEnterMatch={onEnterMatch} />}
     {mine?.status === "ELIMINATED" && <p className="tournament-status"><WarningCircle size={18} aria-hidden="true" /> Eliminado. Acompanhe o desfecho da chave.</p>}
     {tournament.status === TOURNAMENT_STATUS.CANCELLED && <p className="tournament-status"><XCircle size={18} aria-hidden="true" /> {tournament.cancellation_reason === "INACTIVITY" ? "Campeonato encerrado por inatividade." : "Campeonato cancelado pelo organizador."}</p>}

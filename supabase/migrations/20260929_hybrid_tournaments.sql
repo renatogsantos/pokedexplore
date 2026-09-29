@@ -6,6 +6,8 @@ alter table public.tournaments
 alter table public.tournament_players
   add column if not exists is_cpu boolean not null default false,
   add column if not exists cpu_team jsonb;
+alter table public.tournament_matches
+  add column if not exists cpu_team jsonb;
 
 create or replace function public.fill_tournament_with_cpu(p_tournament_id uuid, p_organizer_id text)
 returns void language plpgsql security definer set search_path = public as $$
@@ -20,8 +22,8 @@ begin
   update public.tournaments set mode = 'HYBRID', reward_multiplier = 0.5, registration_locked = true where id = p_tournament_id;
   insert into public.tournament_players(tournament_id, player_id, display_name, avatar_id, slot, is_cpu, cpu_team)
   values
-    (p_tournament_id, 'cpu:' || p_tournament_id::text || ':atlas', 'CPU Atlas', 'trainer-4', 3, true, '[]'::jsonb),
-    (p_tournament_id, 'cpu:' || p_tournament_id::text || ':nova', 'CPU Nova', 'trainer-7', 4, true, '[]'::jsonb);
+    (p_tournament_id, 'cpu:' || p_tournament_id::text || ':atlas', 'CPU Atlas', 'avatar-04', 3, true, null),
+    (p_tournament_id, 'cpu:' || p_tournament_id::text || ':nova', 'CPU Nova', 'avatar-07', 4, true, null);
 end; $$;
 grant execute on function public.fill_tournament_with_cpu(uuid, text) to anon, authenticated;
 
@@ -41,3 +43,4 @@ begin
  insert into public.tournament_players(tournament_id,player_id,display_name,avatar_id,slot) values(p_tournament_id,p_player_id,left(trim(p_display_name),18),p_avatar_id,slot_value);
  return jsonb_build_object('alreadyJoined',false,'slot',slot_value,'participantCount',count_value+1);
 end; $$;
+grant execute on function public.join_tournament(uuid, text, text, text) to anon, authenticated;

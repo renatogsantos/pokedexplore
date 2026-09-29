@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   applyTournamentRewardReceipt,
+  getTournamentRewardPreview,
   getTournamentPlacement,
   resolveTournamentReward,
 } from "./rewards.js";
+import { TOURNAMENT_CONFIG, TOURNAMENT_REWARD_MULTIPLIER } from "./config.js";
 
 const players = ["a", "b", "c", "d"].map((player_id, index) => ({ player_id, slot: index + 1 }));
 const semifinalSnapshot = {
@@ -54,6 +56,13 @@ test("hybrid tournaments apply the canonical half multiplier and reduced item po
   assert.equal(reward.coins, normal.coins / 2);
   assert.equal(reward.multiplier, 0.5);
   assert.notEqual(reward.rarity, "LEGENDARY");
+});
+
+test("hybrid reward preview is derived from the same coins and rarity pool", () => {
+  const preview = getTournamentRewardPreview("HYBRID");
+  assert.equal(preview.champion.coins, TOURNAMENT_CONFIG.rewards.champion.coins * TOURNAMENT_REWARD_MULTIPLIER.HYBRID);
+  assert.equal(preview.champion.rarityLabel, "RARE ou EPIC");
+  assert.equal(preview.finalist.rarityLabel, "RARE ou EPIC");
 });
 
 test("tournament receipt increments inventory once and is safe to reconcile repeatedly", () => {

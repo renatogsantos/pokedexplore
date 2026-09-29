@@ -265,6 +265,33 @@ export async function fillTournamentWithCpu(tournamentId, organizerId) {
   return getTournament(tournamentId);
 }
 
+export async function getOrCreateTournamentCpuTeam(matchId, generatedTeam) {
+  const db = client();
+  const { data: current, error: readError } = await db
+    .from("tournament_matches")
+    .select("cpu_team")
+    .eq("id", matchId)
+    .single();
+  if (readError) throw readError;
+  if (Array.isArray(current?.cpu_team) && current.cpu_team.length) return current.cpu_team;
+  const { data: saved, error: saveError } = await db
+    .from("tournament_matches")
+    .update({ cpu_team: generatedTeam })
+    .eq("id", matchId)
+    .is("cpu_team", null)
+    .select("cpu_team")
+    .maybeSingle();
+  if (saveError) throw saveError;
+  if (Array.isArray(saved?.cpu_team) && saved.cpu_team.length) return saved.cpu_team;
+  const { data: resolved, error: resolvedError } = await db
+    .from("tournament_matches")
+    .select("cpu_team")
+    .eq("id", matchId)
+    .single();
+  if (resolvedError) throw resolvedError;
+  return Array.isArray(resolved?.cpu_team) && resolved.cpu_team.length ? resolved.cpu_team : generatedTeam;
+}
+
 export async function cancelTournament(tournamentId, organizerId) {
   const db = client();
   const current = await getTournament(tournamentId);

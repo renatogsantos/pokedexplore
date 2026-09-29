@@ -6,6 +6,7 @@ import {
   TOURNAMENT_STATUS,
   TOURNAMENT_MODE,
   TOURNAMENT_REWARD_MULTIPLIER,
+  TOURNAMENT_CONFIG,
   getTournamentRewardTier,
 } from "./config.js";
 
@@ -97,6 +98,17 @@ export function resolveTournamentReward(tournament, playerId, random = Math.rand
     rarity: item.rarity,
     multiplier,
   };
+}
+
+export function getTournamentRewardPreview(mode = TOURNAMENT_MODE.NORMAL) {
+  const multiplier = mode === TOURNAMENT_MODE.HYBRID ? TOURNAMENT_REWARD_MULTIPLIER.HYBRID : TOURNAMENT_REWARD_MULTIPLIER.NORMAL;
+  const pools = mode === TOURNAMENT_MODE.HYBRID ? HYBRID_REWARD_POOLS : REWARD_POOLS;
+  return Object.fromEntries(Object.entries(TOURNAMENT_CONFIG.rewards).map(([key, tier]) => {
+    const rarityLabel = pools[TOURNAMENT_PLACEMENT[key.toUpperCase()]]
+      ?.map((entry) => entry.rarity)
+      .join(" ou ");
+    return [key, { ...tier, coins: Math.round(tier.coins * multiplier), rarityLabel }];
+  }));
 }
 
 export function applyTournamentRewardReceipt(economy, reward, claimedAt = Date.now()) {

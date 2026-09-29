@@ -40,7 +40,8 @@ import { buildJourneyCpuTeam, getJourneyBattle, getJourneyNode } from "@/lib/jou
 import TournamentPanel from "@/components/Tournament/TournamentPanel";
 import { ROUND, getTournamentReward } from "@/lib/tournament/config";
 import { resolveTournamentReward } from "@/lib/tournament/rewards";
-import { cancelTournament, completeTournamentMatch, createTournament, getPlayerActiveTournament, getTournament, joinTournament, leaveTournament, markTournamentMatchPlaying, startTournament, subscribeTournament } from "@/lib/tournament/service";
+import { TOURNAMENT_MATCH_KIND, chooseCpuVsCpuWinner, getTournamentMatchKind } from "@/lib/tournament/match";
+import { cancelTournament, completeTournamentMatch, createTournament, fillTournamentWithCpu, getOrCreateTournamentCpuTeam, getPlayerActiveTournament, getTournament, joinTournament, leaveTournament, markTournamentMatchPlaying, startTournament, subscribeTournament } from "@/lib/tournament/service";
 import BadgeArtwork from "@/components/Badges/BadgeArtwork";
 import { getBadgeCpuTeam } from "@/lib/badges/cpu";
 import { BADGE_REQUIRED_WINS, BADGE_TEAM_SIZE, getBadgeConfig } from "@/lib/badges/config";
@@ -97,11 +98,13 @@ export default function BattlePage() {
   const selectionTimingSnapshot = useRef(null);
   const autoSelectionSessions = useRef(new Set());
   const processedTournamentResults = useRef(new Set());
+  const processedCpuMatches = useRef(new Set());
   const [preparingTeam, setPreparingTeam] = useState(false);
   const [connection, setConnection] = useState("CONNECTING");
   const [profile, setProfile] = useState(null);
   const [tournament, setTournament] = useState(null);
   const [tournamentMatch, setTournamentMatch] = useState(null);
+  const [tournamentCpuOpponent, setTournamentCpuOpponent] = useState(null);
   const [tournamentRewardReceipt, setTournamentRewardReceipt] = useState(null);
   const [tournamentCode, setTournamentCode] = useState("");
   const [tournamentBusy, setTournamentBusy] = useState(false);
@@ -411,20 +414,35 @@ export default function BattlePage() {
   );
 
   useEffect(() => {
-    if (mode !== "tournament" || battle?.status !== "finished" || battle.winner !== role || !tournamentMatch || !profile) return;
+    if (mode !== "tournament" || battle?.status !== "finished" || (!tournamentCpuOpponent && battle.winner !== role) || !tournamentMatch || !profile) return;
     const resultKey = `${tournamentMatch.id}:${battle.matchId || battle.revision || "finished"}`;
     if (processedTournamentResults.current.has(resultKey)) return;
     processedTournamentResults.current.add(resultKey);
-    void completeTournamentMatch(tournamentMatch.id, profile.playerId)
+    const winnerId = tournamentCpuOpponent
+      ? (battle.winner === "host" ? profile.playerId : tournamentCpuOpponent.player_id)
+      : profile.playerId;
+    void completeTournamentMatch(tournamentMatch.id, winnerId)
       .then((updated) => {
         setTournament(updated);
-        celebrateBattleVictory();
+        if (winnerId === profile.playerId) celebrateBattleVictory();
       })
       .catch((error) => {
         processedTournamentResults.current.delete(resultKey);
         setNotice(error.message);
       });
-  }, [battle?.matchId, battle?.revision, battle?.status, battle?.winner, mode, profile, role, tournamentMatch]);
+  }, [battle?.matchId, battle?.revision, battle?.status, battle?.winner, mode, profile, role, tournamentMatch, tournamentCpuOpponent]);
+
+  useEffect(() => {
+    if (mode !== "tournament" || !tournament?.id) return;
+    const pendingCpuMatch = (tournament.tournament_matches || []).find((match) =>
+      match.status !== "FINISHED" && getTournamentMatchKind(tournament, match) === TOURNAMENT_MATCH_KIND.CPU_VS_CPU,
+    );
+    if (!pendingCpuMatch || processedCpuMatches.current.has(pendingCpuMatch.id)) return;
+    processedCpuMatches.current.add(pendingCpuMatch.id);
+    void completeTournamentMatch(pendingCpuMatch.id, chooseCpuVsCpuWinner(pendingCpuMatch))
+      .then(setTournament)
+      .catch((error) => { processedCpuMatches.current.delete(pendingCpuMatch.id); setNotice(error.message); });
+  }, [mode, tournament]);
 
   useEffect(() => {
     if (!tournament?.id || !profile?.playerId) return;
@@ -660,7 +678,7 @@ export default function BattlePage() {
 
   useEffect(() => {
     if (
-      !["cpu", "badge-cpu"].includes(mode) ||
+      (!["cpu", "badge-cpu"].includes(mode) && !(mode === "tournament" && tournamentCpuOpponent)) ||
       !battle ||
       battle.turn !== "guest" ||
       battle.status !== "playing"
@@ -670,7 +688,7 @@ export default function BattlePage() {
     cpuTimer.current = setTimeout(
       () =>
         setBattle((current) => {
-          const intent = decideCpuIntent(current, { difficulty: mode === "badge-cpu" ? "hard" : current?.cpuDifficulty || cpuDifficulty });
+          const intent = decideCpuIntent(current, { difficulty: mode === "badge-cpu" || tournamentCpuOpponent ? "hard" : current?.cpuDifficulty || cpuDifficulty });
           const next = appendBattleAudioEvents(current, resolveAction(current, "guest", intent), { mode });
           persistBattleConsumables(next, "host");
           return rewardFinishedBattle(current, next, "host");
@@ -678,7 +696,7 @@ export default function BattlePage() {
       850,
     );
     return () => clearTimeout(cpuTimer.current);
-  }, [mode, battle, cpuDifficulty, rewardFinishedBattle]);
+  }, [mode, battle, cpuDifficulty, rewardFinishedBattle, tournamentCpuOpponent]);
 
   function chooseMode(nextMode, difficulty = "medium") {
     setMode(nextMode);
@@ -751,6 +769,26 @@ export default function BattlePage() {
         : journeyNode ? buildJourneyCpuTeam(journeyNode.id, journeyBattleIndex, CPU_ROSTER) : generateCpuTeam({ difficulty: cpuDifficulty, playerTeam: currentTeam, recentTeams: recentCpuTeams.current });
       if (mode === "cpu" && !journeyNode) recentCpuTeams.current = [...recentCpuTeams.current, journeyTeam].slice(-3);
       await startState(currentTeam, journeyTeam, local, { id: "cpu", name: mode === "badge-cpu" ? badgeConfig.leaderName : journeyNode?.medalId ? "Líder da Jornada" : journeyNode ? journeyNode.title : "CPU", inventory: mode === "badge-cpu" ? {} : createCpuInventory(journeyBattle?.difficulty || cpuDifficulty) }, mode === "cpu" ? { difficulty: journeyBattle?.difficulty || cpuDifficulty } : null);
+      setPreparingTeam(false);
+      return;
+    }
+    if (mode === "tournament" && tournamentCpuOpponent && tournamentMatch) {
+      const local = makePlayer(name, profile?.playerId);
+      const generatedTeam = generateCpuTeam({ difficulty: "hard", playerTeam: currentTeam });
+      try {
+        const cpuTeam = await getOrCreateTournamentCpuTeam(tournamentMatch.id, generatedTeam);
+        setPlayer(local);
+        void markTournamentMatchPlaying(tournamentMatch.id).catch(() => {});
+        await startState(
+          currentTeam,
+          cpuTeam,
+          local,
+          { id: tournamentCpuOpponent.player_id, name: tournamentCpuOpponent.display_name, inventory: createCpuInventory("hard") },
+          { difficulty: "hard" },
+        );
+      } catch (error) {
+        setNotice(error.message || "Não foi possível preparar a equipe da CPU.");
+      }
       setPreparingTeam(false);
       return;
     }
@@ -926,6 +964,14 @@ export default function BattlePage() {
     try { setTournament(await startTournament(tournament.id, profile.playerId)); }
     catch (error) { setNotice(error.message); } finally { setTournamentBusy(false); }
   }
+  async function fillTournamentWithCpuFlow() {
+    if (!tournament || !profile) return;
+    setTournamentBusy(true);
+    try {
+      setTournament(await fillTournamentWithCpu(tournament.id, profile.playerId));
+      setNotice("Dois CPUs entraram na chave. Revise e inicie o campeonato.");
+    } catch (error) { setNotice(error.message); } finally { setTournamentBusy(false); }
+  }
   async function cancelTournamentFlow() {
     if (!tournament || !profile) return;
     setTournamentBusy(true);
@@ -959,9 +1005,13 @@ export default function BattlePage() {
       setNotice("Esta partida do campeonato ainda não está pronta. Atualize a chave e tente novamente.");
       return;
     }
+    const kind = getTournamentMatchKind(tournament, match);
+    if (kind === TOURNAMENT_MATCH_KIND.CPU_VS_CPU) return;
     const currentPlayer = { id: profile.playerId, name: name.trim() || profile.displayName };
+    const cpuOpponent = (tournament?.tournament_players || []).find((entry) => entry.is_cpu && participantIds.includes(entry.player_id)) || null;
     const currentRole = match.player1_id === profile.playerId ? "host" : "guest";
-    setMode("tournament"); setTournamentMatch(match); setPlayer(currentPlayer); setRole(currentRole); setRoomCode(match.battle_room_code); setSelected([]); setBattle(null); setMyReady(false); setOpponentReady(false); setScreen("team");
+    setMode("tournament"); setTournamentMatch(match); setTournamentCpuOpponent(cpuOpponent); setPlayer(currentPlayer); setRole(cpuOpponent ? "host" : currentRole); setRoomCode(match.battle_room_code); setSelected([]); setBattle(null); setMyReady(false); setOpponentReady(false); setScreen("team");
+    if (cpuOpponent) return;
     try { connectRoom(match.battle_room_code, currentPlayer, currentRole); }
     catch (error) { setNotice(error.message); setScreen("tournament"); }
   }
@@ -1027,7 +1077,7 @@ export default function BattlePage() {
       }
       return;
     }
-    if (mode === "tournament") { realtime.current?.leave(); setBattle(null); setSelected([]); setRemoteTeam(null); setMyReady(false); setOpponentReady(false); setTournamentMatch(null); setScreen("tournament"); void getTournament(tournament?.id).then(setTournament).catch(() => {}); return; }
+    if (mode === "tournament") { realtime.current?.leave(); setBattle(null); setSelected([]); setRemoteTeam(null); setMyReady(false); setOpponentReady(false); setTournamentMatch(null); setTournamentCpuOpponent(null); setScreen("tournament"); void getTournament(tournament?.id).then(setTournament).catch(() => {}); return; }
     if (mode === "friend") {
       broadcast(BATTLE_EVENTS.REMATCH, {});
       setWager(null);
@@ -1084,7 +1134,7 @@ export default function BattlePage() {
           </span>
         </header>
         {screen === "mode" && <ModeScreen onChoose={chooseMode} activeTournament={tournament} onResumeTournament={() => { setMode("tournament"); setScreen("tournament"); }} />}
-        {screen === "tournament" && <TournamentPanel tournament={tournament} profile={profile || {}} rewardReceipt={tournamentRewardReceipt} name={name} setName={setName} code={tournamentCode} setCode={setTournamentCode} notice={notice} busy={tournamentBusy} onCreate={createTournamentFlow} onJoin={joinTournamentFlow} onResetIdentity={resetTournamentIdentity} onStart={startTournamentFlow} onCancel={cancelTournamentFlow} onLeave={leaveTournamentFlow} onEnterMatch={enterTournamentMatch} onBack={() => setScreen("mode")} />}
+        {screen === "tournament" && <TournamentPanel tournament={tournament} profile={profile || {}} rewardReceipt={tournamentRewardReceipt} name={name} setName={setName} code={tournamentCode} setCode={setTournamentCode} notice={notice} busy={tournamentBusy} onCreate={createTournamentFlow} onJoin={joinTournamentFlow} onResetIdentity={resetTournamentIdentity} onStart={startTournamentFlow} onFillWithCpu={fillTournamentWithCpuFlow} onCancel={cancelTournamentFlow} onLeave={leaveTournamentFlow} onEnterMatch={enterTournamentMatch} onBack={() => setScreen("mode")} />}
         {screen === "friend" && (
           <FriendScreen
             name={name}
