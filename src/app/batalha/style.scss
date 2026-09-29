@@ -168,6 +168,17 @@
 .hp-fill.danger {
   background: linear-gradient(90deg, #ff5b5b, #ffaf58);
 }
+.battle-resource-list { display: grid; gap: 3px; margin-top: 7px; }
+.battle-resource-bar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 7px; color: #adbed2; font-size: .49rem; font-weight: 900; letter-spacing: .055em; line-height: 1.05; }
+.battle-resource-bar__label { display: inline-flex; align-items: center; min-width: 0; gap: 3px; white-space: nowrap; }
+.battle-resource-bar strong { color: #eef6ff; font-size: .52rem; letter-spacing: 0; }
+.battle-resource-bar__track { grid-column: 1 / -1; display: block; height: 3px; overflow: hidden; border-radius: 99px; background: #020814cc; box-shadow: inset 0 0 0 1px #ffffff0b; }
+.battle-resource-bar__fill { display: block; height: 100%; border-radius: inherit; box-shadow: 0 0 7px currentColor; animation: resource-pulse .26s ease-out; }
+.battle-resource-bar.is-momentum { color: #8fd7ff; }.battle-resource-bar.is-momentum .battle-resource-bar__fill { background: linear-gradient(90deg, #4aa9f4, #9cddff); }
+.battle-resource-bar.is-special { color: #e0c1ff; }.battle-resource-bar.is-special .battle-resource-bar__fill { background: linear-gradient(90deg, #9c69e8, #e1bdff); }
+.battle-resource-bar.is-healing { color: #9cf0bf; }.battle-resource-bar.is-healing .battle-resource-bar__fill { background: linear-gradient(90deg, #41bd75, #a8f5c6); }
+.battle-resource-bar.is-depleted { color: #718298; }.battle-resource-bar.is-depleted .battle-resource-bar__fill { box-shadow: none; }
+@keyframes resource-pulse { from { filter: brightness(1.75); } to { filter: brightness(1); } }
 .versus {
   position: absolute;
   z-index: 2;
@@ -1392,6 +1403,7 @@
   .combatant.is-attacking .fighter-art {
     animation: none;
   }
+  .battle-resource-bar__fill { animation: none; }
 }
 
 /* Viewport-aware battle layout: critical HUD stays inside mobile safe areas. */
@@ -2252,6 +2264,10 @@
   .hp-label {
     font-size: 0.58rem;
   }
+  .battle-resource-list { margin-top: 6px; gap: 2px; }
+  .battle-resource-bar { font-size: .44rem; }
+  .battle-resource-bar strong { font-size: .48rem; }
+  .battle-resource-bar__track { height: 2px; }
   .arena-divider {
     width: 46px;
     height: 46px;

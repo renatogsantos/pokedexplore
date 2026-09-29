@@ -5,6 +5,7 @@ import {
   Backpack,
   Crown,
   Lightning,
+  Sparkle,
   Sword,
   Trophy,
   WarningCircle,
@@ -21,7 +22,9 @@ import {
   getBagItemUsage,
   getBagItemUseBlockReason,
   MAX_HEALS_PER_POKEMON,
+  MAX_SPECIAL_ATTACK_USES,
   MAX_BAG_ITEM_USES_PER_POKEMON,
+  MOMENTUM_CONFIG,
   getPokemonMatchup,
   getSupportedAbility,
   multiplier,
@@ -95,6 +98,31 @@ function HpBar({ pokemon }) {
   );
 }
 
+// Presentation-only: values are read from the current fighter in the
+// authoritative state, so switching, CPU turns and synchronized PvP state all
+// update this HUD without a second client-side resource store.
+function BattleResourceBar({ icon: Icon, label, current, max, variant, description }) {
+  const safeMax = Math.max(1, Number(max) || 1);
+  const safeCurrent = Math.min(safeMax, Math.max(0, Number(current) || 0));
+  const percent = (safeCurrent / safeMax) * 100;
+  return <div className={`battle-resource-bar is-${variant} ${safeCurrent === 0 ? "is-depleted" : ""}`} aria-label={`${description}: ${safeCurrent} de ${safeMax}`}>
+    <span className="battle-resource-bar__label"><Icon size={12} weight="fill" aria-hidden="true" /> {label}</span>
+    <strong>{safeCurrent}/{safeMax}</strong>
+    <span className="battle-resource-bar__track" aria-hidden="true">
+      <motion.i key={safeCurrent} className="battle-resource-bar__fill" animate={{ width: `${percent}%` }} transition={{ duration: 0.24 }} />
+    </span>
+  </div>;
+}
+
+function BattleResourceBars({ pokemon }) {
+  const healingRemaining = Math.max(0, MAX_HEALS_PER_POKEMON - (Number(pokemon.healsUsed) || 0));
+  return <section className="battle-resource-list" aria-label={`Recursos estratégicos de ${pokemon.name}`}>
+    <BattleResourceBar icon={Lightning} label="IMPULSO" current={pokemon.momentum} max={MOMENTUM_CONFIG.MAX} variant="momentum" description="Impulso acumulado" />
+    <BattleResourceBar icon={Sparkle} label="ESPECIAL" current={pokemon.specialAttackUsesRemaining} max={MAX_SPECIAL_ATTACK_USES} variant="special" description="Especiais restantes" />
+    <BattleResourceBar icon={Backpack} label="CURAS" current={healingRemaining} max={MAX_HEALS_PER_POKEMON} variant="healing" description="Curas restantes" />
+  </section>;
+}
+
 function useBattleElapsed(startedAt, active) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -163,9 +191,10 @@ function Fighter({
           </span>
         </div>
         <HpBar pokemon={pokemon} />
-        <small className="healing-limit-indicator combatant-label">
-          Curas {pokemon.healsUsed || 0}/{MAX_HEALS_PER_POKEMON}
-        </small>
+        <BattleResourceBars pokemon={pokemon} />
+        {pokemon.status && (
+          <StatusBadge pokemon={pokemon} onOpen={onStatusOpen} />
+        )}
         {ability && (
           <span
             className={`battle-ability ${pokemon.hp / pokemon.maxHp <= 1 / 3 ? "is-active" : ""}`}
@@ -188,9 +217,6 @@ function Fighter({
             {getItemLabel(pokemon.heldItem)}{" "}
             <b>{heldItemPresentation?.persistenceLabel || "PRONTO"}</b>
           </span>
-        )}
-        {pokemon.status && (
-          <StatusBadge pokemon={pokemon} onOpen={onStatusOpen} />
         )}
         {side === "player" && matchup === "disadvantage" && (
           <small className="matchup-warning">⚠ Desvantagem</small>
