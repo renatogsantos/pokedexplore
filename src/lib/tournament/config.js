@@ -2,9 +2,9 @@ export const TOURNAMENT_CONFIG = Object.freeze({
   playerCount: 4,
   codePrefix: "PKC",
   rewards: Object.freeze({
-    semifinalist: Object.freeze({ coins: 45, rarityLabel: "COMUM ou RARO" }),
-    finalist: Object.freeze({ coins: 125, rarityLabel: "RARO ou ÉPICO" }),
-    champion: Object.freeze({ coins: 320, rarityLabel: "ÉPICO garantido · 8% LENDÁRIO" }),
+    semifinalist: Object.freeze({ coins: 4500, rarityLabel: "COMUM ou RARO" }),
+    finalist: Object.freeze({ coins: 10000, rarityLabel: "RARO ou ÉPICO" }),
+    champion: Object.freeze({ coins: 25000, rarityLabel: "ÉPICO garantido · 8% LENDÁRIO" }),
   }),
 });
 
