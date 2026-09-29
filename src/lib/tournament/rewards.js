@@ -4,6 +4,8 @@ import {
   ROUND,
   TOURNAMENT_PLACEMENT,
   TOURNAMENT_STATUS,
+  TOURNAMENT_MODE,
+  TOURNAMENT_REWARD_MULTIPLIER,
   getTournamentRewardTier,
 } from "./config.js";
 
@@ -20,6 +22,11 @@ const REWARD_POOLS = Object.freeze({
     Object.freeze({ rarity: ITEM_RARITY.EPIC, weight: 92 }),
     Object.freeze({ rarity: ITEM_RARITY.LEGENDARY, weight: 8 }),
   ]),
+});
+const HYBRID_REWARD_POOLS = Object.freeze({
+  [TOURNAMENT_PLACEMENT.SEMIFINALIST]: Object.freeze([{ rarity: ITEM_RARITY.COMMON, weight: 85 }, { rarity: ITEM_RARITY.RARE, weight: 15 }]),
+  [TOURNAMENT_PLACEMENT.FINALIST]: Object.freeze([{ rarity: ITEM_RARITY.RARE, weight: 90 }, { rarity: ITEM_RARITY.EPIC, weight: 10 }]),
+  [TOURNAMENT_PLACEMENT.CHAMPION]: Object.freeze([{ rarity: ITEM_RARITY.RARE, weight: 65 }, { rarity: ITEM_RARITY.EPIC, weight: 35 }]),
 });
 
 const isFinishedResult = (match) =>
@@ -63,8 +70,8 @@ function weightedPick(entries, random) {
   return entries.at(-1);
 }
 
-export function selectTournamentRewardItem(placement, random = Math.random) {
-  const choice = weightedPick(REWARD_POOLS[placement] || [], random);
+export function selectTournamentRewardItem(placement, random = Math.random, mode = TOURNAMENT_MODE.NORMAL) {
+  const choice = weightedPick((mode === TOURNAMENT_MODE.HYBRID ? HYBRID_REWARD_POOLS : REWARD_POOLS)[placement] || [], random);
   if (!choice) return null;
   const pool = ITEM_CATALOG.filter(
     (item) => item.purchasable !== false && item.rarity === choice.rarity && getItemDefinition(item.id),
@@ -76,16 +83,19 @@ export function resolveTournamentReward(tournament, playerId, random = Math.rand
   const placement = getTournamentPlacement(tournament, playerId);
   const tier = getTournamentRewardTier(placement);
   if (!tier) return null;
-  const item = selectTournamentRewardItem(placement, random);
+  const mode = tournament.mode === TOURNAMENT_MODE.HYBRID ? TOURNAMENT_MODE.HYBRID : TOURNAMENT_MODE.NORMAL;
+  const multiplier = mode === TOURNAMENT_MODE.HYBRID ? TOURNAMENT_REWARD_MULTIPLIER.HYBRID : TOURNAMENT_REWARD_MULTIPLIER.NORMAL;
+  const item = selectTournamentRewardItem(placement, random, mode);
   if (!item) return null;
   return {
     id: getTournamentRewardId(tournament.id, playerId, placement),
     tournamentId: tournament.id,
     playerId,
     placement,
-    coins: tier.coins,
+    coins: Math.round(tier.coins * multiplier),
     itemId: item.id,
     rarity: item.rarity,
+    multiplier,
   };
 }
 

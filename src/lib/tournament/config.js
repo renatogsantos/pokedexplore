@@ -7,6 +7,8 @@ export const TOURNAMENT_CONFIG = Object.freeze({
     champion: Object.freeze({ coins: 25000, rarityLabel: "ÉPICO garantido · 8% LENDÁRIO" }),
   }),
 });
+export const TOURNAMENT_MODE = Object.freeze({ NORMAL: "NORMAL", HYBRID: "HYBRID" });
+export const TOURNAMENT_REWARD_MULTIPLIER = Object.freeze({ NORMAL: 1, HYBRID: 0.5 });
 
 export const TOURNAMENT_STATUS = Object.freeze({
   LOBBY: "LOBBY",

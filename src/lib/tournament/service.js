@@ -255,6 +255,16 @@ export async function startTournament(tournamentId, organizerId) {
   return getTournament(tournamentId);
 }
 
+export async function fillTournamentWithCpu(tournamentId, organizerId) {
+  const db = client();
+  const { error: fillError } = await db.rpc("fill_tournament_with_cpu", {
+    p_tournament_id: tournamentId,
+    p_organizer_id: organizerId,
+  });
+  if (fillError) throw fillError;
+  return getTournament(tournamentId);
+}
+
 export async function cancelTournament(tournamentId, organizerId) {
   const db = client();
   const current = await getTournament(tournamentId);

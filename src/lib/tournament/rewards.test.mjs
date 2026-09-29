@@ -47,6 +47,15 @@ test("reward tiers respect placement and champion legendary access is controlled
   assert.ok(championEpic.coins > finalist.coins && finalist.coins > semifinal.coins);
 });
 
+test("hybrid tournaments apply the canonical half multiplier and reduced item pool", () => {
+  const hybrid = { ...finishedSnapshot, mode: "HYBRID", reward_multiplier: 0.5 };
+  const normal = resolveTournamentReward(finishedSnapshot, "a", () => 0.99);
+  const reward = resolveTournamentReward(hybrid, "a", () => 0.99);
+  assert.equal(reward.coins, normal.coins / 2);
+  assert.equal(reward.multiplier, 0.5);
+  assert.notEqual(reward.rarity, "LEGENDARY");
+});
+
 test("tournament receipt increments inventory once and is safe to reconcile repeatedly", () => {
   const reward = resolveTournamentReward(finishedSnapshot, "a", () => 0.5);
   const initial = { coins: 10, inventory: { [reward.itemId]: 2 }, tournamentRewardReceipts: [] };
