@@ -4,8 +4,8 @@ import { readFile } from "node:fs/promises";
 
 const catalogSource = await readFile(new URL("../items/catalog.js", import.meta.url), "utf8");
 globalThis.__itemCatalog = await import(`data:text/javascript;base64,${Buffer.from(catalogSource).toString("base64")}`);
-const source = (await readFile(new URL("./heldItems.js", import.meta.url), "utf8")).replace('import { HELD_ITEM_CATALOG, getItemDefinition, migrateLegacyItemId } from "@/lib/items/catalog";', "const { HELD_ITEM_CATALOG, getItemDefinition, migrateLegacyItemId } = globalThis.__itemCatalog;");
-const { EQUIPMENT_SLOT, canEquipElementalRelic, getEquipableItemsForSlot, getEquipmentInventoryState, getHeldItemStock, getPokemonTypes, normalizePokemonEquipment, normalizePokemonHeldItem, planHeldItemChange, validateHeldItemAssignments } = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
+const source = (await readFile(new URL("./heldItems.js", import.meta.url), "utf8")).replace(/import\s*\{[\s\S]*?\}\s*from\s*"@\/lib\/items\/catalog";/, "const { ELEMENTAL_RELICS_BY_TYPE, ELEMENTAL_RELIC_CATALOG, HELD_ITEM_CATALOG, STRATEGIC_ITEM_CATALOG, getItemDefinition, migrateLegacyItemId } = globalThis.__itemCatalog;");
+const { EQUIPMENT_SLOT, buildEquipmentReservationIndex, canEquipElementalRelic, getEquipableItemsForSlot, getEquipmentInventoryState, getHeldItemStock, getPokemonTypes, normalizePokemonEquipment, normalizePokemonHeldItem, planHeldItemChange, validateHeldItemAssignments } = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
 const pokemon = (id, heldItem = null) => ({ id, name: `pokemon-${id}`, heldItem });
 const economy = (inventory) => ({ inventory });
 
@@ -67,6 +67,15 @@ test("relic inventory keeps the current assignment visible without duplicating i
   assert.equal(current.available, 0);
   assert.equal(other.state, "ALL_RESERVED");
   assert.equal(other.available, 0);
+});
+
+test("reservation indexes avoid item-by-item collection scans for a large collection", () => {
+  const collection = Array.from({ length: 1500 }, (_, id) => ({ id, heldItem: id % 3 === 0 ? "fruit-vital" : null, elementalRelic: id % 11 === 0 ? "semente-ancestral" : null }));
+  const index = buildEquipmentReservationIndex(collection);
+  assert.equal(index.get("fruit-vital"), 500);
+  assert.equal(index.get("semente-ancestral"), 137);
+  const stock = getHeldItemStock({ economy: economy({ "fruit-vital": 700 }), itemId: "fruit-vital", reservationIndex: index });
+  assert.deepEqual(stock, { itemId: "fruit-vital", owned: 700, equipped: 500, available: 200 });
 });
 
 test("legacy relic ids migrate to the relic slot while strategic equipment stays independent", () => {

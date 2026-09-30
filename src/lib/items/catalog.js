@@ -536,6 +536,18 @@ export const HELD_ITEM_CATALOG = Object.freeze(
 export const BAG_ITEM_CATALOG = Object.freeze(
   ITEM_CATALOG.filter((entry) => entry.usageType === ITEM_USAGE.BAG),
 );
+export const STRATEGIC_ITEM_CATALOG = Object.freeze(
+  HELD_ITEM_CATALOG.filter((entry) => entry.equipmentSlot !== "ELEMENTAL_RELIC"),
+);
+export const ELEMENTAL_RELIC_CATALOG = Object.freeze(
+  HELD_ITEM_CATALOG.filter((entry) => entry.equipmentSlot === "ELEMENTAL_RELIC"),
+);
+export const ELEMENTAL_RELICS_BY_TYPE = Object.freeze(
+  ELEMENTAL_RELIC_CATALOG.reduce((index, relic) => {
+    index[relic.elementalType] = relic;
+    return index;
+  }, {}),
+);
 
 export function getItemDefinition(id) {
   return (

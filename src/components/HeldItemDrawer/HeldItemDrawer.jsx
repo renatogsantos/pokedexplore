@@ -1,71 +1,72 @@
 "use client";
 
 import { X } from "@phosphor-icons/react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import ItemDetailsModal from "@/components/ItemDetailsModal/ItemDetailsModal";
 import ItemSprite from "@/components/ItemSprite/ItemSprite";
 import { webStore } from "@/helpers/webStore";
-import { EQUIPMENT_SLOT, getEquipableItemsForSlot, getEquipmentInventoryState, getHeldItemDefinition, getPokemonTypes } from "@/lib/economy/heldItems";
+import { EQUIPMENT_SLOT, buildEquipmentReservationIndex, getEquipmentItemStates, getPokemonTypes, planHeldItemChange } from "@/lib/economy/heldItems";
 import styles from "./HeldItemDrawer.module.scss";
 
-export default function HeldItemDrawer({ pokemon, economy, collection, heldItem, slot = EQUIPMENT_SLOT.STRATEGIC, open, onClose, onEquipped }) {
-  const [snapshot, setSnapshot] = useState({ economy: economy || { inventory: {} }, collection: collection || [] });
+const measure = (name, startedAt, details = {}) => {
+  if (process.env.NODE_ENV !== "production") console.debug("[item-performance]", { name, durationMs: Math.round((performance.now() - startedAt) * 10) / 10, ...details });
+};
+
+export default function HeldItemDrawer({ pokemon, economy, collection, slot = EQUIPMENT_SLOT.STRATEGIC, open, onClose, onEquipped }) {
   const [detail, setDetail] = useState(null);
-  const [busy, setBusy] = useState(false);
+  const [pendingItemId, setPendingItemId] = useState(null);
   const [error, setError] = useState("");
+  const operation = useRef(0);
+  const openedAt = useRef(null);
+  if (open && !openedAt.current) openedAt.current = performance.now();
+  if (!open && openedAt.current) openedAt.current = null;
 
-  useEffect(() => {
-    if (!open) return;
-    setError("");
-    Promise.all([webStore.getData("Pokedex"), webStore.getEconomy()])
-      .then(([currentCollection, currentEconomy]) => setSnapshot({ collection: currentCollection, economy: currentEconomy }))
-      .catch(() => setError("Não foi possível carregar o inventário."));
-  }, [open, collection, economy]);
-
-  const items = useMemo(() => getEquipableItemsForSlot({ pokemon, slot }), [pokemon, slot]);
-  const states = useMemo(() => new Map(items.map((item) => [item.id, getEquipmentInventoryState({ economy: snapshot.economy, collection: snapshot.collection, pokemonId: pokemon?.id, itemId: item.id })])), [items, pokemon?.id, snapshot]);
-  const selected = detail && getHeldItemDefinition(detail);
-  const selectedState = selected && states.get(selected.id);
+  const reservationIndex = useMemo(() => buildEquipmentReservationIndex(collection), [collection]);
+  const itemStates = useMemo(() => getEquipmentItemStates({ economy, collection, pokemon, slot, reservationIndex }), [economy, collection, pokemon, slot, reservationIndex]);
+  const selected = detail ? itemStates.find((entry) => entry.item.id === detail) : null;
 
   if (!open) return null;
+  if (openedAt.current) {
+    measure(slot === EQUIPMENT_SLOT.ELEMENTAL_RELIC ? "OPEN_RELIC_SELECTOR" : "OPEN_STRATEGIC_SELECTOR", openedAt.current, { compatibleItems: itemStates.length, collectionSize: collection.length });
+    openedAt.current = null;
+  }
 
-  const hasEquipableItem = items.some((item) => {
-    const state = states.get(item.id);
-    return state?.equippedOnCurrent || state?.available > 0;
-  });
-  const relicMessage = !items.length
-    ? "Nenhuma relíquia compatível foi encontrada para os tipos deste Pokémon."
-    : items.some((item) => states.get(item.id)?.owned > 0)
-      ? "Suas relíquias compatíveis já estão equipadas."
-      : "Você ainda não possui uma relíquia para este Pokémon.";
+  const hasEquipableItem = itemStates.some((state) => state.equippedOnCurrent || state.available > 0);
+  const relicMessage = !itemStates.length ? "Nenhuma relíquia compatível foi encontrada para os tipos deste Pokémon." : itemStates.some((state) => state.owned > 0) ? "Suas relíquias compatíveis já estão equipadas." : "Você ainda não possui uma relíquia para este Pokémon.";
 
   if (process.env.NODE_ENV !== "production" && slot === EQUIPMENT_SLOT.ELEMENTAL_RELIC) {
-    console.debug("[Relic selector]", {
-      pokemonInstanceId: pokemon?.id,
-      rawTypes: pokemon?.types,
-      normalizedTypes: getPokemonTypes(pokemon),
-      catalogRelics: 18,
-      compatibleRelics: items.map((item) => item.id),
-      inventory: items.map((item) => states.get(item.id)),
-      currentEquippedId: heldItem || null,
-    });
+    console.debug("[Relic selector]", { pokemonInstanceId: pokemon?.id, rawTypes: pokemon?.types, normalizedTypes: getPokemonTypes(pokemon), catalogRelics: 18, compatibleRelics: itemStates.map(({ item }) => item.id), inventory: itemStates, currentEquippedId: pokemon?.elementalRelic || null });
   }
 
   async function equip(itemId) {
-    if (busy) return;
-    setBusy(true);
+    if (pendingItemId) return;
+    const startedAt = performance.now();
+    const previousCollection = collection;
+    const plan = planHeldItemChange({ pokemonId: pokemon.id, requestedItem: itemId, economy, collection, slot });
+    if (!plan.ok) {
+      setError(plan.reason === "TYPE_MISMATCH" ? "Esta relíquia não é compatível com o tipo deste Pokémon." : "Não foi possível equipar este item.");
+      return;
+    }
+    const operationId = ++operation.current;
+    setPendingItemId(itemId || "__unequip__");
     setError("");
+    // The visible team updates before IndexedDB work. The store repeats the
+    // validation inside its single transaction; failure restores this snapshot.
+    onEquipped(plan.pokemon, "Equipamento atualizado.", { economy, collection: plan.collection, optimistic: true });
     try {
       const result = await webStore.setEquipmentItem(pokemon.id, itemId, slot);
+      if (operationId !== operation.current) return;
       if (!result?.ok) {
-        setError(result?.reason === "TYPE_MISMATCH" ? "Esta relíquia não é compatível com o tipo deste Pokémon." : "Não foi possível equipar este item.");
+        const previousPokemon = previousCollection.find((entry) => String(entry.id) === String(pokemon.id));
+        if (previousPokemon) onEquipped(previousPokemon, "", { economy, collection: previousCollection, rollback: true });
+        setError("Não foi possível equipar o item. Tente novamente.");
         return;
       }
-      setSnapshot({ collection: result.collection || snapshot.collection, economy: result.economy || snapshot.economy });
       onEquipped(result.pokemon, "Equipamento atualizado.", result);
       setDetail(null);
+      measure(itemId ? (slot === EQUIPMENT_SLOT.ELEMENTAL_RELIC ? "EQUIP_RELIC" : "EQUIP_STRATEGIC") : "UNEQUIP", startedAt, { persisted: true });
     } finally {
-      setBusy(false);
+      if (operationId === operation.current) setPendingItemId(null);
     }
   }
 
@@ -74,16 +75,16 @@ export default function HeldItemDrawer({ pokemon, economy, collection, heldItem,
       <header><div><span>{slot === EQUIPMENT_SLOT.ELEMENTAL_RELIC ? "RELÍQUIA DE TIPO" : "ITEM ESTRATÉGICO"}</span><h2 id="held-title">Escolha um item</h2><p><b>EQUIPANDO EM</b> {pokemon.name}</p></div><button type="button" aria-label="Fechar seletor" onClick={onClose}><X size={21} /></button></header>
       {error && <p className={styles.error} role="alert">{error}</p>}
       {!error && slot === EQUIPMENT_SLOT.ELEMENTAL_RELIC && !hasEquipableItem && <p className={styles.error}>{relicMessage}</p>}
-      <div className={styles.grid}>{items.map((item) => {
-        const state = states.get(item.id);
-        const equipped = state?.equippedOnCurrent;
-        const unavailable = !equipped && state?.available === 0;
+      <div className={styles.grid}>{itemStates.map((state) => {
+        const { item, equippedOnCurrent: equipped } = state;
+        const unavailable = !equipped && state.available === 0;
+        const pending = pendingItemId === item.id || (pendingItemId === "__unequip__" && equipped);
         return <article key={item.id} className={`${styles.card} ${equipped ? styles.selected : ""} ${unavailable ? styles.empty : ""}`} role="button" tabIndex={0} onClick={() => setDetail(item.id)} onKeyDown={(event) => { if (event.key === "Enter") setDetail(item.id); }}>
           <ItemSprite item={item.id} alt="" /><strong>{item.name}</strong><small>×{equipped ? state.owned : state.available}</small>{equipped && <em>✓ EQUIPADA</em>}
-          <button type="button" disabled={busy || unavailable} onClick={(event) => { event.stopPropagation(); void equip(equipped ? null : item.id); }}>{equipped ? "DESEQUIPAR" : unavailable ? "×0" : "EQUIPAR"}</button>
+          <button type="button" disabled={Boolean(pendingItemId) || unavailable} onClick={(event) => { event.stopPropagation(); void equip(equipped ? null : item.id); }}>{pending ? "EQUIPANDO..." : equipped ? "DESEQUIPAR" : unavailable ? "×0" : "EQUIPAR"}</button>
         </article>;
       })}</div>
-      {selected && <ItemDetailsModal item={selected} quantity={selectedState?.owned} available={selectedState?.available} actionLabel={selectedState?.equippedOnCurrent ? "DESEQUIPAR" : "EQUIPAR"} actionDisabled={busy || (!selectedState?.available && !selectedState?.equippedOnCurrent)} onAction={() => void equip(selectedState?.equippedOnCurrent ? null : selected.id)} onClose={() => setDetail(null)} />}
+      {selected && <ItemDetailsModal item={selected.item} quantity={selected.owned} available={selected.available} actionLabel={selected.equippedOnCurrent ? "DESEQUIPAR" : "EQUIPAR"} actionDisabled={Boolean(pendingItemId) || (!selected.available && !selected.equippedOnCurrent)} onAction={() => void equip(selected.equippedOnCurrent ? null : selected.item.id)} onClose={() => setDetail(null)} />}
     </aside>
   </div>;
 }
