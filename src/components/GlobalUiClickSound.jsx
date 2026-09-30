@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { playUiSound, UI_SOUND } from "@/lib/battle/sound";
+import { playUiSound, preloadBattleSounds, UI_SOUND, unlockGameAudio } from "@/lib/battle/sound";
 
 const INTERACTIVE_SELECTOR = ["button", "a[href]", "[role='button']", "[role='tab']", "[role='menuitem']", "input:not([type='hidden'])", "select", "summary", "[data-interactive]"].join(",");
 
@@ -13,6 +13,9 @@ export default function GlobalUiClickSound() {
   const lastClick = useRef({ target: null, at: 0 });
 
   useEffect(() => {
+    preloadBattleSounds();
+    document.addEventListener("pointerdown", unlockGameAudio, true);
+    document.addEventListener("keydown", unlockGameAudio, true);
     const onClick = (event) => {
       if (!event.isTrusted) return;
       const target = getInteractiveTarget(event.target);
@@ -27,7 +30,11 @@ export default function GlobalUiClickSound() {
       playUiSound(UI_SOUND.CLICK);
     };
     document.addEventListener("click", onClick, true);
-    return () => document.removeEventListener("click", onClick, true);
+    return () => {
+      document.removeEventListener("pointerdown", unlockGameAudio, true);
+      document.removeEventListener("keydown", unlockGameAudio, true);
+      document.removeEventListener("click", onClick, true);
+    };
   }, []);
 
   return null;

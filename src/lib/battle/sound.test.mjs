@@ -11,6 +11,8 @@ import {
   getFaintAudioEvents,
   getItemConsumptionSound,
   isOnePokemonVictory,
+  playBattleSound,
+  unlockGameAudio,
 } from "./sound.js";
 
 test("fairy Pokémon use the fairy damage reaction and all other types use normal damage", () => {
@@ -30,6 +32,10 @@ test("catalog-driven item audio distinguishes confirmed Bag use from consumed He
     BATTLE_ITEM_SOUND.BAG_ITEM_USED,
   );
   assert.equal(
+    getItemConsumptionSound({ definition: bag, effect: { kind: "item", itemId: "vital-potion", healing: 35, result: { consumed: true } } }),
+    BATTLE_ITEM_SOUND.HEALING,
+  );
+  assert.equal(
     getItemConsumptionSound({ definition: bag, effect: { kind: "item", itemId: "vital-potion", result: { consumed: false } } }),
     null,
   );
@@ -41,6 +47,38 @@ test("catalog-driven item audio distinguishes confirmed Bag use from consumed He
     getItemConsumptionSound({ definition: permanent, event: { type: "ITEM_CONSUMED", consumed: true } }),
     null,
   );
+});
+
+test("audio unlocks on interaction and overlapping effects get independent sources", async () => {
+  const previousWindow = globalThis.window;
+  const previousFetch = globalThis.fetch;
+  const sources = [];
+  let resumes = 0;
+  class MockAudioContext {
+    state = "suspended";
+    destination = {};
+    resume() { resumes += 1; this.state = "running"; return Promise.resolve(); }
+    decodeAudioData() { return Promise.resolve({ decoded: true }); }
+    createBufferSource() {
+      const source = { connect() {}, start() { sources.push(source); } };
+      return source;
+    }
+    createGain() { return { gain: { value: 0 }, connect() {} }; }
+  }
+  try {
+    globalThis.window = { AudioContext: MockAudioContext };
+    globalThis.fetch = async () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(4) });
+    unlockGameAudio();
+    playBattleSound("click", 0.3);
+    playBattleSound("click", 0.3);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(resumes, 1);
+    assert.equal(sources.length, 2);
+    assert.notEqual(sources[0], sources[1]);
+  } finally {
+    globalThis.window = previousWindow;
+    globalThis.fetch = previousFetch;
+  }
 });
 
 test("item audio events are idempotent per battle and reset for a rematch", () => {

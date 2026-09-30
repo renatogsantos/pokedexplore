@@ -2,6 +2,7 @@ const SOUND_PATH = "/sound-effect";
 
 export const BATTLE_ITEM_SOUND = Object.freeze({
   BAG_ITEM_USED: "power-up",
+  HEALING: "healing-pokemon-sound",
   HELD_ITEM_CONSUMED: "item-consumed",
 });
 export const UI_SOUND = Object.freeze({ CLICK: "click" });
@@ -19,6 +20,47 @@ export const BATTLE_EVENT_SOUND = Object.freeze({
 });
 
 const audioCache = new Map();
+const bufferCache = new Map();
+let audioContext = null;
+
+function getAudioContext() {
+  if (typeof window === "undefined") return null;
+  const Context = window.AudioContext || window.webkitAudioContext;
+  if (!Context) return null;
+  if (!audioContext) audioContext = new Context();
+  return audioContext;
+}
+
+function getBuffer(name) {
+  const context = getAudioContext();
+  if (!context) return null;
+  if (!bufferCache.has(name)) {
+    const request = fetch(`${SOUND_PATH}/${name}.mp3`)
+      .then((response) => {
+        if (!response.ok) throw new Error(`Sound unavailable: ${name}`);
+        return response.arrayBuffer();
+      })
+      .then((data) => context.decodeAudioData(data))
+      .catch((error) => {
+        bufferCache.delete(name);
+        throw error;
+      });
+    bufferCache.set(name, request);
+  }
+  return bufferCache.get(name);
+}
+
+// Call synchronously from a trusted pointer or keyboard event. Browsers may
+// reject sounds emitted later by timers, network updates or React effects until
+// the audio context has been resumed during a user gesture.
+export function unlockGameAudio() {
+  try {
+    const context = getAudioContext();
+    if (context && context.state !== "running") void context.resume().catch(() => {});
+  } catch {
+    // HTMLAudioElement remains available as a fallback.
+  }
+}
 
 function getAudio(name) {
   if (typeof window === "undefined") return null;
@@ -40,7 +82,9 @@ export function getItemConsumptionSound({ definition, effect, event } = {}) {
     effect?.result?.consumed &&
     effect.itemId === definition.id
   )
-    return BATTLE_ITEM_SOUND.BAG_ITEM_USED;
+    return Number(effect.healing || effect.result?.healing) > 0
+      ? BATTLE_ITEM_SOUND.HEALING
+      : BATTLE_ITEM_SOUND.BAG_ITEM_USED;
   if (
     definition.usageType === "HELD" &&
     event?.type === "ITEM_CONSUMED" &&
@@ -75,12 +119,15 @@ export function createBattleAudioEventDeduper() {
 
 export function preloadBattleSounds() {
   if (typeof window === "undefined") return;
-  [...Object.values(BATTLE_ITEM_SOUND), ...Object.values(BATTLE_EVENT_SOUND)].forEach((name) => {
-    const audio = getAudio(name);
+  [...new Set([...Object.values(BATTLE_ITEM_SOUND), ...Object.values(BATTLE_EVENT_SOUND), "dano", "anime-ahh", "investida", "golpe-normal", "select-pokemon", "click", "caught", "coin"])].forEach((name) => {
     try {
-      audio?.load();
+      const buffer = getBuffer(name);
+      if (buffer) void buffer.catch(() => {});
+      else {
+        getAudio(name)?.load();
+      }
     } catch {
-      // A failed preload is never allowed to affect battle initialization.
+      // A failed preload must never affect the screen.
     }
   });
 }
@@ -187,17 +234,41 @@ export function getDamageReactionSound(pokemon) {
 }
 
 export function playBattleSound(name, volume = 0.55) {
-  const audio = getAudio(name);
-  if (!audio) return;
+  if (typeof window === "undefined" || !name) return;
+  const playHtmlAudio = () => {
+    try {
+      // A fresh element lets two hits or clicks overlap without truncating one.
+      const audio = getAudio(name)?.cloneNode();
+      if (!audio) return;
+      audio.volume = volume;
+      void audio.play().catch(() => {});
+    } catch {
+      // Audio is presentation only; an unavailable asset must not affect battle.
+    }
+  };
+  let context;
+  let buffer;
   try {
-    audio.currentTime = 0;
-    audio.volume = volume;
-    audio.play().catch(() => {
-      // Navegadores podem bloquear áudio até a primeira interação do usuário.
-    });
+    context = getAudioContext();
+    buffer = getBuffer(name);
   } catch {
-    // Audio is presentation only; an unavailable asset must not affect battle.
+    playHtmlAudio();
+    return;
   }
+  if (!context || !buffer) {
+    playHtmlAudio();
+    return;
+  }
+  void buffer.then(async (decoded) => {
+    if (context.state !== "running") await context.resume();
+    const source = context.createBufferSource();
+    const gain = context.createGain();
+    source.buffer = decoded;
+    gain.gain.value = Math.min(1, Math.max(0, volume));
+    source.connect(gain);
+    gain.connect(context.destination);
+    source.start();
+  }).catch(playHtmlAudio);
 }
 
 // UI feedback intentionally shares the application's only audio cache and

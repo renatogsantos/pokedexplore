@@ -660,7 +660,10 @@ function BattleNotification({ state, role, opponentName }) {
   }, []);
 
   useEffect(() => {
-    if (state.effect?.kind === "attack") {
+    const isHydrating = initialAudioHydration.current;
+    initialAudioHydration.current = false;
+    if (!isHydrating && state.effect?.kind === "attack" && Number(state.effect.damage) > 0 &&
+        audioDeduper.current.shouldPlay(state.matchId, state.effect.eventId, "damage-reaction")) {
       const targetTeam = state[state.effect.target]?.team || [];
       const targetPokemon = targetTeam.find(
         (pokemon) =>
@@ -671,8 +674,6 @@ function BattleNotification({ state, role, opponentName }) {
     const queue = buildBattleNotifications(state, role, opponentName);
     const timers = [];
     let elapsed = 0;
-    const isHydrating = initialAudioHydration.current;
-    initialAudioHydration.current = false;
     if (!isHydrating)
       (state.audioEvents || []).forEach((event) => {
         if (event?.audience && event.audience !== role) return;
@@ -684,10 +685,13 @@ function BattleNotification({ state, role, opponentName }) {
         else playAuthoritativeEvent();
       });
     if (!isHydrating) {
-      const itemAudioEvents = [...(state.effect?.itemEvents || [])];
-      if (state.effect?.kind === "item" && state.effect?.itemId)
-        itemAudioEvents.push({ itemId: state.effect.itemId, eventId: state.effect.eventId, consumed: true });
-      itemAudioEvents.forEach((event) => {
+      if (state.effect?.kind === "item") {
+        const definition = getItemDefinition(state.effect.itemId);
+        const sound = getItemConsumptionSound({ definition, effect: state.effect });
+        if (sound && audioDeduper.current.shouldPlay(state.matchId, state.effect.eventId, sound))
+          playBattleSound(sound, 0.5);
+      }
+      (state.effect?.itemEvents || []).forEach((event) => {
         const definition = getItemDefinition(event.itemId);
         const sound = getItemConsumptionSound({ definition, event });
         if (sound && audioDeduper.current.shouldPlay(state.matchId, event.eventId, sound))
