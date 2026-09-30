@@ -312,14 +312,14 @@ export const ITEM_CATALOG = Object.freeze([
     usageType: "HELD",
     rarity: "EPIC",
     role: "healing",
-    shortDescription: "Recupera 5% do dano causado",
+    shortDescription: "Recupera 10% do dano causado",
     description:
-      "Após causar dano direto, recupera 5% do dano realmente causado.",
+      "Após causar dano direto, recupera 10% do dano realmente causado.",
     effectType: "DRAIN_DAMAGE",
     trigger: "AFTER_DAMAGE_DEALT",
     consumable: false,
     price: 330,
-    rules: { damageHealPercent: 0.05 },
+    rules: { damageHealPercent: 0.1 },
   }),
   item({
     id: "special-fragment",

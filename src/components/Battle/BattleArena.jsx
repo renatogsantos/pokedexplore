@@ -160,7 +160,7 @@ const TEMPORARY_ITEM_IDS = Object.freeze({
 function getItemActivationEvents(effect, pokemon) {
   const itemEvents = [...(effect?.itemEvents || [])];
   if (effect?.kind === "item" && effect?.itemId && String(effect.targetPokemonId) === String(pokemon.id))
-    itemEvents.push({ itemId: effect.itemId, eventId: effect.eventId, pokemonId: pokemon.id, targetPokemonId: pokemon.id, effect: { type: effect.healing ? "heal_hp" : "armed", amount: effect.healing || null } });
+    itemEvents.push({ itemId: effect.itemId, eventId: effect.eventId, pokemonId: pokemon.id, targetPokemonId: pokemon.id, remaining: effect.remaining, itemUsageCount: effect.itemUsageCount, itemUsageLimit: effect.itemUsageLimit, effect: { type: effect.healing ? "heal_hp" : "armed", amount: effect.healing || null } });
   return itemEvents.filter((event) => event?.itemId && [event.pokemonId, event.targetPokemonId].some((id) => String(id) === String(pokemon.id)));
 }
 
@@ -181,11 +181,15 @@ function ItemEffectOverlay({ pokemon, effect, sideEffects }) {
         const definition = getItemDefinition(event.itemId);
         if (!definition) return null;
         const amount = event.effect?.amount;
-        return <motion.div key={`${event.eventId || event.itemId}-${index}`} className="item-effect-activation" initial={{ opacity: 0, scale: .58, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: .82, y: -8 }} transition={{ duration: .32 }}>
+        const result = amount ? `${event.effect?.type === "heal_hp" ? "+" : "−"}${amount} HP` : event.effect?.type === "delayed_damage" ? "ATIVADA" : "EM EFEITO";
+        const metadata = [Number.isFinite(event.remaining) ? `×${event.remaining} restantes` : null, Number.isFinite(event.itemUsageCount) ? `usos ${event.itemUsageCount}/${event.itemUsageLimit}` : null].filter(Boolean).join(" · ");
+        const tone = event.effect?.type === "heal_hp" ? "heal" : event.effect?.type === "delayed_damage" ? "damage" : definition.effectType?.includes("BARRIER") || definition.effectType?.includes("SHIELD") ? "defense" : "power";
+        return <span key={`${event.eventId || event.itemId}-${index}`} className="item-effect-activation-anchor"><motion.div className={`item-effect-activation is-${tone}`} initial={{ opacity: 0, scale: .86, y: 6 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: .96, y: -4 }} transition={{ duration: .22 }}>
           <ItemSprite item={event.itemId} alt="" className="item-effect-activation__sprite" />
-          <strong>{definition.name}</strong>
-          <small>{amount ? `${event.effect?.type === "heal_hp" ? "+" : "−"}${amount} HP` : event.effect?.type === "delayed_damage" ? "ATIVADA" : "EM EFEITO"}</small>
-        </motion.div>;
+          <small className="item-effect-activation__name">{definition.name}</small>
+          <strong className="item-effect-activation__result">{result}</strong>
+          {metadata ? <small className="item-effect-activation__meta">{metadata}</small> : null}
+        </motion.div></span>;
       })}
     </AnimatePresence>
     <div className="item-effect-cluster">
@@ -620,25 +624,9 @@ function buildBattleNotifications(state, role, opponentName) {
     const notification = statusNotification(event);
     if (notification) queue.push(notification);
   }
-  const itemEvents =
-    effect.itemEvents || (effect.heldItem ? [effect.heldItem] : []);
-  for (const itemEvent of itemEvents) {
-    const notification = itemEventNotification(itemEvent);
-    if (notification) queue.push(notification);
-  }
-  if (effect.kind === "item")
-    queue.push({
-      title: effect.itemName?.toUpperCase() || "ITEM USADO!",
-      detail: `${effect.healing ? `+${effect.healing} HP · ` : ""}1 unidade consumida · ×${effect.remaining} restante${effect.remaining === 1 ? "" : "s"}${Number.isFinite(effect.itemUsageCount) ? ` · usos ${effect.itemUsageCount}/${effect.itemUsageLimit} · mochila ${effect.totalBagUsageCount}/${effect.totalBagUsageLimit}` : ""}`,
-      tone: effect.healing ? "healing" : "strong",
-      itemId: effect.itemId,
-      audio: getItemConsumptionSound({
-        definition: getItemDefinition(effect.itemId),
-        effect,
-      }),
-      audioEventId: effect.eventId,
-      duration: 1050,
-    });
+  // Item feedback is rendered in ItemEffectOverlay, inside the affected
+  // fighter artwork. Keeping it out of this global queue prevents a second,
+  // arena-centered receipt from competing with the actual target feedback.
   if (effect.kind === "switch")
     queue.push({
       title: "TROCA!",
@@ -695,6 +683,17 @@ function BattleNotification({ state, role, opponentName }) {
         if (Number(event?.delayMs) > 0) timers.push(window.setTimeout(playAuthoritativeEvent, event.delayMs));
         else playAuthoritativeEvent();
       });
+    if (!isHydrating) {
+      const itemAudioEvents = [...(state.effect?.itemEvents || [])];
+      if (state.effect?.kind === "item" && state.effect?.itemId)
+        itemAudioEvents.push({ itemId: state.effect.itemId, eventId: state.effect.eventId, consumed: true });
+      itemAudioEvents.forEach((event) => {
+        const definition = getItemDefinition(event.itemId);
+        const sound = getItemConsumptionSound({ definition, event });
+        if (sound && audioDeduper.current.shouldPlay(state.matchId, event.eventId, sound))
+          playBattleSound(sound, 0.5);
+      });
+    }
     queue.forEach((entry, index) => {
       timers.push(
         window.setTimeout(() => {

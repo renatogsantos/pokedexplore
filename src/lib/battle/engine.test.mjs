@@ -126,6 +126,24 @@ test("catalog exposes the complete expanded collection", () => {
   assert.equal(catalog.HELD_ITEM_CATALOG.length, 43);
   assert.equal(catalog.BAG_ITEM_CATALOG.length, 15);
   assert.equal(new Set(catalog.ITEM_CATALOG.map((item) => item.id)).size, 58);
+  assert.equal(
+    catalog.getItemDefinition("vampiric-crystal").rules.damageHealPercent,
+    0.1,
+  );
+});
+
+test("Vampiric Crystal restores 10% of the direct damage dealt", () => {
+  const state = makeState("vampiric-crystal");
+  state.host.team[0].hp = 20;
+  const next = resolveAction(state, "host", {
+    type: "attack",
+    moveId: "hit",
+  });
+  const healEvent = next.effect.itemEvents.find(
+    (event) => event.itemId === "vampiric-crystal",
+  );
+  assert.equal(healEvent.effect.amount, Math.ceil(next.effect.damage * 0.1));
+  assert.equal(next.host.team[0].hp, 20 + healEvent.effect.amount);
 });
 
 test("legacy ids migrate once to original stable ids", () => {

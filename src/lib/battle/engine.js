@@ -2079,8 +2079,14 @@ export function resolveAction(state, actor, action) {
       });
     }
   }
-  if (damage > 0 && activeItem(fighter, "vampiric-crystal") && fighter.hp > 0) {
-    const amount = heal(fighter, damage * 0.05);
+  const vampiricCrystal = activeItem(fighter, "vampiric-crystal")
+    ? getItemDefinition("vampiric-crystal")
+    : null;
+  if (damage > 0 && vampiricCrystal && fighter.hp > 0) {
+    const amount = heal(
+      fighter,
+      damage * (vampiricCrystal.rules?.damageHealPercent ?? 0),
+    );
     if (amount)
       addItemEvent(effect, {
         itemId: "vampiric-crystal",
