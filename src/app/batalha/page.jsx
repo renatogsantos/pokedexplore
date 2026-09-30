@@ -32,6 +32,7 @@ import {
   createBattleRoom,
   hasRealtimeConfig,
 } from "@/lib/battle/realtime";
+import { PVP_CONNECTION, getPvpConnectionMessage } from "@/lib/battle/pvpConnection";
 import { appendBattleAudioEvents, playBattleSound } from "@/lib/battle/sound";
 import { calculateBattleRewards } from "@/lib/battle/rewards";
 import { actCoins } from "@/redux/economy";
@@ -73,6 +74,7 @@ export default function BattlePage() {
   const journeyBattle = journeyNode ? getJourneyBattle(journeyNode.id, journeyBattleIndex) : null;
   const badgeChallengeId = params.get("badgeChallenge");
   const realtime = useRef(null);
+  const connectionGeneration = useRef(0);
   const cpuTimer = useRef(null);
   const introTimer = useRef(null);
   const [screen, setScreen] = useState("mode");
@@ -102,7 +104,8 @@ export default function BattlePage() {
   const processedTournamentResults = useRef(new Set());
   const processedCpuMatches = useRef(new Set());
   const [preparingTeam, setPreparingTeam] = useState(false);
-  const [connection, setConnection] = useState("CONNECTING");
+  const [connection, setConnection] = useState(PVP_CONNECTION.IDLE);
+  const [pvpDiagnostics, setPvpDiagnostics] = useState([]);
   const [profile, setProfile] = useState(null);
   const [tournament, setTournament] = useState(null);
   const [tournamentMatch, setTournamentMatch] = useState(null);
@@ -519,10 +522,16 @@ export default function BattlePage() {
 
   const connectRoom = useCallback(
     (code, currentPlayer, currentRole, initialWager = null) => {
+      const generation = connectionGeneration.current + 1;
+      connectionGeneration.current = generation;
+      const acceptsCurrentSession = () => connectionGeneration.current === generation;
       try {
         realtime.current?.leave();
+        setConnection(PVP_CONNECTION.CONNECTING);
+        setPvpDiagnostics([]);
         realtime.current = createBattleRoom(code, initialWager ? { ...currentPlayer, wager: initialWager } : currentPlayer, {
           onPresence: (nextPresence) => {
+            if (!acceptsCurrentSession()) return;
             setPresence(nextPresence);
             const players = getLogicalPresencePlayers(nextPresence);
             const peer = players.find((item) => item.id !== currentPlayer.id);
@@ -556,25 +565,17 @@ export default function BattlePage() {
               }
             }
           },
-          onStatus: (status) => {
-            const state =
-              status === "SUBSCRIBED"
-                ? "CONNECTED"
-                : status === "CHANNEL_ERROR" || status === "TIMED_OUT"
-                  ? "ERROR"
-                  : status === "CLOSED"
-                    ? "DISCONNECTED"
-                    : "CONNECTING";
+          onStatus: (state, detail = {}) => {
+            if (!acceptsCurrentSession()) return;
             setConnection(state);
-            setNotice(
-              state === "CONNECTED"
-                ? "Conectado à sala. Selecione sua equipe."
-                : state === "ERROR"
-                  ? "Não foi possível conectar ao Realtime."
-                  : "Conectando à sala...",
-            );
+            setNotice(detail.error ? `${getPvpConnectionMessage(state)} (${detail.error})` : getPvpConnectionMessage(state));
+          },
+          onDiagnostic: (entry) => {
+            if (!acceptsCurrentSession()) return;
+            setPvpDiagnostics((current) => [...current, entry].slice(-30));
           },
           onEvent: ({ type, payload }) => {
+            if (!acceptsCurrentSession()) return;
             // TEAM broadcast: backward-compat team snapshot. Does NOT imply opponent pressed PRONTO.
             if (type === BATTLE_EVENTS.TEAM && payload?.player?.id !== currentPlayer.id) {
               setRemoteTeam(payload);
@@ -650,12 +651,19 @@ export default function BattlePage() {
             }
           },
         });
-      } catch {
-        setNotice("Não foi possível conectar à sala.");
+      } catch (error) {
+        if (!acceptsCurrentSession()) return;
+        setConnection(PVP_CONNECTION.ERROR);
+        setNotice(`${getPvpConnectionMessage(PVP_CONNECTION.ERROR)} (${error.message})`);
       }
     },
     [beginFriendSelectionTiming, broadcast, clearFriendSelectionTiming, dispatch, mode, persistBattleConsumables, rewardFinishedBattle],
   );
+
+  const retryRoomConnection = useCallback(() => {
+    if (!roomCode || !player || !["friend", "tournament", "badge-pvp"].includes(mode)) return;
+    connectRoom(roomCode, player, role, wager);
+  }, [connectRoom, mode, player, role, roomCode, wager]);
 
   const pvpStart = getPvpStartSnapshot({
     channelStatus: connection,
@@ -1208,6 +1216,7 @@ export default function BattlePage() {
               cpuPreparing={tournamentCpuPreparing}
               onAcceptWager={acceptWager}
               onRejectWager={rejectWager}
+              onRetryConnection={retryRoomConnection}
               onShare={shareRoom}
             />{" "}
             <TeamSelector
@@ -1265,6 +1274,7 @@ export default function BattlePage() {
             canStart: pvpStart.canStart,
             startBlocker: pvpStart.blocker,
             matchStatus: battle ? "ACTIVE" : isStartingBattle.current ? "STARTING" : "LOBBY",
+            pvpDiagnostics,
           }}
         />
       </div>
@@ -1399,6 +1409,7 @@ function RoomStatus({
   role,
   onAcceptWager,
   onRejectWager,
+  onRetryConnection,
   tournamentCpuOpponent,
   cpuReady,
   cpuPreparing,
@@ -1413,6 +1424,7 @@ function RoomStatus({
       </div>
     );
   const connected = Object.keys(presence).length;
+  const connectionFailed = [PVP_CONNECTION.ERROR, PVP_CONNECTION.CLOSED].includes(connection);
   return (
     <div className="room-status">
       <div>
@@ -1436,6 +1448,7 @@ function RoomStatus({
       <button type="button" onClick={onShare}>
         <Copy size={18} /> Compartilhar
       </button>
+      {connectionFailed && <button type="button" onClick={onRetryConnection}>Tentar novamente</button>}
       {wager && <section className="wager-status" aria-label="Estado da aposta"><span>{wager.status === "LOCKED" ? "⚔️ APOSTA ACEITA" : "⚔️ DESAFIO VALENDO MOEDAS"}</span><strong>🪙 {wager.amount} cada · pote 🪙 {getWagerPot(wager)}</strong>{role === "guest" && wager.status === "PROPOSED" && <div><button type="button" onClick={onRejectWager}>Recusar</button><button type="button" onClick={onAcceptWager}>Aceitar aposta</button></div>}</section>}
       {notice && <em>{notice}</em>}
     </div>

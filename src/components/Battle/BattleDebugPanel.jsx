@@ -41,6 +41,18 @@ export default function BattleDebugPanel({ context = {} }) {
       canStart: Boolean(context.canStart),
       blocker: context.startBlocker || null,
       matchStatus: context.matchStatus || null,
+      connectionTimeline: (context.pvpDiagnostics || []).map((entry) => ({
+        event: entry.event,
+        timestamp: entry.timestamp,
+        instanceId: entry.instanceId,
+        roomCode: entry.roomCode,
+        topic: entry.topic,
+        status: entry.status || null,
+        reason: entry.reason || null,
+        error: entry.error || null,
+        trackCount: entry.trackCount || null,
+        rawPresenceCount: entry.rawPresenceCount ?? null,
+      })),
     },
   };
   return <aside className="battle-debug-panel" role="alert" aria-live="assertive"><strong>DEBUG BATTLE</strong><pre>{JSON.stringify({ error, context: safeContext }, null, 2)}</pre></aside>;
