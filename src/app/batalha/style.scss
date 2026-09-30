@@ -8250,6 +8250,37 @@
   overflow: hidden;
   border-radius: 50%;
 }
+
+.battle-item-effects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+
+.battle-item-effect {
+  border: 1px solid rgba(108, 217, 255, .42);
+  border-radius: 999px;
+  background: rgba(9, 31, 54, .76);
+  color: #d7f7ff;
+  font-size: .57rem;
+  font-weight: 800;
+  letter-spacing: .035em;
+  line-height: 1.15;
+  padding: 3px 6px;
+}
+
+.battle-item-effect.is-fury,
+.battle-item-effect.is-stimulant,
+.battle-item-effect.is-phoenix { border-color: rgba(255, 184, 72, .62); color: #ffe2a5; }
+.battle-item-effect.is-silence,
+.battle-item-effect.is-anchor { border-color: rgba(191, 130, 255, .68); color: #ead7ff; }
+.battle-item-effect.is-barrier,
+.battle-item-effect.is-reflectShield { border-color: rgba(81, 213, 255, .72); color: #c5f7ff; }
+
+@media (prefers-reduced-motion: reduce) {
+  .battle-item-effect { transition: none; }
+}
 .selected-equipment-list article .equipment-slots { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto; gap: 6px 8px; align-items: end; }
 .selected-equipment-list .equipment-slots > span { display: grid; min-width: 0; }
 .selected-equipment-list .equipment-slots > span small { color: #ffdf5d; font-size: .55rem; font-weight: 900; letter-spacing: .05em; }

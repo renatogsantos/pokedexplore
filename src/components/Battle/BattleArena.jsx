@@ -74,6 +74,9 @@ function getBagBlockLabel(reason) {
     STIMULANT_ACTIVE: "Estimulante já ativo",
     SPECIAL_FULL: "Golpe Especial já está carregado",
     ACTIVE_POKEMON_REQUIRED: "Escolha o Pokémon ativo",
+    ENEMY_ACTIVE_REQUIRED: "Escolha o Pokémon inimigo ativo",
+    REFLECT_SHIELD_ACTIVE: "Escudo refletor já ativo",
+    OVERLOAD_ACTIVE: "Sobrecarga já ativa",
     TARGET_FAINTED: "Desmaiado",
   }[reason] || "Indisponível nesta batalha";
 }
@@ -122,6 +125,25 @@ function BattleResourceBars({ pokemon }) {
     <BattleResourceBar icon={Sparkle} label="ESPECIAL" current={pokemon.specialAttackUsesRemaining} max={MAX_SPECIAL_ATTACK_USES} variant="special" description="Especiais restantes" />
     <BattleResourceBar icon={Backpack} label="CURAS" current={healingRemaining} max={MAX_HEALS_PER_POKEMON} variant="healing" description="Curas restantes" />
   </section>;
+}
+
+const TEMPORARY_ITEM_LABELS = Object.freeze({
+  barrier: "BARREIRA ATIVA",
+  reflectShield: "ESCUDO REFLETOR",
+  stimulant: "PRÓXIMO ATAQUE +35%",
+  phoenix: "RENASCIMENTO +25%",
+  fury: "FÚRIA ATIVA",
+  hunterMark: "MARCA DO CAÇADOR",
+  silence: "ESPECIAL BLOQUEADO",
+  anchor: "TROCA BLOQUEADA",
+  overload: "SOBRECARGA",
+  regeneration: "REGENERAÇÃO",
+});
+
+function BattleItemEffectIndicators({ pokemon }) {
+  const effects = Object.entries(pokemon.temporaryEffects || {}).filter(([key, value]) => value && TEMPORARY_ITEM_LABELS[key]);
+  if (!effects.length) return null;
+  return <div className="battle-item-effects" aria-label={`Efeitos de item em ${pokemon.name}`}>{effects.map(([key, value]) => <span key={key} className={`battle-item-effect is-${key}`}>{TEMPORARY_ITEM_LABELS[key]}{value?.ticks ? ` · ${value.ticks}T` : ""}</span>)}</div>;
 }
 
 function useBattleElapsed(startedAt, active) {
@@ -227,6 +249,7 @@ function Fighter({
             <span className="held-item-copy"><span>{getItemLabel(pokemon.elementalRelic)}</span><b>RELÍQUIA</b></span>
           </span>
         )}
+        <BattleItemEffectIndicators pokemon={pokemon} />
         {side === "player" && matchup === "disadvantage" && (
           <small className="matchup-warning">⚠ Desvantagem</small>
         )}
@@ -415,6 +438,11 @@ function itemEventNotification(event) {
       effect.multiplier < 1
         ? `Reduziu ${percent}% do dano.`
         : `Ataque fortalecido em ${percent}%.`;
+  if (["delayed_damage", "damage", "reflect_damage"].includes(effect.type) && effect.amount)
+    detail = `-${effect.amount} HP.`;
+  if (effect.type === "restore_special") detail = `+${effect.amount} uso Especial.`;
+  if (effect.type === "fury_armed") detail = `Fúria ativa por ${effect.rounds} turnos.`;
+  if (effect.type === "momentum") detail = `+${effect.amount} Impulso.`;
   return {
     title: `${definition.name.toUpperCase()} ${event.consumed ? "ATIVADO!" : "EM EFEITO"}`,
     detail: `${detail} ${event.consumed ? "Item consumido." : "Permanece equipado."}`,
@@ -1176,6 +1204,10 @@ export default function BattleArena({
     (total, amount) => total + amount,
     0,
   );
+  const selectedDefinition = selectedItem ? getItemDefinition(selectedItem) : null;
+  const selectedTargetsEnemy = ["ENEMY_ACTIVE", "ENEMY_SIDE"].includes(selectedDefinition?.battleUsage?.target);
+  const selectedTargets = selectedTargetsEnemy ? opponent.team : me.team;
+  const selectedActiveIndex = selectedTargetsEnemy ? opponent.active : me.active;
   useEffect(() => {
     if (process.env.NODE_ENV === "production") return;
     console.info("[Battle Items]", {
@@ -1524,9 +1556,9 @@ export default function BattleArena({
                     );
                   })()}
                   <div className="deck-target-list">
-                    {me.team.map((pokemon, index) => {
+                    {selectedTargets.map((pokemon, index) => {
                       const definition = getItemDefinition(selectedItem);
-                      const activeTarget = index === me.active;
+                      const activeTarget = index === selectedActiveIndex;
                       const usage = getBagItemUsage(pokemon, definition);
                       const blockReason = getBagItemUseBlockReason(pokemon, definition, { activeTarget });
                       const unavailable = Boolean(blockReason);
@@ -1583,8 +1615,11 @@ export default function BattleArena({
                         ? `Remove ${activeStatus.eventName}`
                         : item.shortDescription;
                     const blockReason = getBagItemUseBlockReason(active, item);
-                    const hasUsableTarget = me.team.some((pokemon, index) =>
-                      !getBagItemUseBlockReason(pokemon, item, { activeTarget: index === me.active }),
+                    const targetsEnemy = ["ENEMY_ACTIVE", "ENEMY_SIDE"].includes(item.battleUsage?.target);
+                    const targetTeam = targetsEnemy ? opponent.team : me.team;
+                    const targetActive = targetsEnemy ? opponent.active : me.active;
+                    const hasUsableTarget = targetTeam.some((pokemon, index) =>
+                      !getBagItemUseBlockReason(pokemon, item, { activeTarget: index === targetActive }),
                     );
                     return (
                       <button

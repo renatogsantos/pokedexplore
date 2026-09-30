@@ -275,6 +275,52 @@ test("Fruto Vital and Nucleo de Cura trigger only after qualifying received dama
   assert.equal(resolvePostDamageHeldItem(core).effect.amount, 50);
 });
 
+test("every expanded Bag effect changes canonical battle state before it is consumed", () => {
+  const withBag = (itemId) => { const state = makeState(); state.host.bag[itemId] = 1; return state; };
+  let state = withBag("fragmento-da-ruina");
+  state = resolveAction(state, "host", { type: "item", itemId: "fragmento-da-ruina", targetPokemonId: 4 });
+  assert.equal(state.guest.team[0].temporaryEffects.ruin.ticks, 3);
+  state = withBag("bomba-temporal");
+  state = resolveAction(state, "host", { type: "item", itemId: "bomba-temporal", targetPokemonId: 4 });
+  assert.equal(state.guest.team[0].temporaryEffects.timeBomb.ticks, 3);
+  state = withBag("marca-do-cacador");
+  state = resolveAction(state, "host", { type: "item", itemId: "marca-do-cacador", targetPokemonId: 4 });
+  assert.equal(state.guest.team[0].temporaryEffects.hunterMark.multiplier, 1.1);
+  state = withBag("escudo-refletor");
+  state = resolveAction(state, "host", { type: "item", itemId: "escudo-refletor", targetPokemonId: 1 });
+  assert.equal(state.host.team[0].temporaryEffects.reflectShield.reflectPercent, 0.3);
+  state = withBag("parasita-de-energia"); state.host.team[0].momentum = 0; state.guest.team[0].momentum = 2;
+  state = resolveAction(state, "host", { type: "item", itemId: "parasita-de-energia", targetPokemonId: 4 });
+  assert.deepEqual([state.host.team[0].momentum, state.guest.team[0].momentum], [1, 1]);
+  state = withBag("selo-do-silencio");
+  state = resolveAction(state, "host", { type: "item", itemId: "selo-do-silencio", targetPokemonId: 4 });
+  assert.equal(state.guest.team[0].temporaryEffects.silence.ticks, 1);
+  state = resolveAction(state, "guest", { type: "attack", moveId: state.guest.team[0].moves.find((move) => move.special).id });
+  assert.equal(state.turn, "host");
+  assert.equal(state.guest.team[0].temporaryEffects.silence, undefined);
+  assert.equal(state.effect.itemEvents[0].effect.type, "special_blocked");
+  state = withBag("ancora-dimensional");
+  state = resolveAction(state, "host", { type: "item", itemId: "ancora-dimensional", targetPokemonId: 4 });
+  assert.equal(state.guest.team[0].temporaryEffects.anchor.ticks, 2);
+  state = withBag("mina-elemental");
+  state = resolveAction(state, "host", { type: "item", itemId: "mina-elemental", targetPokemonId: 4 });
+  assert.equal(state.guest.temporarySideEffects.elementalMine.damagePercent, 0.1);
+  state = withBag("nucleo-de-sobrecarga");
+  state = resolveAction(state, "host", { type: "item", itemId: "nucleo-de-sobrecarga", targetPokemonId: 1 });
+  assert.equal(state.host.team[0].temporaryEffects.overload.receivedMultiplier, 1.15);
+});
+
+test("all eighteen relics have a canonical base damage path and special relic state is battle-local", () => {
+  const relics = catalog.ELEMENTAL_RELIC_CATALOG;
+  assert.equal(relics.length, 18);
+  relics.forEach((relic) => {
+    const attacker = { ...pokemon(1, null, 100, 5, relic.elementalType), elementalRelic: relic.id };
+    const defender = pokemon(2, null, 100, 5, "normal");
+    const result = calculateDamage({ attacker, defender, move: { ...attacker.moveset[0], type: relic.elementalType }, variance: 1 });
+    assert.equal(result.itemTriggers.some((trigger) => trigger.itemId === relic.id), true, relic.id);
+  });
+});
+
 test("private PvP Bags do not share stock yet accept a legal guest item intent", () => {
   const state = createBattleState(
     { id: "h", name: "Host", privateBag: true, inventory: {}, team: [pokemon(1), pokemon(2), pokemon(3)] },

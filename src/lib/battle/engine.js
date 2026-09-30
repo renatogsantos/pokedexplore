@@ -335,6 +335,8 @@ const addItemEvent = (effect, event) => {
   if (!event) return;
   effect.itemEvents = [...(effect.itemEvents || []), event];
   if (event.consumed && !effect.heldItem) effect.heldItem = event;
+  if (process.env.NODE_ENV !== "production" && typeof window !== "undefined" && new URLSearchParams(window.location.search).get("debugBattle") === "1")
+    console.debug("[ITEM TRACE]", { itemId: event.itemId, owner: event.owner || null, pokemonId: event.pokemonId || null, targetPokemonId: event.targetPokemonId || null, effect: event.effect || null, consumed: Boolean(event.consumed), eventId: event.eventId || null });
 };
 const addStatusEvent = (effect, event) => {
   if (!event) return;
@@ -659,6 +661,12 @@ export function getBagItemUseBlockReason(pokemon, itemOrId, { activeTarget = tru
   }
   if (definition.effectType === "BAG_RECHARGE" && pokemon.specialAttackUsesRemaining >= MAX_SPECIAL_ATTACK_USES)
     return "SPECIAL_FULL";
+  if (["BAG_RUIN", "BAG_TIME_BOMB", "BAG_HUNTER_MARK", "BAG_SILENCE", "BAG_ANCHOR"].includes(definition.effectType) && !activeTarget)
+    return "ENEMY_ACTIVE_REQUIRED";
+  if (definition.effectType === "BAG_REFLECT_SHIELD" && (!activeTarget || pokemon.temporaryEffects?.reflectShield))
+    return activeTarget ? "REFLECT_SHIELD_ACTIVE" : "ACTIVE_POKEMON_REQUIRED";
+  if (definition.effectType === "BAG_OVERLOAD" && (!activeTarget || pokemon.temporaryEffects?.overload))
+    return activeTarget ? "OVERLOAD_ACTIVE" : "ACTIVE_POKEMON_REQUIRED";
   return null;
 }
 function statStageMultiplier(stage = 0) {
@@ -734,9 +742,22 @@ export function calculateDamage({ attacker, defender, move, variance = 1 }) {
   const itemTriggers = [];
   const relic = activeRelic(attacker);
   if (relic && attacker.types.includes(relic.elementalType) && attackType === relic.elementalType) {
-    const multiplier = Number(relic.rules?.baseMultiplier) || 1;
+    let multiplier = Number(relic.rules?.baseMultiplier) || 1;
+    let temporary = null;
+    if (relic.id === "brasa-primordial" && hpRatio(attacker) <= relic.rules.lowHpRatio) multiplier = relic.rules.lowHpMultiplier;
+    if (relic.id === "condutor-de-tempestade" && defender.status?.id === relic.rules.status) multiplier = relic.rules.statusMultiplier;
+    if (relic.id === "faixa-do-tita" && move.makesContact && hpRatio(attacker) <= relic.rules.lowHpRatio) multiplier = relic.rules.contactMultiplier;
+    if (relic.id === "nucleo-sismico" && attacker.temporaryEffects?.relicSwitchAttack) {
+      multiplier = relic.rules.switchInMultiplier;
+      temporary = "relicSwitchAttack";
+    }
+    if (relic.id === "prisma-mental" && normalizeMoveRole(move) === MOVE_ROLE.TECHNICAL && (attacker.momentum || 0) >= MOMENTUM_CONFIG.MAX) multiplier += relic.rules.technicalMomentumBonus || 0;
+    if (relic.id === "escama-draconica" && defender.types?.includes(relic.rules.opponentType)) multiplier = relic.rules.opponentMultiplier;
+    if (relic.id === "orbe-sombrio" && defender.status) multiplier = relic.rules.targetStatusMultiplier;
+    if (relic.id === "cristal-feerico" && defender.types?.includes(relic.rules.opponentType)) multiplier = relic.rules.opponentMultiplier;
+    if (relic.id === "simbolo-primordial" && effectiveness === 1) multiplier = relic.rules.neutralMultiplier;
     outgoing *= multiplier;
-    itemTriggers.push({ itemId: relic.id, equipmentSlot: "ELEMENTAL_RELIC", consumed: false, multiplier, owner: "attacker" });
+    itemTriggers.push({ itemId: relic.id, equipmentSlot: "ELEMENTAL_RELIC", consumed: false, multiplier, temporary, owner: "attacker" });
   }
   if (activeItem(attacker, "power-claw"))
     outgoing *= itemRules("power-claw").dealtMultiplier ?? 1.2;
@@ -793,6 +814,16 @@ export function calculateDamage({ attacker, defender, move, variance = 1 }) {
       temporary: "phoenix",
       multiplier,
     });
+  }
+  if (attacker.temporaryEffects?.fury) {
+    const multiplier = attacker.temporaryEffects.fury.dealtMultiplier;
+    outgoing *= multiplier;
+    itemTriggers.push({ itemId: "cristal-da-furia", temporary: "fury", multiplier, owner: "attacker" });
+  }
+  if (defender.temporaryEffects?.hunterMark) {
+    const multiplier = defender.temporaryEffects.hunterMark.multiplier;
+    outgoing *= multiplier;
+    itemTriggers.push({ itemId: "marca-do-cacador", temporary: "hunterMark", multiplier, owner: "attacker" });
   }
   if (activeItem(attacker, "special-fragment") && special) {
     const multiplier = itemRules("special-fragment").multiplier ?? 1.15;
@@ -856,6 +887,31 @@ export function calculateDamage({ attacker, defender, move, variance = 1 }) {
       temporary: "barrier",
       multiplier,
     });
+  }
+  if (defender.temporaryEffects?.reflectShield) {
+    const multiplier = defender.temporaryEffects.reflectShield.multiplier;
+    incoming *= multiplier;
+    itemTriggers.push({ itemId: "escudo-refletor", temporary: "reflectShield", multiplier, owner: "defender" });
+  }
+  if (defender.temporaryEffects?.overload) incoming *= defender.temporaryEffects.overload.receivedMultiplier;
+  if (defender.temporaryEffects?.fury) incoming *= defender.temporaryEffects.fury.receivedMultiplier;
+  const defenderRelic = activeRelic(defender);
+  if (defenderRelic && defender.types.includes(defenderRelic.elementalType)) {
+    let multiplier = 1;
+    let temporary = null;
+    if (defenderRelic.id === "perola-abissal" && hpRatio(defender) <= defenderRelic.rules.lowHpRatio) multiplier = defenderRelic.rules.incomingMultiplier;
+    if (defenderRelic.id === "coracao-glacial" && effectiveness > 1) multiplier = defenderRelic.rules.superEffectiveIncomingMultiplier;
+    if (defenderRelic.id === "pluma-celeste" && defender.temporaryEffects?.relicSwitchDefense) {
+      multiplier = defenderRelic.rules.switchInIncomingMultiplier;
+      temporary = "relicSwitchDefense";
+    }
+    if (defenderRelic.id === "fragmento-colossal" && defender.hp === defender.maxHp) multiplier = defenderRelic.rules.fullHpIncomingMultiplier;
+    if (defenderRelic.id === "liga-arcana" && effectiveness > 1) multiplier = defenderRelic.rules.superEffectiveIncomingMultiplier;
+    if (defenderRelic.id === "casulo-ancestral" && defender.temporaryEffects?.relicEntryGuard) {
+      multiplier = defenderRelic.rules.incomingMultiplier;
+      temporary = "relicEntryGuard";
+    }
+    if (multiplier !== 1) { incoming *= multiplier; itemTriggers.push({ itemId: defenderRelic.id, equipmentSlot: "ELEMENTAL_RELIC", consumed: false, multiplier, temporary, owner: "defender" }); }
   }
   const movePowerFactor = getMovePowerFactor(move.power, special);
   const rawBasePercentage =
@@ -1211,6 +1267,28 @@ function finishActorTurn(next, actor, effect) {
         effect: { type: "heal_hp", amount },
       });
   }
+  for (const [key, itemId] of [["ruin", "fragmento-da-ruina"], ["timeBomb", "bomba-temporal"]]) {
+    const pending = fighter.temporaryEffects?.[key];
+    if (!pending || fighter.hp <= 0) continue;
+    pending.ticks -= 1;
+    if (pending.ticks > 0) continue;
+    const damage = Math.max(1, Math.ceil(fighter.maxHp * pending.damagePercent));
+    const survival = resolveLethalSurvival({ target: fighter, hpBefore: fighter.hp, damage, effect, eventId: `${itemId}:${next.revision + 1}:${fighter.id}`, ownerRole: actor, source: null });
+    fighter.hp = survival?.hp ?? Math.max(0, fighter.hp - damage);
+    delete fighter.temporaryEffects[key];
+    addItemEvent(effect, { itemId, pokemonId: fighter.id, targetPokemonId: fighter.id, consumed: false, eventId: `${itemId}:${next.revision + 1}:${fighter.id}`, effect: { type: "delayed_damage", amount: damage } });
+  }
+  for (const key of ["hunterMark", "silence", "anchor", "fury"]) {
+    const pending = fighter.temporaryEffects?.[key];
+    if (!pending?.ticks) continue;
+    pending.ticks -= 1;
+    if (pending.ticks <= 0) delete fighter.temporaryEffects[key];
+  }
+  const relic = activeRelic(fighter);
+  if (fighter.hp > 0 && relic?.id === "semente-ancestral" && hpRatio(fighter) <= relic.rules.lowHpRatio && (fighter.temporaryEffects.relicHealTicks || 0) < relic.rules.maxTicks) {
+    const amount = heal(fighter, fighter.maxHp * relic.rules.endRoundHealPercent);
+    if (amount) { fighter.temporaryEffects.relicHealTicks = (fighter.temporaryEffects.relicHealTicks || 0) + 1; addItemEvent(effect, { itemId: relic.id, pokemonId: fighter.id, targetPokemonId: fighter.id, consumed: false, eventId: `relic:${next.revision + 1}:${fighter.id}:heal`, effect: { type: "heal_hp", amount } }); }
+  }
   const ability = getEndTurnAbilityRule(fighter);
   if (fighter.hp > 0 && ability) {
     fighter.temporaryEffects.statStages ||= {};
@@ -1413,10 +1491,12 @@ function resolveBagAction(state, next, actor, enemy, action) {
       ? "vital-potion"
       : migrateLegacyItemId(action.itemId);
   const definition = getItemDefinition(itemId);
-  const targetIndex = next[actor].team.findIndex(
+  const targetsEnemy = ["ENEMY_ACTIVE", "ENEMY_SIDE"].includes(definition?.battleUsage?.target);
+  const targetRole = targetsEnemy ? enemy : actor;
+  const targetIndex = next[targetRole].team.findIndex(
     (pokemon) => String(pokemon.id) === String(action.targetPokemonId),
   );
-  const target = next[actor].team[targetIndex];
+  const target = next[targetRole].team[targetIndex];
   const quantity = next[actor].bag?.[itemId] || 0;
   if (
     !definition ||
@@ -1427,7 +1507,7 @@ function resolveBagAction(state, next, actor, enemy, action) {
   )
     return state;
   const blockReason = getBagItemUseBlockReason(target, definition, {
-    activeTarget: targetIndex === next[actor].active,
+    activeTarget: targetIndex === next[targetRole].active,
   });
   if (blockReason) return state;
   let healing = 0;
@@ -1445,6 +1525,29 @@ function resolveBagAction(state, next, actor, enemy, action) {
     target.temporaryEffects.stimulant = true;
   } else if (definition.effectType === "BAG_RECHARGE") {
     target.specialAttackUsesRemaining += 1;
+  } else if (definition.effectType === "BAG_RUIN") {
+    target.temporaryEffects.ruin = { ticks: definition.rules.rounds, damagePercent: definition.rules.damagePercent, sourceRole: actor };
+  } else if (definition.effectType === "BAG_TIME_BOMB") {
+    target.temporaryEffects.timeBomb = { ticks: definition.rules.rounds, damagePercent: definition.rules.damagePercent, sourceRole: actor };
+  } else if (definition.effectType === "BAG_HUNTER_MARK") {
+    target.temporaryEffects.hunterMark = { ticks: definition.rules.rounds, multiplier: definition.rules.multiplier, ownerRole: actor };
+  } else if (definition.effectType === "BAG_REFLECT_SHIELD") {
+    target.temporaryEffects.reflectShield = { multiplier: definition.rules.mitigationMultiplier, reflectPercent: definition.rules.reflectPercent };
+  } else if (definition.effectType === "BAG_STEAL_MOMENTUM") {
+    const user = next[actor].team[next[actor].active];
+    const amount = Math.min(1, target.momentum || 0);
+    target.momentum = Math.max(0, (target.momentum || 0) - amount);
+    user.momentum = Math.min(MOMENTUM_CONFIG.MAX, (user.momentum || 0) + amount);
+  } else if (definition.effectType === "BAG_SILENCE") {
+    target.temporaryEffects.silence = { ticks: definition.rules.rounds, sourceRole: actor };
+  } else if (definition.effectType === "BAG_ANCHOR") {
+    target.temporaryEffects.anchor = { ticks: definition.rules.rounds, sourceRole: actor };
+  } else if (definition.effectType === "BAG_ELEMENTAL_MINE") {
+    next[enemy].temporarySideEffects ||= {};
+    next[enemy].temporarySideEffects.elementalMine = { damagePercent: definition.rules.damagePercent, sourceRole: actor };
+  } else if (definition.effectType === "BAG_OVERLOAD") {
+    target.momentum = Math.min(MOMENTUM_CONFIG.MAX, (target.momentum || 0) + (definition.rules.momentum || 0));
+    target.temporaryEffects.overload = { receivedMultiplier: definition.rules.receivedMultiplier };
   } else return state;
   const usage = getBagItemUsage(target, definition);
   target.bagUsage = {
@@ -1464,7 +1567,7 @@ function resolveBagAction(state, next, actor, enemy, action) {
     itemId,
     itemName: definition.name,
     actor,
-    target: actor,
+    target: targetRole,
     targetPokemonId: target.id,
     targetPokemonName: target.name,
     targetIndex,
@@ -1515,6 +1618,7 @@ export function resolveAction(state, actor, action) {
   const next = structuredClone(state);
   const fighter = next[actor].team[next[actor].active];
   if (action.type === "switch") {
+    if (fighter.temporaryEffects?.anchor) return state;
     const incoming = next[actor].team[action.index];
     if (!incoming || incoming.hp <= 0 || action.index === next[actor].active)
       return state;
@@ -1544,6 +1648,17 @@ export function resolveAction(state, actor, action) {
     next[actor].active = action.index;
     incoming.temporaryEffects.impulse =
       activeItem(incoming, "impulse-boots") || undefined;
+    const incomingRelic = activeRelic(incoming);
+    if (incomingRelic?.id === "nucleo-sismico") incoming.temporaryEffects.relicSwitchAttack = true;
+    if (incomingRelic?.id === "pluma-celeste") incoming.temporaryEffects.relicSwitchDefense = true;
+    if (incomingRelic?.id === "casulo-ancestral" && hpRatio(incoming) <= incomingRelic.rules.entryHpRatio) incoming.temporaryEffects.relicEntryGuard = true;
+    const mine = next[actor].temporarySideEffects?.elementalMine;
+    if (mine && incoming.hp > 0) {
+      const damage = Math.max(1, Math.ceil(incoming.maxHp * mine.damagePercent));
+      incoming.hp = Math.max(0, incoming.hp - damage);
+      delete next[actor].temporarySideEffects.elementalMine;
+      addItemEvent(effect, { itemId: "mina-elemental", pokemonId: incoming.id, targetPokemonId: incoming.id, consumed: false, eventId: `${action.actionId || `${actor}:${state.revision + 1}:switch`}:mine`, effect: { type: "damage", amount: damage } });
+    }
     next.performance.players[actor].hasSwitched = true;
     applyEnterAbility(
       next,
@@ -1570,6 +1685,29 @@ export function resolveAction(state, actor, action) {
     (move.special && fighter.specialAttackUsesRemaining <= 0)
   )
     return state;
+  if (move.special && fighter.temporaryEffects?.silence) {
+    delete fighter.temporaryEffects.silence;
+    const eventId = action.actionId || `${actor}:${state.revision + 1}:${fighter.id}:silenced`;
+    next.turn = enemy;
+    next.log = `${fighter.name} teve o golpe Especial selado!`;
+    next.effect = {
+      kind: "status",
+      actor,
+      target: actor,
+      status: "silence",
+      itemEvents: [{
+        itemId: "selo-do-silencio",
+        pokemonId: fighter.id,
+        targetPokemonId: fighter.id,
+        consumed: false,
+        eventId,
+        effect: { type: "special_blocked" },
+      }],
+    };
+    finishActorTurn(next, actor, next.effect, eventId);
+    next.revision += 1;
+    return next;
+  }
   if (fighter.status?.id === "sleep") {
     const sleepingStatus = { ...fighter.status };
     fighter.status.turns -= 1;
@@ -1729,8 +1867,8 @@ export function resolveAction(state, actor, action) {
   }
   for (const trigger of resolution.itemTriggers) {
     if (trigger.temporary) {
-      const owner = trigger.temporary === "barrier" ? defender : fighter;
-      delete owner.temporaryEffects[trigger.temporary];
+      const owner = trigger.owner === "defender" || trigger.temporary === "barrier" ? defender : fighter;
+      if (["barrier", "reflectShield", "stimulant", "phoenix", "impulse", "fury", "relicSwitchAttack", "relicSwitchDefense", "relicEntryGuard"].includes(trigger.temporary)) delete owner.temporaryEffects[trigger.temporary];
       addItemEvent(effect, {
         itemId: trigger.itemId,
         pokemonId: owner.id,
@@ -1757,12 +1895,32 @@ export function resolveAction(state, actor, action) {
         owner: ownerRole,
       });
     }
+    if (!trigger.temporary && !trigger.consumed && trigger.itemId) {
+      const owner = trigger.owner === "defender" ? defender : fighter;
+      addItemEvent(effect, { itemId: trigger.itemId, pokemonId: owner.id, targetPokemonId: owner.id, equipmentSlot: trigger.equipmentSlot || "STRATEGIC", consumed: false, eventId: `${eventId}:${trigger.itemId}`, effect: { type: "damage_multiplier", multiplier: trigger.multiplier } });
+    }
   }
   const survival = resolveLethalSurvival({ target: defender, hpBefore: beforeHp, damage, effect, eventId, ownerRole: enemy, source: fighter });
   if (survival) damage = Math.max(0, beforeHp - survival.hp);
-  if (move.special) fighter.specialAttackUsesRemaining -= 1;
+  if (move.special) {
+    fighter.specialAttackUsesRemaining -= 1;
+    if (fighter.specialAttackUsesRemaining === 0 && activeItem(fighter, "ampulheta-quebrada")) {
+      fighter.specialAttackUsesRemaining = 1;
+      addItemEvent(effect, { ...consumeHeld(fighter, "ampulheta-quebrada", `${eventId}:hourglass`, { type: "restore_special", amount: 1 }, actor), owner: actor });
+    }
+  }
   defender.hp = Math.max(0, beforeHp - damage);
   if (survival) defender.hp = survival.hp;
+  if (damage > 0 && activeItem(defender, "cristal-da-furia") && !defender.temporaryEffects.fury && hpRatio(defender) <= itemRules("cristal-da-furia").hpRatioLTE) {
+    defender.temporaryEffects.fury = { ticks: itemRules("cristal-da-furia").rounds, dealtMultiplier: itemRules("cristal-da-furia").dealtMultiplier, receivedMultiplier: itemRules("cristal-da-furia").receivedMultiplier };
+    addItemEvent(effect, { itemId: "cristal-da-furia", pokemonId: defender.id, targetPokemonId: defender.id, consumed: false, eventId, effect: { type: "fury_armed", rounds: defender.temporaryEffects.fury.ticks } });
+  }
+  if (damage > 0 && move.special && activeItem(defender, "espelho-prismatico") && fighter.hp > 0) {
+    const reflected = Math.max(1, Math.floor(damage * itemRules("espelho-prismatico").reflectPercent));
+    const reflectedSurvival = resolveLethalSurvival({ target: fighter, hpBefore: fighter.hp, damage: reflected, effect, eventId: `${eventId}:prism`, ownerRole: actor, source: defender });
+    fighter.hp = reflectedSurvival?.hp ?? Math.max(0, fighter.hp - reflected);
+    addItemEvent(effect, { ...consumeHeld(defender, "espelho-prismatico", `${eventId}:prism`, { type: "reflect_damage", amount: reflected }, enemy), owner: enemy });
+  }
   const hpAfterDamage = defender.hp;
   if (immunity?.healRatio) {
     immunityRecovery = heal(defender, defender.maxHp * immunity.healRatio);
@@ -1806,7 +1964,9 @@ export function resolveAction(state, actor, action) {
   let status = null;
   let reactiveAbility = null;
   if (!immunity && !defender.status && defender.hp > 0 && move.statusEffect) {
-    const successful = nextRandom(next) < move.statusEffect.chance;
+    const statusRelicBonus = activeRelic(fighter)?.id === "presa-toxica" ? activeRelic(fighter).rules.poisonChanceBonus || 0 : 0;
+    const statusChance = Math.min(1, move.statusEffect.chance + (move.statusEffect.id === "poison" ? statusRelicBonus : 0));
+    const successful = nextRandom(next) < statusChance;
     if (successful)
       status = applySupportedStatus(
         defender,
@@ -1817,7 +1977,7 @@ export function resolveAction(state, actor, action) {
           targetRole: enemy,
           sourceKind: "move",
           move,
-          chance: move.statusEffect.chance,
+          chance: statusChance,
           appliedTurn: state.revision + 1,
         },
         effect,
@@ -1837,7 +1997,7 @@ export function resolveAction(state, actor, action) {
         targetRole: enemy,
         moveId: move.id,
         moveName: move.name,
-        chance: move.statusEffect.chance,
+        chance: statusChance,
         eventId,
       });
   }
@@ -1993,6 +2153,14 @@ export function resolveAction(state, actor, action) {
       : `${fighter.name} usou ${move.name}!`;
   if (defender.hp === 0) {
     addFaintEvent(effect, { pokemon: defender, owner: enemy, source: fighter, eventId: `${eventId}:faint:${defender.id}` });
+    if (activeRelic(fighter)?.id === "veu-espectral" && fighter.hp > 0) {
+      const before = fighter.momentum || 0;
+      fighter.momentum = Math.min(MOMENTUM_CONFIG.MAX, before + (activeRelic(fighter).rules.momentumOnFaint || 1));
+      if (fighter.momentum > before) {
+        addMomentumEvent(effect, { type: "MOMENTUM_GAINED", pokemonId: fighter.id, owner: actor, before, after: fighter.momentum, amount: fighter.momentum - before, eventId: `${eventId}:relic-faint` });
+        addItemEvent(effect, { itemId: "veu-espectral", pokemonId: fighter.id, targetPokemonId: fighter.id, equipmentSlot: "ELEMENTAL_RELIC", consumed: false, eventId: `${eventId}:relic-faint`, effect: { type: "momentum", amount: fighter.momentum - before } });
+      }
+    }
     const faintAbility = getCatalogAbility(fighter.abilityId || fighter.ability);
     if (faintAbility?.rule?.stat && faintAbility.hooks?.includes("ON_FAINT_OPPONENT") && fighter.hp > 0) {
       applyStatStageChange(fighter, fighter, actor, actor, faintAbility.rule.stat, faintAbility.rule.stages, effect, `${eventId}:faint`);
