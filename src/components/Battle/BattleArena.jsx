@@ -129,6 +129,8 @@ function BattleResourceBars({ pokemon }) {
 
 const TEMPORARY_ITEM_LABELS = Object.freeze({
   barrier: "BARREIRA ATIVA",
+  ruin: "RUÍNA ARMADA",
+  timeBomb: "BOMBA TEMPORAL",
   reflectShield: "ESCUDO REFLETOR",
   stimulant: "PRÓXIMO ATAQUE +35%",
   phoenix: "RENASCIMENTO +25%",
@@ -140,10 +142,65 @@ const TEMPORARY_ITEM_LABELS = Object.freeze({
   regeneration: "REGENERAÇÃO",
 });
 
+const TEMPORARY_ITEM_IDS = Object.freeze({
+  barrier: "instant-barrier",
+  ruin: "fragmento-da-ruina",
+  timeBomb: "bomba-temporal",
+  reflectShield: "escudo-refletor",
+  stimulant: "stimulant",
+  phoenix: "phoenix-heart",
+  fury: "cristal-da-furia",
+  hunterMark: "marca-do-cacador",
+  silence: "selo-do-silencio",
+  anchor: "ancora-dimensional",
+  overload: "nucleo-de-sobrecarga",
+  regeneration: "regeneration-leaf",
+});
+
+function getItemActivationEvents(effect, pokemon) {
+  const itemEvents = [...(effect?.itemEvents || [])];
+  if (effect?.kind === "item" && effect?.itemId && String(effect.targetPokemonId) === String(pokemon.id))
+    itemEvents.push({ itemId: effect.itemId, eventId: effect.eventId, pokemonId: pokemon.id, targetPokemonId: pokemon.id, effect: { type: effect.healing ? "heal_hp" : "armed", amount: effect.healing || null } });
+  return itemEvents.filter((event) => event?.itemId && [event.pokemonId, event.targetPokemonId].some((id) => String(id) === String(pokemon.id)));
+}
+
 function BattleItemEffectIndicators({ pokemon }) {
   const effects = Object.entries(pokemon.temporaryEffects || {}).filter(([key, value]) => value && TEMPORARY_ITEM_LABELS[key]);
   if (!effects.length) return null;
   return <div className="battle-item-effects" aria-label={`Efeitos de item em ${pokemon.name}`}>{effects.map(([key, value]) => <span key={key} className={`battle-item-effect is-${key}`}>{TEMPORARY_ITEM_LABELS[key]}{value?.ticks ? ` · ${value.ticks}T` : ""}</span>)}</div>;
+}
+
+function ItemEffectOverlay({ pokemon, effect, sideEffects }) {
+  const activeEffects = Object.entries(pokemon.temporaryEffects || {}).filter(([key, value]) => value && TEMPORARY_ITEM_IDS[key]);
+  if (sideEffects?.elementalMine) activeEffects.push(["elementalMine", sideEffects.elementalMine]);
+  const activations = getItemActivationEvents(effect, pokemon);
+  if (!activeEffects.length && !activations.length) return null;
+  return <div className="item-effect-overlay" aria-label={`Efeitos de itens sobre ${pokemon.name}`}>
+    <AnimatePresence initial={false}>
+      {activations.map((event, index) => {
+        const definition = getItemDefinition(event.itemId);
+        if (!definition) return null;
+        const amount = event.effect?.amount;
+        return <motion.div key={`${event.eventId || event.itemId}-${index}`} className="item-effect-activation" initial={{ opacity: 0, scale: .58, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: .82, y: -8 }} transition={{ duration: .32 }}>
+          <ItemSprite item={event.itemId} alt="" className="item-effect-activation__sprite" />
+          <strong>{definition.name}</strong>
+          <small>{amount ? `${event.effect?.type === "heal_hp" ? "+" : "−"}${amount} HP` : event.effect?.type === "delayed_damage" ? "ATIVADA" : "EM EFEITO"}</small>
+        </motion.div>;
+      })}
+    </AnimatePresence>
+    <div className="item-effect-cluster">
+      {activeEffects.map(([key, value]) => {
+        const itemId = key === "elementalMine" ? "mina-elemental" : TEMPORARY_ITEM_IDS[key];
+        const label = key === "elementalMine" ? "MINA ARMADA" : TEMPORARY_ITEM_LABELS[key];
+        const turns = value?.ticks;
+        return <span key={key} className={`item-effect-token is-${key}`} title={`${label}${turns ? ` · ${turns} turnos restantes` : ""}`}>
+          <ItemSprite item={itemId} alt="" className="item-effect-token__sprite" />
+          {turns ? <b>{turns}</b> : null}
+          <span className="sr-only">{label}{turns ? `, ${turns} turnos restantes` : ""}</span>
+        </span>;
+      })}
+    </div>
+  </div>;
 }
 
 function useBattleElapsed(startedAt, active) {
@@ -178,6 +235,7 @@ function Fighter({
   isHit,
   isAttacking,
   isHealing,
+  effect,
   matchup,
   statusEvent,
   onStatusOpen,
@@ -301,6 +359,7 @@ function Fighter({
             alt={pokemon.name}
           />
         </PokemonAura>
+        <ItemEffectOverlay pokemon={pokemon} effect={effect} sideEffects={player.temporarySideEffects} />
       </div>
     </div>
   );
@@ -1304,6 +1363,7 @@ export default function BattleArena({
           <Fighter
             side="opponent"
             player={opponent}
+            effect={effect}
             isHit={effect?.kind === "attack" && effect?.target === opponentRole}
             isAttacking={effect?.actor === opponentRole}
             statusEvent={
@@ -1326,6 +1386,7 @@ export default function BattleArena({
           <Fighter
             side="player"
             player={me}
+            effect={effect}
             isHit={effect?.kind === "attack" && effect?.target === role}
             isAttacking={effect?.actor === role}
             statusEvent={
