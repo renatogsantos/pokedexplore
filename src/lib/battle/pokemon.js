@@ -37,6 +37,7 @@ export function toBattlePokemon(pokemon) {
   const maxHp = calculateLeveledStat(baseStats.hp || getPokemonHp(pokemon), level);
   return {
     id: pokemon.id,
+    instanceId: pokemon.instanceId || pokemon.id,
     source: pokemon.source || "pokeapi",
     customId: pokemon.customId || null,
     name: pokemon.name,

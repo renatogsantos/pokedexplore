@@ -24,12 +24,12 @@ export function createBattleRoom(roomCode, player, handlers) {
     handlers.onStatus?.(status);
     if (subscribed) {
       debug("channel subscribed");
-      channel.track({ ...player, ready: false });
+      channel.track({ ...player, ready: false, presenceUpdatedAt: Date.now() });
     }
   });
   return {
     isConnected: () => subscribed,
-    updatePresence: (state) => subscribed ? channel.track({ ...player, ...state }) : Promise.reject(new Error("Canal ainda não está conectado.")),
+    updatePresence: (state) => subscribed ? channel.track({ ...player, ...state, presenceUpdatedAt: Date.now() }) : Promise.reject(new Error("Canal ainda não está conectado.")),
     send: (payload) => {
       if (!subscribed) return Promise.reject(new Error("Canal ainda não está conectado."));
       debug("event sent", payload?.type);

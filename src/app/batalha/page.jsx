@@ -26,6 +26,7 @@ import { createBattleState, resolveAction } from "@/lib/battle/engine";
 import { createCpuInventory, createCpuVictoryReward, decideCpuIntent, generateCpuTeam, getCpuDifficulty } from "@/lib/battle/cpu";
 import { canStartWagerBattle, getWagerPot, normalizeWagerAmount } from "@/lib/battle/wager";
 import { completeSelection, createSelectionTiming, getReadySelection, getSelectionTimerState } from "@/lib/battle/selectionTimer";
+import { getLogicalPresencePlayers, getPvpStartSnapshot } from "@/lib/battle/pvpStart";
 import {
   BATTLE_EVENTS,
   createBattleRoom,
@@ -260,8 +261,8 @@ export default function BattlePage() {
       }));
   }, []);
   const startState = useCallback(
-    async (hostTeam, guestTeam, host, guest, cpuContext = null) => {
-      if (isStartingBattle.current) return;
+    async (hostTeam, guestTeam, host, guest, cpuContext = null, startAlreadyLocked = false) => {
+      if (isStartingBattle.current && !startAlreadyLocked) return;
       const badgeConfig = getBadgeConfig(badgeChallenge?.badge?.code);
       if (badgeConfig) {
         const hostValidation = validateBadgeTeam(hostTeam, badgeConfig.type);
@@ -314,7 +315,6 @@ export default function BattlePage() {
       next.log = "3 · 2 · 1 · BATALHA!";
       setBattle(next);
       setScreen("battle");
-      isStartingBattle.current = false;
       broadcast(BATTLE_EVENTS.START, next);
       clearTimeout(introTimer.current);
       introTimer.current = setTimeout(() => {
@@ -524,7 +524,7 @@ export default function BattlePage() {
         realtime.current = createBattleRoom(code, initialWager ? { ...currentPlayer, wager: initialWager } : currentPlayer, {
           onPresence: (nextPresence) => {
             setPresence(nextPresence);
-            const players = Object.values(nextPresence).flat();
+            const players = getLogicalPresencePlayers(nextPresence);
             const peer = players.find((item) => item.id !== currentPlayer.id);
             if (peer) {
               if (peer.wager?.id) setWager(peer.wager);
@@ -657,30 +657,31 @@ export default function BattlePage() {
     [beginFriendSelectionTiming, broadcast, clearFriendSelectionTiming, dispatch, mode, persistBattleConsumables, rewardFinishedBattle],
   );
 
+  const pvpStart = getPvpStartSnapshot({
+    channelStatus: connection,
+    isHost: role === "host",
+    hostReady: myReady,
+    guestReady: opponentReady,
+    hostTeam: selected,
+    guestTeam: remoteTeam?.team,
+    matchStatus: battle || isStartingBattle.current ? "STARTING" : "LOBBY",
+  });
+
   useEffect(() => {
-    if (
-      !["friend", "tournament", "badge-pvp"].includes(mode) ||
-      role !== "host" ||
-      !myReady ||              // host must have explicitly pressed PRONTO
-      !opponentReady ||        // guest must have ALSO explicitly pressed PRONTO
-      !canStartWagerBattle(wager) ||
-      selected.length !== 3 ||
-      !remoteTeam?.team ||
-      remoteTeam.team.length !== 3 ||
-      !player ||
-      battle ||
-      isStartingBattle.current
-    )
-      return;
+    if (!["friend", "tournament", "badge-pvp"].includes(mode) || !player || !canStartWagerBattle(wager) || !pvpStart.canStart) return;
+    // STARTING stays locked until the match is reset. Presence sync can fire
+    // again before React commits `battle`, so a transient false guard here
+    // would create two authoritative states.
+    isStartingBattle.current = true;
     if (mode === "tournament" && tournamentMatch) {
       void markTournamentMatchPlaying(tournamentMatch.id).catch((error) => setNotice(error.message));
     }
-    void startState(selected, remoteTeam.team, player, remoteTeam.player).catch((error) => {
+    void startState(selected, remoteTeam.team, player, remoteTeam.player, null, true).catch((error) => {
       isStartingBattle.current = false;
       setNotice(error?.message || "Não foi possível iniciar a batalha.");
       console.error("[Battle start error]", error);
     });
-  }, [mode, role, myReady, opponentReady, selected, remoteTeam, player, battle, startState, tournamentMatch, wager]);
+  }, [mode, player, pvpStart.canStart, startState, tournamentMatch, wager]);
 
   useEffect(() => {
     if (mode !== "friend" || !selectionTiming?.id || myReady || battle || !player?.id) return undefined;
@@ -728,6 +729,7 @@ export default function BattlePage() {
   }, [mode, battle, cpuDifficulty, rewardFinishedBattle, tournamentCpuOpponent]);
 
   function chooseMode(nextMode, difficulty = "medium") {
+    isStartingBattle.current = false;
     setMode(nextMode);
     setCpuDifficulty(difficulty);
     setSelected([]);
@@ -848,6 +850,7 @@ export default function BattlePage() {
         playerId: player.id,
         playerName: player.name,
         ready: true,
+        readyAt: Date.now(),
         team: battleTeam,
       });
       // Also broadcast TEAM for backward compat with older clients
@@ -886,6 +889,7 @@ export default function BattlePage() {
       return;
     }
     if (!(await ensureFriendEligible())) return;
+    isStartingBattle.current = false;
     const currentPlayer = makePlayer(name, profile?.playerId);
     setName(currentPlayer.name);
     void webStore.setTrainerName(currentPlayer.name);
@@ -915,6 +919,7 @@ export default function BattlePage() {
       setNotice("Digite os 4 números do código da sala.");
       return;
     }
+    isStartingBattle.current = false;
     const currentPlayer = makePlayer(name, profile?.playerId);
     setName(currentPlayer.name);
     void webStore.setTrainerName(currentPlayer.name);
@@ -945,6 +950,7 @@ export default function BattlePage() {
       router.push("/jornada/insignias");
       return;
     }
+    isStartingBattle.current = false;
     const participant = [badgeChallenge.challenger_player_id, badgeChallenge.defender_player_id].includes(profile.playerId);
     if (!participant) {
       setNotice("Somente o desafiante e o campeão podem entrar nesta disputa.");
@@ -1089,6 +1095,7 @@ export default function BattlePage() {
     else broadcast(BATTLE_EVENTS.ACTION, action);
   }
   function rematch() {
+    isStartingBattle.current = false;
     if (String(mode).startsWith("badge")) {
       const terminal = ["COMPLETED", "FAILED", "EXPIRED", "CANCELLED"].includes(badgeResolution?.status);
       if (terminal) {
@@ -1216,7 +1223,13 @@ export default function BattlePage() {
               opponentReady={opponentReady}
               cpuDifficulty={mode === "cpu" ? getCpuDifficulty(cpuDifficulty) : null}
               badgeContext={String(mode).startsWith("badge") ? getBadgeConfig(badgeChallenge?.badge?.code) : null}
-              onEquipmentChanged={(updated) => { setCollection((current) => current.map((pokemon) => String(pokemon.id) === String(updated.id) ? updated : pokemon)); setSelected((current) => current.map((pokemon) => String(pokemon.id) === String(updated.id) ? updated : pokemon)); }}
+              onEquipmentChanged={(updated) => {
+                // This callback is emitted only after a player-initiated
+                // equipment save, never by hydration or image metadata.
+                if (myReady) unreadyTeam();
+                setCollection((current) => current.map((pokemon) => String(pokemon.id) === String(updated.id) ? updated : pokemon));
+                setSelected((current) => current.map((pokemon) => String(pokemon.id) === String(updated.id) ? updated : pokemon));
+              }}
             />
           </>
         )}
@@ -1244,6 +1257,14 @@ export default function BattlePage() {
             teamSize: selected.length,
             opponentPresent: Boolean(remoteTeam?.player),
             realtimeStatus: connection,
+            roomCode,
+            role,
+            localReady: myReady,
+            remoteReady: opponentReady,
+            remoteTeamSize: remoteTeam?.team?.length || 0,
+            canStart: pvpStart.canStart,
+            startBlocker: pvpStart.blocker,
+            matchStatus: battle ? "ACTIVE" : isStartingBattle.current ? "STARTING" : "LOBBY",
           }}
         />
       </div>

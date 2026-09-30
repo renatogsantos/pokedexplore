@@ -32,6 +32,16 @@ export default function BattleDebugPanel({ context = {} }) {
     teamSize: Number(context.teamSize || 0),
     opponentPresent: Boolean(context.opponentPresent),
     realtimeStatus: context.realtimeStatus || null,
+    pvp: {
+      room: context.roomCode || null,
+      localRole: context.role || null,
+      localReady: Boolean(context.localReady),
+      remoteReady: Boolean(context.remoteReady),
+      remoteTeamSize: Number(context.remoteTeamSize || 0),
+      canStart: Boolean(context.canStart),
+      blocker: context.startBlocker || null,
+      matchStatus: context.matchStatus || null,
+    },
   };
   return <aside className="battle-debug-panel" role="alert" aria-live="assertive"><strong>DEBUG BATTLE</strong><pre>{JSON.stringify({ error, context: safeContext }, null, 2)}</pre></aside>;
 }
