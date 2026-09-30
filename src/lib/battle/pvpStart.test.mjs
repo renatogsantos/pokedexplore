@@ -13,12 +13,13 @@ const source = (await readFile(new URL("./pvpStart.js", import.meta.url), "utf8"
 const { getLogicalPresencePlayers, getPvpStartSnapshot, validatePvpTeam } = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
 
 const team = (prefix, equipment = {}) => [1, 2, 3].map((id) => ({ id: `${prefix}-${id}`, name: `pokemon-${id}`, level: 1, ...equipment }));
-const readyInput = () => ({ channelStatus: "CONNECTED", isHost: true, hostReady: true, guestReady: true, hostTeam: team("host"), guestTeam: team("guest") });
+const readyInput = () => ({ channelStatus: "CONNECTED", isHost: true, peerPresent: true, hostReady: true, guestReady: true, hostTeam: team("host"), guestTeam: team("guest") });
 
 test("both ready starts in either READY order once normalized state is complete", () => {
   assert.equal(getPvpStartSnapshot(readyInput()).canStart, true);
   assert.equal(getPvpStartSnapshot({ ...readyInput(), hostReady: false }).blocker, "HOST_NOT_READY");
   assert.equal(getPvpStartSnapshot({ ...readyInput(), guestReady: false }).blocker, "GUEST_NOT_READY");
+  assert.equal(getPvpStartSnapshot({ ...readyInput(), peerPresent: false }).blocker, "OPPONENT_NOT_PRESENT");
 });
 
 test("PVP accepts optional strategic and relic equipment and legacy heldItem", () => {

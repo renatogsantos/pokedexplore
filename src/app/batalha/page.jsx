@@ -23,7 +23,7 @@ import BattleArena from "@/components/Battle/BattleArena";
 import BattleDebugPanel from "@/components/Battle/BattleDebugPanel";
 import { CPU_ROSTER, CPU_TEAM, toBattlePokemon } from "@/lib/battle/pokemon";
 import { createBattleState, resolveAction } from "@/lib/battle/engine";
-import { createCpuInventory, createCpuVictoryReward, decideCpuIntent, generateCpuTeam, getCpuDifficulty } from "@/lib/battle/cpu";
+import { createCpuInventory, createCpuVictoryReward, decideCpuIntent, generateCpuTeam, getCpuDifficulty, getCpuIntentCandidates } from "@/lib/battle/cpu";
 import { canStartWagerBattle, getWagerPot, normalizeWagerAmount } from "@/lib/battle/wager";
 import { completeSelection, createSelectionTiming, getReadySelection, getSelectionTimerState } from "@/lib/battle/selectionTimer";
 import { getLogicalPresencePlayers, getPvpStartSnapshot } from "@/lib/battle/pvpStart";
@@ -33,6 +33,7 @@ import {
   hasRealtimeConfig,
 } from "@/lib/battle/realtime";
 import { PVP_CONNECTION, getPvpConnectionMessage } from "@/lib/battle/pvpConnection";
+import { canApplyBattleSnapshot, canResolveRemoteAction } from "@/lib/battle/protocol";
 import { appendBattleAudioEvents, playBattleSound } from "@/lib/battle/sound";
 import { calculateBattleRewards } from "@/lib/battle/rewards";
 import { actCoins } from "@/redux/economy";
@@ -75,6 +76,8 @@ export default function BattlePage() {
   const badgeChallengeId = params.get("badgeChallenge");
   const realtime = useRef(null);
   const connectionGeneration = useRef(0);
+  const lastPeerSession = useRef(null);
+  const retiredMatchIds = useRef(new Set());
   const cpuTimer = useRef(null);
   const introTimer = useRef(null);
   const [screen, setScreen] = useState("mode");
@@ -524,6 +527,7 @@ export default function BattlePage() {
     (code, currentPlayer, currentRole, initialWager = null) => {
       const generation = connectionGeneration.current + 1;
       connectionGeneration.current = generation;
+      lastPeerSession.current = null;
       const acceptsCurrentSession = () => connectionGeneration.current === generation;
       try {
         realtime.current?.leave();
@@ -536,6 +540,9 @@ export default function BattlePage() {
             const players = getLogicalPresencePlayers(nextPresence);
             const peer = players.find((item) => item.id !== currentPlayer.id);
             if (peer) {
+              if (currentRole === "host" && peer.sessionId && lastPeerSession.current !== peer.sessionId && battleSnapshot.current)
+                broadcast(BATTLE_EVENTS.STATE, battleSnapshot.current);
+              if (peer.sessionId) lastPeerSession.current = peer.sessionId;
               if (peer.wager?.id) setWager(peer.wager);
               if (peer.selectionTiming?.id) {
                 selectionTimingSnapshot.current = peer.selectionTiming;
@@ -553,6 +560,7 @@ export default function BattlePage() {
               if (peer.ready === true) setNotice("ADVERSÁRIO PRONTO!");
               else if (peer.ready === false) setNotice("Adversário voltou a selecionar o time...");
             } else {
+              lastPeerSession.current = null;
               setOpponentReady(false);
               setRemoteTeam(null);
               const activeWager = wagerSnapshot.current;
@@ -617,16 +625,17 @@ export default function BattlePage() {
               }
             }
             if (type === BATTLE_EVENTS.START || type === BATTLE_EVENTS.STATE) {
-              persistBattleConsumables(payload, currentRole);
-              setBattle((previous) =>
-                rewardFinishedBattle(previous, payload, currentRole),
-              );
-              setScreen("battle");
-              setNotice("BATALHA INICIADA!");
+              if (currentRole !== "guest") return;
+              setBattle((previous) => {
+                if (!canApplyBattleSnapshot(previous, payload, { localRole: currentRole, playerId: currentPlayer.id, retiredMatchIds: retiredMatchIds.current })) return previous;
+                persistBattleConsumables(payload, currentRole);
+                setScreen("battle");
+                return rewardFinishedBattle(previous, payload, currentRole);
+              });
             }
             if (type === BATTLE_EVENTS.ACTION && currentRole === "host")
               setBattle((previous) => {
-                if (!previous) return previous;
+                if (!canResolveRemoteAction(previous, payload)) return previous;
                 const next = appendBattleAudioEvents(previous, resolveAction(previous, "guest", payload), { mode });
                 if (next === previous) return previous;
                 persistBattleConsumables(next, currentRole);
@@ -636,6 +645,7 @@ export default function BattlePage() {
             if (type === BATTLE_EVENTS.BADGE_ERROR && payload?.message)
               setNotice(payload.message);
             if (type === BATTLE_EVENTS.REMATCH) {
+              if (battleSnapshot.current?.matchId) retiredMatchIds.current.add(battleSnapshot.current.matchId);
               setWager(null);
               clearFriendSelectionTiming();
               setBattle(null);
@@ -668,6 +678,7 @@ export default function BattlePage() {
   const pvpStart = getPvpStartSnapshot({
     channelStatus: connection,
     isHost: role === "host",
+    peerPresent: Boolean(player && getLogicalPresencePlayers(presence).some((entry) => entry.id !== player.id)),
     hostReady: myReady,
     guestReady: opponentReady,
     hostTeam: selected,
@@ -726,8 +737,19 @@ export default function BattlePage() {
     cpuTimer.current = setTimeout(
       () =>
         setBattle((current) => {
+          if (!current || current.status !== "playing" || current.turn !== "guest") return current;
           const intent = decideCpuIntent(current, { difficulty: mode === "badge-cpu" || tournamentCpuOpponent ? "hard" : current?.cpuDifficulty || cpuDifficulty });
-          const next = appendBattleAudioEvents(current, resolveAction(current, "guest", intent), { mode });
+          let resolved = current;
+          for (const candidate of getCpuIntentCandidates(current, intent)) {
+            resolved = resolveAction(current, "guest", candidate);
+            if (resolved !== current) break;
+          }
+          if (resolved === current) {
+            console.error("[Battle CPU] No valid intent", { matchId: current.matchId, revision: current.revision, intent });
+            setNotice("A CPU não encontrou uma ação válida. Saia e reinicie esta batalha.");
+            return current;
+          }
+          const next = appendBattleAudioEvents(current, resolved, { mode });
           persistBattleConsumables(next, "host");
           return rewardFinishedBattle(current, next, "host");
         }),
@@ -1100,10 +1122,12 @@ export default function BattlePage() {
         broadcast(BATTLE_EVENTS.STATE, next);
         return rewardFinishedBattle(current, next, "host");
       });
-    else broadcast(BATTLE_EVENTS.ACTION, action);
+    else if (battle?.status === "playing" && battle.turn === "guest")
+      broadcast(BATTLE_EVENTS.ACTION, { ...action, actionId: crypto.randomUUID(), matchId: battle.matchId, expectedRevision: battle.revision });
   }
   function rematch() {
     isStartingBattle.current = false;
+    if (battle?.matchId) retiredMatchIds.current.add(battle.matchId);
     if (String(mode).startsWith("badge")) {
       const terminal = ["COMPLETED", "FAILED", "EXPIRED", "CANCELLED"].includes(badgeResolution?.status);
       if (terminal) {

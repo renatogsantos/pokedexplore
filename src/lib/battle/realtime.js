@@ -27,6 +27,8 @@ export function createBattleRoom(roomCode, player, handlers = {}) {
   let subscribed = false;
   let active = true;
   let trackCount = 0;
+  let localPresence = { ready: false, team: null, sessionId: instanceId };
+  let pendingTrack = Promise.resolve();
   const emitDiagnostic = (event, detail = {}) => handlers.onDiagnostic?.({ event, timestamp: Date.now(), instanceId, roomCode: normalizedRoomCode, topic, playerId: player.id, ...detail });
   const channel = client.channel(topic, { config: { presence: { key: String(player.id) }, broadcast: { self: false } } });
   const publishStatus = (state, detail = {}) => {
@@ -41,9 +43,16 @@ export function createBattleRoom(roomCode, player, handlers = {}) {
   };
   const trackPresence = (state = {}) => {
     if (!active || !subscribed) return Promise.reject(new Error("Canal ainda não está conectado."));
+    localPresence = { ...localPresence, ...state };
+    const snapshot = { ...player, ...localPresence, presenceUpdatedAt: Date.now() };
     trackCount += 1;
     emitDiagnostic("TRACK_START", { trackCount });
-    return Promise.resolve(channel.track({ ...player, ...state, presenceUpdatedAt: Date.now() }))
+    const request = pendingTrack.catch(() => {}).then(() => {
+      if (!active || !subscribed) throw new Error("Canal não está mais conectado.");
+      return channel.track(snapshot);
+    });
+    pendingTrack = request;
+    return request
       .then((result) => {
         if (!isTrackSuccessful(result)) throw new Error(`Presence track falhou: ${String(result)}`);
         emitDiagnostic("TRACK_OK", { trackCount });
@@ -70,7 +79,7 @@ export function createBattleRoom(roomCode, player, handlers = {}) {
     publishStatus(state, { status });
     if (subscribed) {
       publishStatus(PVP_CONNECTION.PRESENCE_SYNCING, { status });
-      void trackPresence({ ready: false }).then(() => publishStatus(PVP_CONNECTION.CONNECTED, { status: "TRACKED" })).catch(() => {});
+      void trackPresence().then(() => publishStatus(PVP_CONNECTION.CONNECTED, { status: "TRACKED" })).catch(() => {});
     }
   });
   return {

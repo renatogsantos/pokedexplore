@@ -209,7 +209,11 @@ export function decideCpuIntent(state, { difficulty = "medium", random = Math.ra
   const config = getCpuDifficulty(difficulty);
   const active = state?.guest?.team?.[state.guest.active];
   const opponent = state?.host?.team?.[state.host.active];
-  if (!active || !opponent || active.hp <= 0) return { type: "attack", moveId: "strike" };
+  if (!active || !opponent) return null;
+  if (active.hp <= 0) {
+    const replacement = state.guest.team.findIndex((pokemon) => pokemon.hp > 0);
+    return replacement < 0 ? null : { type: "switch", index: replacement };
+  }
   const switchChoice = bestSwitch(state, config);
   const item = itemIntent(state, config);
   if (switchChoice && random() < config.switchThreshold) return { type: "switch", index: switchChoice.index };
@@ -219,7 +223,25 @@ export function decideCpuIntent(state, { difficulty = "medium", random = Math.ra
     .sort((left, right) => right.score - left.score);
   const spread = config.id === "easy" ? Math.min(3, ranked.length) : config.id === "medium" ? Math.min(2, ranked.length) : Math.min(2, ranked.length);
   const picked = ranked[Math.floor(random() * spread)]?.move || moves[0];
-  return { type: "attack", moveId: picked?.id || "strike" };
+  return picked ? { type: "attack", moveId: picked.id } : null;
+}
+
+// The adapter tries the AI's preferred intent, then legal alternatives through
+// the shared engine. An invalid preference must not strand the CPU turn.
+export function getCpuIntentCandidates(state, preferred) {
+  const active = state?.guest?.team?.[state.guest.active];
+  const intents = preferred ? [preferred] : [];
+  if (active?.hp > 0) {
+    for (const move of active.moves || []) {
+      if (!move.special || active.specialAttackUsesRemaining > 0)
+        intents.push({ type: "attack", moveId: move.id });
+    }
+  }
+  state?.guest?.team?.forEach((pokemon, index) => {
+    if (index !== state.guest.active && pokemon.hp > 0)
+      intents.push({ type: "switch", index });
+  });
+  return intents.filter((intent, index) => intents.findIndex((entry) => entry.type === intent.type && entry.moveId === intent.moveId && entry.index === intent.index && entry.itemId === intent.itemId) === index);
 }
 
 export function rollCpuItemDrop(difficulty = "medium", random = Math.random) {

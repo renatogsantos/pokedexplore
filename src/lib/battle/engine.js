@@ -1613,10 +1613,11 @@ function resolveBagAction(state, next, actor, enemy, action) {
 }
 
 export function resolveAction(state, actor, action) {
-  if (state.status !== "playing" || state.turn !== actor) return state;
+  if (!state || !["host", "guest"].includes(actor) || !action || state.status !== "playing" || state.turn !== actor) return state;
   const enemy = actor === "host" ? "guest" : "host";
   const next = structuredClone(state);
   const fighter = next[actor].team[next[actor].active];
+  if (!fighter) return state;
   if (action.type === "switch") {
     if (fighter.temporaryEffects?.anchor) return state;
     const incoming = next[actor].team[action.index];
@@ -1655,29 +1656,36 @@ export function resolveAction(state, actor, action) {
     const mine = next[actor].temporarySideEffects?.elementalMine;
     if (mine && incoming.hp > 0) {
       const damage = Math.max(1, Math.ceil(incoming.maxHp * mine.damagePercent));
-      incoming.hp = Math.max(0, incoming.hp - damage);
+      const mineEventId = `${action.actionId || `${actor}:${state.revision + 1}:switch`}:mine`;
+      const survival = resolveLethalSurvival({ target: incoming, hpBefore: incoming.hp, damage, effect, eventId: mineEventId, ownerRole: actor, source: null });
+      incoming.hp = survival?.hp ?? Math.max(0, incoming.hp - damage);
       delete next[actor].temporarySideEffects.elementalMine;
-      addItemEvent(effect, { itemId: "mina-elemental", pokemonId: incoming.id, targetPokemonId: incoming.id, consumed: false, eventId: `${action.actionId || `${actor}:${state.revision + 1}:switch`}:mine`, effect: { type: "damage", amount: damage } });
+      addItemEvent(effect, { itemId: "mina-elemental", pokemonId: incoming.id, targetPokemonId: incoming.id, consumed: false, eventId: mineEventId, effect: { type: "damage", amount: damage } });
+      if (incoming.hp <= 0) {
+        addFaintEvent(effect, { pokemon: incoming, owner: actor, source: null, eventId: `${mineEventId}:faint:${incoming.id}`, cause: "item" });
+        const replacement = next[actor].team.findIndex((pokemon) => pokemon.hp > 0);
+        if (replacement === -1) {
+          next.status = "finished";
+          next.winner = enemy;
+          next.performance.endedAt = Date.now();
+        } else next[actor].active = replacement;
+      }
     }
     next.performance.players[actor].hasSwitched = true;
-    applyEnterAbility(
-      next,
-      actor,
-      enemy,
-      effect,
-      action.actionId || `${actor}:${state.revision + 1}:switch-in`,
-    );
+    if (next.status !== "finished")
+      applyEnterAbility(next, actor, enemy, effect, action.actionId || `${actor}:${state.revision + 1}:switch-in`);
     next.turn = enemy;
-    next.log = `Vai, ${incoming.name}!`;
+    next.log = incoming.hp <= 0
+      ? `${incoming.name} desmaiou!${next.status === "finished" ? "" : ` Vai, ${next[actor].team[next[actor].active].name}!`}`
+      : `Vai, ${incoming.name}!`;
     next.effect = effect;
     next.revision += 1;
     return next;
   }
   if (action.type === "potion" || action.type === "item")
     return resolveBagAction(state, next, actor, enemy, action);
-  const move =
-    fighter.moves.find((entry) => entry.id === action.moveId) ||
-    MOVES.find((entry) => entry.id === action.moveId);
+  if (action.type !== "attack" || fighter.hp <= 0) return state;
+  const move = fighter.moves.find((entry) => entry.id === action.moveId);
   const defender = next[enemy].team[next[enemy].active];
   if (
     !move ||

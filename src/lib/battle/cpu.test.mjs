@@ -48,6 +48,23 @@ test("hard CPU spends a legal super-effective special to finish", () => {
   assert.deepEqual(cpu.decideCpuIntent(state, { difficulty: "hard", random: () => .99 }), { type: "attack", moveId: "special" });
 });
 
+test("CPU offers a legal move or living replacement after an invalid preference", () => {
+  const state = {
+    guest: { active: 0, team: [
+      { id: 1, hp: 20, specialAttackUsesRemaining: 0, moves: [{ id: "normal", special: false }, { id: "spent", special: true }] },
+      { id: 2, hp: 10, moves: [] },
+    ] },
+    host: { active: 0, team: [{ id: 3, hp: 20 }] },
+  };
+  assert.deepEqual(cpu.getCpuIntentCandidates(state, { type: "attack", moveId: "missing" }), [
+    { type: "attack", moveId: "missing" },
+    { type: "attack", moveId: "normal" },
+    { type: "switch", index: 1 },
+  ]);
+  state.guest.team[0].hp = 0;
+  assert.deepEqual(cpu.decideCpuIntent(state), { type: "switch", index: 1 });
+});
+
 test("legendary is only available after hard's item-drop roll", () => {
   assert.equal(cpu.rollCpuItemDrop("easy", () => .99), null);
   assert.equal(cpu.rollCpuItemDrop("hard", (() => { const values = [.01, .01, .01]; return () => values.shift() ?? .01; })()).id, "legendary");

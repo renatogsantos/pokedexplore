@@ -35,10 +35,11 @@ export function validatePvpTeam(team) {
   return { valid: true, reason: null, teamSize: team.length };
 }
 
-export function getPvpStartBlocker({ channelStatus, isHost, hostReady, guestReady, hostTeam, guestTeam, matchStatus = "LOBBY" }) {
+export function getPvpStartBlocker({ channelStatus, isHost, peerPresent, hostReady, guestReady, hostTeam, guestTeam, matchStatus = "LOBBY" }) {
   if (channelStatus !== "CONNECTED") return "CHANNEL_NOT_READY";
   if (!isHost) return "WAITING_FOR_HOST";
   if (matchStatus !== "LOBBY") return "ALREADY_STARTING";
+  if (!peerPresent) return "OPPONENT_NOT_PRESENT";
   const hostValidation = validatePvpTeam(hostTeam);
   const guestValidation = validatePvpTeam(guestTeam);
   if (!hostValidation.valid) return hostValidation.reason === "TEAM_SIZE" ? "HOST_TEAM_INCOMPLETE" : "HOST_TEAM_INVALID";

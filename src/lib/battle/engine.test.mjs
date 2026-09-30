@@ -47,11 +47,21 @@ const {
   analyzeMoveDecision,
   createBattleState,
   getBattleMoves,
+  getTypeEffectiveness,
+  getHpRatio,
+  getBagItemUseBlockReason,
+  getPotionHealAmount,
   resolveAction,
   resolvePostDamageHeldItem,
 } = await import(
   `data:text/javascript;base64,${Buffer.from(engineSource).toString("base64")}`
 );
+globalThis.__battleEngineForCpuTest = { calculateDamage, analyzeMoveDecision, getHpRatio, getBagItemUseBlockReason, getPotionHealAmount, getTypeEffectiveness };
+const cpuSource = (await readFile(new URL("./cpu.js", import.meta.url), "utf8"))
+  .replace(/import\s*\{[\s\S]*?\}\s*from "@\/lib\/battle\/engine";/, "const { calculateDamage, analyzeMoveDecision, getHpRatio, getBagItemUseBlockReason, getPotionHealAmount, getTypeEffectiveness } = globalThis.__battleEngineForCpuTest;")
+  .replace('import { CPU_ROSTER } from "@/lib/battle/pokemon";', "const CPU_ROSTER = [];")
+  .replace('import { BAG_ITEM_CATALOG, ITEM_CATALOG } from "@/lib/items/catalog";', "const { BAG_ITEM_CATALOG, ITEM_CATALOG } = globalThis.__itemCatalog;");
+const { decideCpuIntent, getCpuIntentCandidates } = await import(`data:text/javascript;base64,${Buffer.from(cpuSource).toString("base64")}`);
 
 const pokemon = (
   id,
@@ -130,6 +140,63 @@ test("catalog exposes the complete expanded collection", () => {
     catalog.getItemDefinition("vampiric-crystal").rules.damageHealPercent,
     0.1,
   );
+});
+
+test("only the active living Pokémon's own moves can advance a turn", () => {
+  const state = makeState();
+  const unknownMove = state.host.team[0].moves.find((move) => move.id !== "hit").id;
+  state.host.team[0].moves = state.host.team[0].moves.filter((move) => move.id === "hit");
+  assert.strictEqual(resolveAction(state, "host", { type: "attack", moveId: unknownMove }), state);
+  assert.strictEqual(resolveAction(state, "host", { type: "attack", moveId: "strike" }), state);
+  state.host.team[0].hp = 0;
+  assert.strictEqual(resolveAction(state, "host", { type: "attack", moveId: "hit" }), state);
+});
+
+test("an Elemental Mine resolves survival or final faint before the next turn", () => {
+  const surviving = makeState("survival-amulet");
+  surviving.host.team[1].heldItem = "survival-amulet";
+  surviving.host.temporarySideEffects = { elementalMine: { damagePercent: 1 } };
+  const saved = resolveAction(surviving, "host", { type: "switch", index: 1, actionId: "mine-survive" });
+  assert.equal(saved.host.team[1].hp, 1);
+  assert.equal(saved.host.team[1].heldItem, null);
+  assert.equal(saved.effect.faintEvents?.length || 0, 0);
+
+  const lethal = makeState();
+  lethal.host.temporarySideEffects = { elementalMine: { damagePercent: 1 } };
+  const switched = resolveAction(lethal, "host", { type: "switch", index: 1, actionId: "mine-faint" });
+  assert.equal(switched.host.team[1].hp, 0);
+  assert.ok(switched.host.team[switched.host.active].hp > 0);
+  assert.equal(switched.effect.faintEvents?.length, 1);
+  assert.equal(switched.turn, "guest");
+});
+
+test("90 complete CPU matches across Easy, Medium and Hard never stall or violate active-HP invariants", () => {
+  for (const difficulty of ["easy", "medium", "hard"]) {
+    for (let seed = 1; seed <= 30; seed += 1) {
+      let state = makeState();
+      let randomSeed = seed;
+      const random = () => { randomSeed = (randomSeed * 48271) % 2147483647; return randomSeed / 2147483647; };
+      for (let turn = 0; turn < 500 && state.status === "playing"; turn += 1) {
+        const actor = state.turn;
+        const active = state[actor].team[state[actor].active];
+        assert.ok(active?.hp > 0, `${difficulty}/${seed}/${turn}: fainted active`);
+        const preferred = actor === "guest"
+          ? decideCpuIntent(state, { difficulty, random })
+          : { type: "attack", moveId: active.moves.find((move) => !move.special)?.id };
+        const candidates = actor === "guest" ? getCpuIntentCandidates(state, preferred) : [preferred];
+        const next = candidates.map((intent) => resolveAction(state, actor, intent)).find((result) => result !== state);
+        assert.ok(next, `${difficulty}/${seed}/${turn}: no valid action`);
+        assert.equal(next.revision, state.revision + 1);
+        for (const side of ["host", "guest"])
+          for (const fighter of next[side].team)
+            assert.ok(fighter.hp >= 0 && fighter.hp <= fighter.maxHp, `${difficulty}/${seed}/${turn}: invalid HP`);
+        state = next;
+      }
+      assert.equal(state.status, "finished", `${difficulty}/${seed}: unfinished after 500 turns`);
+      assert.ok(["host", "guest"].includes(state.winner));
+      assert.strictEqual(resolveAction(state, state.turn, { type: "attack", moveId: "hit" }), state);
+    }
+  }
 });
 
 test("Vampiric Crystal restores 10% of the direct damage dealt", () => {
