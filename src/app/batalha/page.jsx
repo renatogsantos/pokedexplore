@@ -1,5 +1,7 @@
 "use client";
 
+import { getEquippedDurableInstances } from "@/lib/economy/durableEquipment";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
@@ -85,6 +87,9 @@ export default function BattlePage() {
   const [inventory, setInventory] = useState({});
   const [inventoryStatus, setInventoryStatus] = useState("loading");
   const [selected, setSelected] = useState([]);
+  const [equipmentSettlement, setEquipmentSettlement] = useState(null);
+  const equipmentOperations = useRef(new Map());
+  const pendingEquipmentResult = useRef(null);
   const [mode, setMode] = useState(null);
   const [cpuDifficulty, setCpuDifficulty] = useState("medium");
   const [name, setName] = useState("Treinador");
@@ -266,6 +271,49 @@ export default function BattlePage() {
         }
       }));
   }, []);
+  const persistEquipmentWear = useCallback(async (state, localRole) => {
+    const key = `${state.matchId}:${localRole}:${state.status === "finished" ? "result" : "start"}`;
+    if (equipmentOperations.current.has(key)) return equipmentOperations.current.get(key);
+    const operation = (async () => {
+      try {
+        const committed = await webStore.commitBattleEquipment(state, localRole);
+        if (!committed?.ok) throw new Error("Não foi possível registrar os equipamentos da batalha.");
+        if (state.status !== "finished") {
+          if (pendingEquipmentResult.current?.state.matchId === state.matchId) pendingEquipmentResult.current = null;
+          return;
+        }
+        const result = await webStore.settleBattleEquipmentWear(state, localRole);
+        if (!result.ok) throw new Error("Não foi possível salvar a durabilidade. Tente novamente.");
+        setInventory(result.economy.inventory || {});
+        const updated = new Map(result.updatedPokemon.map(pokemon => [String(pokemon.id), pokemon]));
+        if (updated.size) {
+          setCollection(current => current.map(pokemon => updated.get(String(pokemon.id)) || pokemon));
+          setSelected(current => current.map(pokemon => updated.get(String(pokemon.id)) || pokemon));
+        }
+        if (pendingEquipmentResult.current?.state.matchId === state.matchId) pendingEquipmentResult.current = null;
+        setEquipmentSettlement({ matchId: state.matchId, changes: result.changes, saved: true });
+        if (process.env.NODE_ENV !== "production") console.debug("[equipment-wear]", { battleId: state.matchId, alreadySettled: Boolean(result.duplicate), changes: result.changes });
+      } catch (error) {
+        pendingEquipmentResult.current = { state, localRole };
+        setEquipmentSettlement({ matchId: state.matchId, error: error.message, saved: false });
+      } finally { equipmentOperations.current.delete(key); }
+    })();
+    equipmentOperations.current.set(key, operation);
+    return operation;
+  }, []);
+  useEffect(() => {
+    if (battle?.matchId && ["countdown", "playing", "finished"].includes(battle.status)) void persistEquipmentWear(battle, role);
+  }, [battle?.matchId, battle?.status, role, persistEquipmentWear]);
+  useEffect(() => {
+    if (!profile?.playerId) return;
+    void webStore.getPendingEquipmentResults().then(results => {
+      for (const result of results) {
+        const localRole = result.host?.id === profile.playerId ? "host" : result.guest?.id === profile.playerId ? "guest" : null;
+        if (localRole) void persistEquipmentWear(result, localRole);
+      }
+    }).catch(error => setNotice(error.message));
+  }, [profile?.playerId, persistEquipmentWear]);
+
   const startState = useCallback(
     async (hostTeam, guestTeam, host, guest, cpuContext = null, startAlreadyLocked = false) => {
       if (isStartingBattle.current && !startAlreadyLocked) return;
@@ -306,6 +354,7 @@ export default function BattlePage() {
         { ...guest, inventory: privateBagInventory ? {} : (guest.inventory || {}), privateBag: privateBagInventory, team: guestTeam.map(toBattlePokemon) },
       );
       next.matchId = makeMatchId();
+      next.equipmentSnapshot = { host: getEquippedDurableInstances(next.host.team), guest: getEquippedDurableInstances(next.guest.team) };
       if (mode === "friend" && wager?.status === "LOCKED") next.wager = wager;
       if (cpuContext) next.cpuDifficulty = cpuContext.difficulty;
       if (badgeChallenge) {
@@ -781,6 +830,15 @@ export default function BattlePage() {
   }
   async function readyTeam(teamToConfirm, automatic = false) {
     if (preparingTeam || myReady) return;
+    await Promise.all([...equipmentOperations.current.values()]);
+    if (pendingEquipmentResult.current) {
+      const pending = pendingEquipmentResult.current;
+      await persistEquipmentWear(pending.state, pending.localRole);
+      if (pendingEquipmentResult.current) {
+        setNotice("Não foi possível salvar a durabilidade anterior. Tente confirmar a equipe novamente.");
+        return;
+      }
+    }
     const requestedTeam = getReadySelection(teamToConfirm, selected);
     setPreparingTeam(true);
     let currentCollection;
@@ -1269,6 +1327,8 @@ export default function BattlePage() {
         {screen === "battle" && battle && (
           <BattleArena
             state={battle}
+            equipmentSettlement={equipmentSettlement?.matchId === battle.matchId ? equipmentSettlement : null}
+            onRetryEquipmentWear={() => void persistEquipmentWear(battle, role)}
             role={role}
             mode={mode}
             inventory={inventory}

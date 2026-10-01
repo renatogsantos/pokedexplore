@@ -297,10 +297,16 @@ const normalizeTypes = (value) =>
           .filter(Boolean)
       : [value?.type || value].filter(Boolean);
 const heldItemId = (value) => migrateLegacyItemId(value);
-const activeItem = (fighter, id) => heldItemId(fighter?.heldItem) === id;
+const validDurableSnapshot = (fighter, slot, itemId) => {
+  if (getItemDefinition(itemId)?.lifecycle !== "DURABLE" || !fighter?.equipmentVersion) return true;
+  const copy = fighter.equipmentDurability?.[slot];
+  const instanceId = slot === "STRATEGIC" ? fighter.strategicItemInstanceId : fighter.elementalRelicInstanceId;
+  return Boolean(copy?.instanceId === instanceId && copy.itemId === itemId && copy.durability > 0);
+};
+const activeItem = (fighter, id) => heldItemId(fighter?.heldItem) === id && validDurableSnapshot(fighter, "STRATEGIC", id);
 const activeRelic = (fighter) => {
   const definition = getItemDefinition(heldItemId(fighter?.elementalRelic));
-  return definition?.equipmentSlot === "ELEMENTAL_RELIC" ? definition : null;
+  return definition?.equipmentSlot === "ELEMENTAL_RELIC" && validDurableSnapshot(fighter, "ELEMENTAL_RELIC", definition.id) ? definition : null;
 };
 const nextRandom = (state) => {
   const seed = ((state.rng || 123456789) * 1664525 + 1013904223) >>> 0;
@@ -567,6 +573,12 @@ export function getBattleMoves(pokemon) {
 }
 
 function prepareFighter(pokemon) {
+  const validEquipment = (itemId, slot) => validDurableSnapshot(pokemon, slot, itemId) ? itemId : null;
+  pokemon = { ...pokemon,
+    heldItem: validEquipment(pokemon.heldItem, "STRATEGIC", pokemon.strategicItemInstanceId),
+    strategicItem: validEquipment(pokemon.strategicItem || pokemon.heldItem, "STRATEGIC", pokemon.strategicItemInstanceId),
+    elementalRelic: validEquipment(pokemon.elementalRelic, "ELEMENTAL_RELIC", pokemon.elementalRelicInstanceId),
+  };
   const types = normalizeTypes(pokemon);
   const base = pokemon.baseStats || {};
   const maxHp = pokemon.maxHp || base.hp || 90;

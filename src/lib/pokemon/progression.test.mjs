@@ -30,7 +30,7 @@ test("captured Pokemon keep a deterministic non-hidden ability ID", () => {
     ],
   });
   assert.equal(captured.abilityId, "static");
-  assert.equal(captured.saveVersion, 6);
+  assert.equal(captured.saveVersion, 7);
   assert.equal(
     normalizeCapturedPokemon({ id: 1, abilities: [
       { ability: { name: "chlorophyll" }, is_hidden: true },
@@ -64,5 +64,5 @@ test("malformed legacy shapes cannot call array methods during battle normalizat
   assert.deepEqual(legacy.types, []);
   assert.deepEqual(legacy.stats, []);
   assert.deepEqual(legacy.moveset, []);
-  assert.equal(legacy.saveVersion, 6);
+  assert.equal(legacy.saveVersion, 7);
 });

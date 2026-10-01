@@ -5,7 +5,10 @@ import {
   STRATEGIC_ITEM_CATALOG,
   getItemDefinition,
   migrateLegacyItemId,
+  isDurableItem,
 } from "@/lib/items/catalog";
+
+import { bindEquipmentCopy, clearEquipmentSlot, EQUIPMENT_FIELDS } from "@/lib/economy/durableEquipment";
 
 export { HELD_ITEM_CATALOG };
 export const EQUIPMENT_SLOT = Object.freeze({ STRATEGIC: "STRATEGIC", ELEMENTAL_RELIC: "ELEMENTAL_RELIC" });
@@ -47,13 +50,13 @@ export function getEquipableItemsForSlot({ pokemon, slot }) {
 }
 
 export function normalizePokemonEquipment(pokemon = {}) {
-  const legacy = getHeldItemInventoryId(pokemon.heldItem ?? pokemon.held_item ?? pokemon.equippedItem ?? pokemon.equipped_item ?? pokemon.item);
-  const strategic = getHeldItemInventoryId(pokemon.strategicItem ?? pokemon.strategic_item);
-  const relic = getHeldItemInventoryId(pokemon.elementalRelic ?? pokemon.elemental_relic);
+  const legacy = getHeldItemInventoryId(pokemon.heldItem ?? pokemon.heldItemId ?? pokemon.held_item ?? pokemon.equippedItem ?? pokemon.equipped_item ?? pokemon.item);
+  const strategic = getHeldItemInventoryId(pokemon.strategicItem === null ? null : pokemon.strategicItem ?? pokemon.strategicItemId ?? pokemon.strategic_item);
+  const relic = getHeldItemInventoryId(pokemon.elementalRelic === null ? null : pokemon.elementalRelic ?? pokemon.elementalRelicId ?? pokemon.elemental_relic);
   const legacySlot = getEquipmentSlot(legacy);
   return {
-    strategicItem: getEquipmentSlot(strategic) === EQUIPMENT_SLOT.STRATEGIC ? strategic : legacySlot === EQUIPMENT_SLOT.STRATEGIC ? legacy : null,
-    elementalRelic: getEquipmentSlot(relic) === EQUIPMENT_SLOT.ELEMENTAL_RELIC ? relic : legacySlot === EQUIPMENT_SLOT.ELEMENTAL_RELIC ? legacy : null,
+    strategicItem: getEquipmentSlot(strategic) === EQUIPMENT_SLOT.STRATEGIC ? strategic : pokemon.strategicItem === null ? null : legacySlot === EQUIPMENT_SLOT.STRATEGIC ? legacy : null,
+    elementalRelic: getEquipmentSlot(relic) === EQUIPMENT_SLOT.ELEMENTAL_RELIC ? relic : pokemon.elementalRelic === null ? null : legacySlot === EQUIPMENT_SLOT.ELEMENTAL_RELIC ? legacy : null,
   };
 }
 
@@ -94,12 +97,40 @@ export function getEquipmentInventoryState({ economy, collection, pokemonId, pok
 }
 
 export function getEquipmentItemStates({ economy, collection, pokemon, slot, reservationIndex = buildEquipmentReservationIndex(collection) }) {
-  return getEquipableItemsForSlot({ pokemon, slot }).map((item) => ({ item, ...getEquipmentInventoryState({ economy, collection, pokemon, itemId: item.id, reservationIndex }) }));
+  const reserved = new Map();
+  for (const entry of collection || []) for (const field of EQUIPMENT_FIELDS) if (entry[field.instance]) reserved.set(entry[field.instance], String(entry.id));
+  const byItem = new Map();
+  for (const copy of Object.values(economy?.durableItems || {})) {
+    if (copy.durability <= 0) continue;
+    if (!byItem.has(copy.itemId)) byItem.set(copy.itemId, []);
+    byItem.get(copy.itemId).push(copy);
+  }
+  return getEquipableItemsForSlot({ pokemon, slot }).flatMap(item => {
+    const state = { item, ...getEquipmentInventoryState({ economy, collection, pokemon, itemId: item.id, reservationIndex }) };
+    if (!isDurableItem(item)) return [{ ...state, selectionId: item.id }];
+    const copies = byItem.get(item.id) || [];
+    if (!copies.length) return [{ ...state, selectionId: item.id, available: 0, equippedOnCurrent: false }];
+    return copies.map(copy => {
+      const owner = reserved.get(copy.instanceId);
+      const equippedOnCurrent = owner === String(pokemon.id);
+      return { ...state, copy, selectionId: copy.instanceId, equippedOnCurrent, available: owner ? 0 : 1 };
+    }).sort((a, b) => Number(b.equippedOnCurrent) - Number(a.equippedOnCurrent) || a.copy.durability - b.copy.durability || a.copy.instanceId.localeCompare(b.copy.instanceId));
+  });
 }
 
 export function validateHeldItemAssignments({ economy, collection }) {
   const reservationIndex = buildEquipmentReservationIndex(collection);
-  return HELD_ITEM_CATALOG.map((entry) => getHeldItemStock({ economy, collection, itemId: entry.id, reservationIndex })).filter((stock) => stock.equipped > stock.owned);
+  const invalid = HELD_ITEM_CATALOG.map(entry => getHeldItemStock({ economy, collection, itemId: entry.id, reservationIndex })).filter(stock => stock.equipped > stock.owned);
+  if (economy.durableEquipmentVersion) {
+    const seen = new Set();
+    for (const pokemon of collection) for (const field of EQUIPMENT_FIELDS) {
+      if (!isDurableItem(pokemon[field.item])) continue;
+      const instanceId = pokemon[field.instance], copy = economy.durableItems?.[instanceId];
+      if (!copy || copy.itemId !== pokemon[field.item] || copy.durability <= 0 || seen.has(instanceId)) invalid.push({ itemId: pokemon[field.item], pokemonId: pokemon.id, reason: "INVALID_INSTANCE" });
+      seen.add(instanceId);
+    }
+  }
+  return invalid;
 }
 
 export function planHeldItemChange({ pokemonId, requestedItem, economy, collection, slot }) {
@@ -117,14 +148,23 @@ export function planHeldItemChange({ pokemonId, requestedItem, economy, collecti
   const field = equipmentSlot === EQUIPMENT_SLOT.ELEMENTAL_RELIC ? "elementalRelic" : "strategicItem";
   const previousHeldItem = pokemon[field] || null;
   if (!requestedItem) {
-    const nextPokemon = { ...pokemon, [field]: null, heldItem: equipmentSlot === EQUIPMENT_SLOT.STRATEGIC ? null : pokemon.strategicItem };
+    const nextPokemon = clearEquipmentSlot(pokemon, EQUIPMENT_FIELDS.find(entry => entry.slot === equipmentSlot));
     return { ok: true, pokemon: nextPokemon, previousHeldItem, heldItem: null, equipmentSlot, economy, collection: normalizedCollection.map((entry) => String(entry.id) === String(pokemon.id) ? nextPokemon : entry) };
   }
   const heldItem = requestedDefinition.id;
+  const copyField = EQUIPMENT_FIELDS.find(entry => entry.slot === equipmentSlot);
+  if (isDurableItem(requestedDefinition) && economy.durableEquipmentVersion) {
+    const requestedId = typeof requestedItem === "object" ? requestedItem.instanceId : heldItem === previousHeldItem ? pokemon[copyField.instance] : null;
+    const reserved = new Set(normalizedCollection.filter(entry => String(entry.id) !== String(pokemon.id)).flatMap(entry => EQUIPMENT_FIELDS.map(field => entry[field.instance]).filter(Boolean)));
+    const copy = economy.durableItems?.[requestedId] || (!requestedId ? Object.values(economy.durableItems || {}).filter(entry => entry.itemId === heldItem && entry.durability > 0 && !reserved.has(entry.instanceId)).sort((a,b) => a.durability - b.durability)[0] : null);
+    if (!copy || copy.itemId !== heldItem || copy.durability <= 0 || reserved.has(copy.instanceId)) return { ok: false, reason: "not-available", pokemon };
+    const nextPokemon = bindEquipmentCopy({ ...pokemon, [field]: heldItem, heldItem: equipmentSlot === EQUIPMENT_SLOT.STRATEGIC ? heldItem : pokemon.strategicItem }, copyField, copy);
+    return { ok: true, pokemon: nextPokemon, economy, equipmentSlot, heldItem, previousHeldItem, collection: normalizedCollection.map(entry => String(entry.id) === String(pokemon.id) ? nextPokemon : entry) };
+  }
   if (heldItem === previousHeldItem) return { ok: true, unchanged: true, pokemon, previousHeldItem, heldItem, equipmentSlot, economy, collection: normalizedCollection };
   const reservationIndex = buildEquipmentReservationIndex(normalizedCollection.filter((entry) => String(entry.id) !== String(pokemon.id)));
   const stock = getHeldItemStock({ economy, itemId: heldItem, reservationIndex });
   if (stock.available <= 0) return { ok: false, reason: "not-available", pokemon, previousHeldItem, heldItem, stock };
-  const nextPokemon = { ...pokemon, [field]: heldItem, heldItem: equipmentSlot === EQUIPMENT_SLOT.STRATEGIC ? heldItem : pokemon.strategicItem };
+  const nextPokemon = bindEquipmentCopy({ ...pokemon, [field]: heldItem, heldItem: equipmentSlot === EQUIPMENT_SLOT.STRATEGIC ? heldItem : pokemon.strategicItem }, EQUIPMENT_FIELDS.find(entry => entry.slot === equipmentSlot), null);
   return { ok: true, pokemon: nextPokemon, previousHeldItem, heldItem, equipmentSlot, economy, stock, collection: normalizedCollection.map((entry) => String(entry.id) === String(pokemon.id) ? nextPokemon : entry) };
 }

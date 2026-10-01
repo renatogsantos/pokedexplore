@@ -4,7 +4,8 @@ import { readFile } from "node:fs/promises";
 
 const catalogSource = await readFile(new URL("../items/catalog.js", import.meta.url), "utf8");
 globalThis.__itemCatalog = await import(`data:text/javascript;base64,${Buffer.from(catalogSource).toString("base64")}`);
-const source = (await readFile(new URL("./heldItems.js", import.meta.url), "utf8")).replace(/import\s*\{[\s\S]*?\}\s*from\s*"@\/lib\/items\/catalog";/, "const { ELEMENTAL_RELICS_BY_TYPE, ELEMENTAL_RELIC_CATALOG, HELD_ITEM_CATALOG, STRATEGIC_ITEM_CATALOG, getItemDefinition, migrateLegacyItemId } = globalThis.__itemCatalog;");
+globalThis.__durableEquipment = await import("./durableEquipment.js");
+const source = (await readFile(new URL("./heldItems.js", import.meta.url), "utf8")).replace(/import\s*\{[\s\S]*?\}\s*from\s*"@\/lib\/items\/catalog";/, "const { ELEMENTAL_RELICS_BY_TYPE, ELEMENTAL_RELIC_CATALOG, HELD_ITEM_CATALOG, STRATEGIC_ITEM_CATALOG, getItemDefinition, migrateLegacyItemId, isDurableItem } = globalThis.__itemCatalog;").replace('import { bindEquipmentCopy, clearEquipmentSlot, EQUIPMENT_FIELDS } from "@/lib/economy/durableEquipment";', "const { bindEquipmentCopy, clearEquipmentSlot, EQUIPMENT_FIELDS } = globalThis.__durableEquipment;");
 const { EQUIPMENT_SLOT, buildEquipmentReservationIndex, canEquipElementalRelic, getEquipableItemsForSlot, getEquipmentInventoryState, getHeldItemStock, getPokemonTypes, normalizePokemonEquipment, normalizePokemonHeldItem, planHeldItemChange, validateHeldItemAssignments } = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
 const pokemon = (id, heldItem = null) => ({ id, name: `pokemon-${id}`, heldItem });
 const economy = (inventory) => ({ inventory });

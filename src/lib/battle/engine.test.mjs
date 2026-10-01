@@ -511,7 +511,7 @@ test("item presentation keeps usage, persistence and trigger separate", () => {
     { usage: potion.usageLabel, persistence: potion.persistenceLabel },
     { usage: "MOCHILA", persistence: "CONSUMÍVEL" },
   );
-  assert.equal(elemental.persistenceLabel, "PERMANENTE");
+  assert.equal(elemental.persistenceLabel, "DURÁVEL");
 });
 
 test("a triggered Healing Core emits one durable ITEM_CONSUMED event", () => {

@@ -61,10 +61,14 @@ export function toBattlePokemon(pokemon) {
     abilityId: resolvePokemonAbilityId(pokemon),
     ability: resolvePokemonAbilityId(pokemon),
     // heldItem stays as a compatibility alias for the strategic slot only.
-    // Never collapse the permanent elemental relic into it.
+    // Never collapse the durable elemental relic into it.
     strategicItem: getPokemonStrategicItem(pokemon),
     elementalRelic: getPokemonElementalRelic(pokemon),
     heldItem: getPokemonStrategicItem(pokemon),
+    strategicItemInstanceId: pokemon.strategicItemInstanceId || null,
+    elementalRelicInstanceId: pokemon.elementalRelicInstanceId || null,
+    equipmentDurability: pokemon.equipmentDurability || {},
+    equipmentVersion: pokemon.equipmentVersion || (pokemon.saveVersion ? 1 : null),
     moveset: pokemon.moveset || [],
     maxHp,
     hp: maxHp,

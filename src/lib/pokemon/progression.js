@@ -66,6 +66,7 @@ export function normalizeCapturedPokemon(pokemon) {
     strategicItem: equipment.strategicItem,
     elementalRelic: equipment.elementalRelic,
     heldItem: equipment.strategicItem,
-    saveVersion: 6,
+    equipmentVersion: 1,
+    saveVersion: 7,
   };
 }

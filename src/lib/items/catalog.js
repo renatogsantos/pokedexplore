@@ -1,5 +1,9 @@
-export const ITEM_SYSTEM_VERSION = 2;
+export const ITEM_SYSTEM_VERSION = 3;
 
+export const DEFAULT_DURABLE_ITEM_BATTLES = 5;
+export const ITEM_LIFECYCLE = Object.freeze({ BAG: "BAG", SINGLE_USE: "SINGLE_USE", DURABLE: "DURABLE" });
+// Audited reusable strategic equipment; single-trigger items intentionally excluded.
+const DURABLE_STRATEGIC_IDS = new Set(["resistance-crystal", "power-claw", "elemental-core", "unstable-charge", "impulse-boots", "strategist-eye", "poison-thorn", "vampiric-crystal", "challenger-crown", "cristal-da-furia"]);
 export const ITEM_RARITY = Object.freeze({
   COMMON: "COMMON",
   RARE: "RARE",
@@ -46,6 +50,8 @@ const item = (definition) =>
     purchasable: true,
     equipmentSlot: definition.equipmentSlot || (definition.usageType === "HELD" ? "STRATEGIC" : null),
     ...definition,
+    lifecycle: definition.usageType === "BAG" ? ITEM_LIFECYCLE.BAG : definition.equipmentSlot === "ELEMENTAL_RELIC" || DURABLE_STRATEGIC_IDS.has(definition.id) ? ITEM_LIFECYCLE.DURABLE : ITEM_LIFECYCLE.SINGLE_USE,
+    durabilityMax: definition.equipmentSlot === "ELEMENTAL_RELIC" || DURABLE_STRATEGIC_IDS.has(definition.id) ? DEFAULT_DURABLE_ITEM_BATTLES : null,
     rules: Object.freeze(definition.rules || {}),
   });
 
@@ -575,7 +581,7 @@ export function getRoleLabel(role) {
 // consumes this layer instead of duplicating gameplay rules in components.
 export function getItemUsagePresentation(itemOrId) {
   const item = typeof itemOrId === "string" ? getItemDefinition(itemOrId) : itemOrId;
-  if (!item) return null;
+  if (!item || item.category === "tm") return null;
   const rules = item.rules || {};
   const percent = (value) => `${Math.round(Number(value || 0) * 100)}%`;
   const triggerLabel = {
@@ -594,14 +600,15 @@ export function getItemUsagePresentation(itemOrId) {
   }[item.trigger] || "Funciona conforme a condição da batalha.";
   return {
     usageLabel: item.usageType === ITEM_USAGE.HELD ? "EQUIPÁVEL" : "MOCHILA",
-    persistenceLabel: item.consumable ? "CONSUMÍVEL" : "PERMANENTE",
+    persistenceLabel: isDurableItem(item) ? "DURÁVEL" : "CONSUMÍVEL",
+    durabilityLabel: isDurableItem(item) ? `${item.durabilityMax} batalhas` : null,
     triggerLabel,
     effectLabel: item.description || item.shortDescription,
     afterUseLabel: item.consumable
       ? item.usageType === ITEM_USAGE.HELD
         ? "Depois de ativar, é consumido e o Pokémon fica sem item equipado."
         : "Depois de um uso válido, uma unidade é consumida."
-      : "Permanece equipado depois de funcionar.",
+      : "Perde 1 ponto de durabilidade ao concluir uma batalha equipado na equipe. Ao chegar a zero, quebra.",
   };
 }
 
@@ -632,3 +639,8 @@ export function migrateItemInventory(inventory = {}) {
     return next;
   }, {});
 }
+
+export function getItemLifecycle(itemOrId) {
+  return (typeof itemOrId === "string" ? getItemDefinition(itemOrId) : itemOrId)?.lifecycle || null;
+}
+export function isDurableItem(itemOrId) { return getItemLifecycle(itemOrId) === ITEM_LIFECYCLE.DURABLE; }

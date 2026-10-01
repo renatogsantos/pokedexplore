@@ -226,7 +226,7 @@ function UpgradeCard({ upgrade, economy, balance, infiniteCoins, onBuy, onDetail
     <article className={`shop-upgrade shop-upgrade--${isTm ? "tm" : upgrade.rarity?.toLowerCase()}`}>
       <button type="button" className="shop-upgrade-open" onClick={() => onDetail(upgrade)} aria-label={`Ver detalhes de ${upgrade.name}`}>
         <span className="shop-upgrade-icon"><ItemSprite item={upgrade.id} alt="" /></span>
-        <span className="shop-upgrade-name">{upgrade.name}</span>
+        <span className="shop-upgrade-name">{upgrade.name}</span>{upgrade.lifecycle === "DURABLE" && <small>DURÁVEL · {upgrade.durabilityMax} batalhas</small>}
         {!isTm && <span className="shop-upgrade-rarity">{getRarityLabel(upgrade.rarity)}</span>}
       </button>
       <div className="shop-upgrade-footer">

@@ -1,3 +1,4 @@
+import { resizeDurableInventory, EQUIPMENT_FIELDS, clearEquipmentSlot, normalizeDurableInventory, migrateDurableEquipment, resolveDurableEquipment, settleEquipmentWear, DURABLE_EQUIPMENT_VERSION } from "@/lib/economy/durableEquipment";
 import { MAX_POKEMON_LEVEL, normalizeCapturedPokemon } from "@/lib/pokemon/progression";
 import { enrichPokemonRarity, hasResolvedPokemonRarity } from "@/lib/pokemon/rarity";
 import { getShopUpgrade } from "@/lib/economy/gameItems";
@@ -11,7 +12,7 @@ import { applyTournamentRewardReceipt } from "@/lib/tournament/rewards";
 
 const DATABASE_NAME = "PokedExploreDB";
 const DATABASE_VERSION = 4;
-const SAVE_VERSION = 5;
+const SAVE_VERSION = 7;
 const POKEDEX_STORE = "pokedex";
 const PLAYER_STORE = "player";
 const CACHE_STORE = "pokeapi-cache";
@@ -42,7 +43,7 @@ const normalizeEconomy = (economy) => {
   const tournamentRewardReceipts = Array.isArray(economy?.tournamentRewardReceipts)
     ? economy.tournamentRewardReceipts.filter((receipt) => receipt?.id && receipt?.tournamentId && receipt?.playerId).slice(-240)
     : [];
-  return { ...EMPTY_ECONOMY, ...(economy || {}), itemSystemVersion: ITEM_SYSTEM_VERSION, tournamentRewardReceipts, secretRewards: { ...EMPTY_ECONOMY.secretRewards, ...(economy?.secretRewards || {}) }, inventory: legacy ? migrateItemInventory(rawInventory) : rawInventory, ownedTms: [...new Set(economy?.ownedTms || [])], creatorMode: { ...EMPTY_CREATOR_MODE, ...(economy?.creatorMode || {}), infiniteCoins: Boolean(economy?.creatorMode?.infiniteCoins) }, progress };
+  return normalizeDurableInventory({ ...EMPTY_ECONOMY, ...(economy || {}), itemSystemVersion: ITEM_SYSTEM_VERSION, tournamentRewardReceipts, secretRewards: { ...EMPTY_ECONOMY.secretRewards, ...(economy?.secretRewards || {}) }, inventory: legacy ? migrateItemInventory(rawInventory) : rawInventory, ownedTms: [...new Set(economy?.ownedTms || [])], creatorMode: { ...EMPTY_CREATOR_MODE, ...(economy?.creatorMode || {}), infiniteCoins: Boolean(economy?.creatorMode?.infiniteCoins) }, progress });
 };
 
 function openDatabase() {
@@ -92,8 +93,27 @@ async function migrateLocalStorage(database) {
 
 async function withDatabase(callback) {
   const database = await openDatabase();
-  try { await migrateLocalStorage(database); return await callback(database); }
+  try { await migrateLocalStorage(database); await migrateEquipmentDatabase(database); return await callback(database); }
   finally { database.close(); }
+}
+
+// A single atomic data migration in the existing stores, with a persisted marker.
+async function migrateEquipmentDatabase(database) {
+  await new Promise((resolve, reject) => {
+    const tx = database.transaction([PLAYER_STORE, POKEDEX_STORE], "readwrite");
+    const player = tx.objectStore(PLAYER_STORE), pokedex = tx.objectStore(POKEDEX_STORE);
+    const request = player.get(ECONOMY_KEY);
+    request.onsuccess = () => {
+      if (request.result?.durableEquipmentVersion === DURABLE_EQUIPMENT_VERSION) return;
+      const records = pokedex.getAll();
+      records.onsuccess = () => {
+        const migrated = migrateDurableEquipment(normalizeEconomy(request.result), (records.result || []).map(normalizeCapturedPokemon));
+        player.put(migrated.economy);
+        migrated.collection.forEach(pokemon => pokedex.put(pokemon));
+      };
+    };
+    tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error);
+  });
 }
 
 export const webStore = {
@@ -295,7 +315,7 @@ export const webStore = {
           const inventory = { ...economy.inventory };
           if (rewarded && itemId) inventory[itemId] = (inventory[itemId] || 0) + 1;
           const next = rewarded ? { ...economy, coins: economy.coins + amount, inventory, rewardedMatchIds: [...rewardedMatchIds, matchId].slice(-100) } : economy;
-          if (rewarded) store.put(next);
+          if (rewarded) store.put(normalizeEconomy(next));
           transaction.result = { rewarded, coins: next.coins, itemId: rewarded ? itemId : null, infiniteCoins: Boolean(next.creatorMode?.infiniteCoins) };
         };
         transaction.oncomplete = () => resolve(transaction.result);
@@ -311,7 +331,7 @@ export const webStore = {
           const economy = normalizeEconomy(request.result);
           const claimed = !economy.secretRewards[rewardId];
           const next = claimed ? { ...economy, coins: economy.coins + amount, secretRewards: { ...economy.secretRewards, [rewardId]: true } } : economy;
-          if (claimed) store.put(next);
+          if (claimed) store.put(normalizeEconomy(next));
           transaction.result = { claimed, coins: next.coins };
         };
         transaction.oncomplete = () => resolve(transaction.result); transaction.onerror = () => reject(transaction.error); request.onerror = () => reject(request.error);
@@ -336,7 +356,7 @@ export const webStore = {
           if (availableQuantity <= 0 || requestedQuantity > availableQuantity) { transaction.result = { ok: false, reason: "max-level", coins: economy.coins, pokemon: owned, availableQuantity: Math.max(0, availableQuantity) }; return; }
           const nextPokemon = owned ? { ...owned, level: owned.level + requestedQuantity } : { ...normalizeCapturedPokemon(pokemon), level: requestedQuantity };
           const nextEconomy = { ...economy, coins: infiniteCoins ? economy.coins : economy.coins - totalPrice };
-          pokedexStore.put(nextPokemon); playerStore.put(nextEconomy);
+          pokedexStore.put(nextPokemon); playerStore.put(normalizeEconomy(nextEconomy));
           transaction.result = { ok: true, coins: nextEconomy.coins, infiniteCoins, pokemon: nextPokemon, duplicate: Boolean(owned), previousLevel: owned?.level || 0, quantity: requestedQuantity, totalPrice };
         };
         economyRequest.onsuccess = () => { economy = normalizeEconomy(economyRequest.result); finish(); };
@@ -365,12 +385,16 @@ export const webStore = {
         request.onsuccess = () => resolve(request.result || []);
         request.onerror = () => reject(request.error);
       }));
-      const normalized = records.map(normalizeCapturedPokemon);
+      const equipmentEconomy = await this.getEconomy();
+      const normalized = records.map(normalizeCapturedPokemon).map(pokemon => resolveDurableEquipment(pokemon, equipmentEconomy));
       const collection = await Promise.all(normalized.map((pokemon) => hasResolvedPokemonRarity(pokemon) ? pokemon : enrichPokemonRarity(pokemon)));
       const needsMigration = records.some((record, index) =>
         record.saveVersion !== SAVE_VERSION ||
         record.abilityId !== collection[index].abilityId ||
         record.heldItem !== collection[index].heldItem ||
+        record.elementalRelic !== collection[index].elementalRelic ||
+        record.strategicItemInstanceId !== collection[index].strategicItemInstanceId ||
+        record.elementalRelicInstanceId !== collection[index].elementalRelicInstanceId ||
         "held_item" in record ||
         "equippedItem" in record ||
         "equipped_item" in record
@@ -403,7 +427,7 @@ export const webStore = {
         request.onsuccess = () => {
           const economy = normalizeEconomy(request.result);
           const settled = applyTournamentRewardReceipt(economy, reward);
-          if (settled.applied) store.put(settled.economy);
+          if (settled.applied) store.put(normalizeEconomy(settled.economy));
           transaction.result = {
             rewarded: settled.applied,
             coins: settled.economy.coins,
@@ -422,7 +446,7 @@ export const webStore = {
     if (!wagerId || !wager) return { ok: false, reason: "invalid" };
     try { return await withDatabase((database) => new Promise((resolve, reject) => {
       const transaction = database.transaction(PLAYER_STORE, "readwrite"); const store = transaction.objectStore(PLAYER_STORE); const request = store.get(ECONOMY_KEY);
-      request.onsuccess = () => { const economy = normalizeEconomy(request.result); const reservations = economy.wagerReservations || {}; if (reservations[wagerId]) { transaction.result = { ok: true, duplicate: true, coins: economy.coins }; return; } if (!economy.creatorMode?.infiniteCoins && economy.coins < wager) { transaction.result = { ok: false, reason: "insufficient", coins: economy.coins }; return; } const next = { ...economy, coins: economy.creatorMode?.infiniteCoins ? economy.coins : economy.coins - wager, wagerReservations: { ...reservations, [wagerId]: wager } }; store.put(next); transaction.result = { ok: true, coins: next.coins }; };
+      request.onsuccess = () => { const economy = normalizeEconomy(request.result); const reservations = economy.wagerReservations || {}; if (reservations[wagerId]) { transaction.result = { ok: true, duplicate: true, coins: economy.coins }; return; } if (!economy.creatorMode?.infiniteCoins && economy.coins < wager) { transaction.result = { ok: false, reason: "insufficient", coins: economy.coins }; return; } const next = { ...economy, coins: economy.creatorMode?.infiniteCoins ? economy.coins : economy.coins - wager, wagerReservations: { ...reservations, [wagerId]: wager } }; store.put(normalizeEconomy(next)); transaction.result = { ok: true, coins: next.coins }; };
       transaction.oncomplete = () => resolve(transaction.result); transaction.onerror = () => reject(transaction.error); request.onerror = () => reject(request.error);
     })); } catch { return { ok: false, reason: "persistence" }; }
   },
@@ -430,7 +454,7 @@ export const webStore = {
     if (!wagerId) return { settled: false };
     try { return await withDatabase((database) => new Promise((resolve, reject) => {
       const transaction = database.transaction(PLAYER_STORE, "readwrite"); const store = transaction.objectStore(PLAYER_STORE); const request = store.get(ECONOMY_KEY);
-      request.onsuccess = () => { const economy = normalizeEconomy(request.result); const reservations = economy.wagerReservations || {}; const amount = reservations[wagerId]; const settled = economy.settledWagerIds || []; if (!amount || settled.includes(wagerId)) { transaction.result = { settled: false, coins: economy.coins }; return; } const payout = refund ? amount : won ? amount * 2 : 0; const next = { ...economy, coins: economy.creatorMode?.infiniteCoins ? economy.coins : economy.coins + payout, wagerReservations: Object.fromEntries(Object.entries(reservations).filter(([id]) => id !== wagerId)), settledWagerIds: [...settled, wagerId].slice(-100) }; store.put(next); transaction.result = { settled: true, coins: next.coins, payout }; };
+      request.onsuccess = () => { const economy = normalizeEconomy(request.result); const reservations = economy.wagerReservations || {}; const amount = reservations[wagerId]; const settled = economy.settledWagerIds || []; if (!amount || settled.includes(wagerId)) { transaction.result = { settled: false, coins: economy.coins }; return; } const payout = refund ? amount : won ? amount * 2 : 0; const next = { ...economy, coins: economy.creatorMode?.infiniteCoins ? economy.coins : economy.coins + payout, wagerReservations: Object.fromEntries(Object.entries(reservations).filter(([id]) => id !== wagerId)), settledWagerIds: [...settled, wagerId].slice(-100) }; store.put(normalizeEconomy(next)); transaction.result = { settled: true, coins: next.coins, payout }; };
       transaction.oncomplete = () => resolve(transaction.result); transaction.onerror = () => reject(transaction.error); request.onerror = () => reject(request.error);
     })); } catch { return { settled: false }; }
   },
@@ -441,7 +465,8 @@ export const webStore = {
         request.onsuccess = () => resolve(request.result || []);
         request.onerror = () => reject(request.error);
       }));
-      return records.map(normalizeCapturedPokemon);
+      const economy = await this.getEconomy();
+      return records.map(normalizeCapturedPokemon).map(pokemon => resolveDurableEquipment(pokemon, economy));
     } catch (error) {
       console.error("Erro ao recuperar resumo da coleção:", error);
       return [];
@@ -463,7 +488,7 @@ export const webStore = {
         let decks;
         const finish = () => {
           if (!collection || !identity || !economy || !decks) return;
-          transaction.result = { identity, collection, economy, decks };
+          transaction.result = { identity, collection: collection.map(pokemon => resolveDurableEquipment(pokemon, economy)), economy, decks };
         };
         collectionRequest.onsuccess = () => { collection = (collectionRequest.result || []).map(normalizeCapturedPokemon); finish(); };
         profileRequest.onsuccess = () => {
@@ -514,10 +539,10 @@ export const webStore = {
           const totalPrice = upgrade.price * amount;
           const infiniteCoins = Boolean(economy.creatorMode?.infiniteCoins);
           if (!infiniteCoins && economy.coins < totalPrice) { transaction.result = { ok: false, reason: "insufficient", coins: economy.coins, infiniteCoins, economy }; return; }
-          const next = upgrade.category === "tm"
+          const next = normalizeEconomy(upgrade.category === "tm"
             ? { ...economy, coins: infiniteCoins ? economy.coins : economy.coins - totalPrice, ownedTms: [...economy.ownedTms, upgrade.id] }
-            : { ...economy, coins: infiniteCoins ? economy.coins : economy.coins - totalPrice, inventory: { ...economy.inventory, [upgrade.id]: (economy.inventory[upgrade.id] || 0) + amount } };
-          store.put(next); transaction.result = { ok: true, upgrade, quantity: amount, totalPrice, coins: next.coins, infiniteCoins, economy: next };
+            : { ...economy, coins: infiniteCoins ? economy.coins : economy.coins - totalPrice, inventory: { ...economy.inventory, [upgrade.id]: (economy.inventory[upgrade.id] || 0) + amount } });
+          store.put(normalizeEconomy(next)); transaction.result = { ok: true, upgrade, quantity: amount, totalPrice, coins: next.coins, infiniteCoins, economy: next };
         };
         transaction.oncomplete = () => resolve(transaction.result); transaction.onerror = () => reject(transaction.error); request.onerror = () => reject(request.error);
       }));
@@ -529,7 +554,7 @@ export const webStore = {
     try {
       return await withDatabase((database) => new Promise((resolve, reject) => {
         const transaction = database.transaction(PLAYER_STORE, "readwrite"); const store = transaction.objectStore(PLAYER_STORE); const request = store.get(ECONOMY_KEY);
-        request.onsuccess = () => { const economy = normalizeEconomy(request.result); if (consumptionId && economy.consumedItemActionIds?.includes(consumptionId)) { transaction.result = { ok: true, duplicate: true, economy }; return; } const inventory = { ...economy.inventory }; Object.entries(used).forEach(([id, quantity]) => { inventory[id] = Math.max(0, (inventory[id] || 0) - quantity); if (!inventory[id]) delete inventory[id]; }); const next = { ...economy, inventory, consumedItemActionIds: consumptionId ? [...(economy.consumedItemActionIds || []), consumptionId].slice(-100) : economy.consumedItemActionIds }; store.put(next); transaction.result = { ok: true, economy: next }; };
+        request.onsuccess = () => { const economy = normalizeEconomy(request.result); if (consumptionId && economy.consumedItemActionIds?.includes(consumptionId)) { transaction.result = { ok: true, duplicate: true, economy }; return; } const inventory = { ...economy.inventory }; Object.entries(used).forEach(([id, quantity]) => { inventory[id] = Math.max(0, (inventory[id] || 0) - quantity); if (!inventory[id]) delete inventory[id]; }); const next = { ...economy, inventory, consumedItemActionIds: consumptionId ? [...(economy.consumedItemActionIds || []), consumptionId].slice(-100) : economy.consumedItemActionIds }; store.put(normalizeEconomy(next)); transaction.result = { ok: true, economy: next }; };
         transaction.oncomplete = () => resolve(transaction.result); transaction.onerror = () => reject(transaction.error); request.onerror = () => reject(request.error);
       }));
     } catch (error) { console.error("Erro ao consumir inventário:", error); return { ok: false }; }
@@ -563,7 +588,7 @@ export const webStore = {
           // reference intact so a later normalization cannot resurrect the item.
           const nextPokemon = { ...pokemon, strategicItem: null, heldItem: null };
           pokedexStore.put(nextPokemon);
-          playerStore.put(nextEconomy);
+          playerStore.put(normalizeEconomy(nextEconomy));
           transaction.result = { ok: true, economy: nextEconomy, pokemon: nextPokemon };
         };
         collectionRequest.onsuccess = () => { collection = (collectionRequest.result || []).map(normalizeCapturedPokemon); finish(); };
@@ -587,6 +612,68 @@ export const webStore = {
       return this.consumeInventory({ [event.itemId]: 1 }, event.consumptionId);
     return { ok: false, reason: "invalid-consumption" };
   },
+  async settleBattleEquipmentWear(state, localRole) {
+    try {
+      return await withDatabase(database => new Promise((resolve, reject) => {
+        const tx = database.transaction([PLAYER_STORE, POKEDEX_STORE], "readwrite");
+        const player = tx.objectStore(PLAYER_STORE), pokedex = tx.objectStore(POKEDEX_STORE);
+        const economyRequest = player.get(ECONOMY_KEY), identityRequest = player.get(TRAINER_PROFILE_KEY), collectionRequest = pokedex.getAll();
+        let economy, identity, collection;
+        const finish = () => {
+          if (!economy || !identity || !collection) return;
+          if (identity.playerId !== state?.[localRole]?.id) { tx.result = { ok: false, reason: "wrong-owner" }; return; }
+          // The committed snapshot was received at start, not reconstructed from current equipment.
+          const journalId = `equipment-battle:${state.matchId}:${identity.playerId}`;
+          const receipt = economy.equipmentWearReceipts?.[`equipment-wear:${state.matchId}:${identity.playerId}`];
+          if (receipt) {
+            player.delete(journalId);
+            tx.result = { ok: true, applied: false, duplicate: true, changes: receipt.changes, economy, collection, updatedPokemon: [] };
+            return;
+          }
+          const committedRequest = player.get(journalId);
+          committedRequest.onsuccess = () => {
+            const snapshot = committedRequest.result?.snapshot;
+            if (!snapshot) { tx.result = { ok: false, reason: "missing-start-snapshot" }; return; }
+            player.put({ key: journalId, snapshot, result: { matchId: state.matchId, status: state.status, winner: state.winner, performance: state.performance, [localRole]: { id: identity.playerId }, equipmentSnapshot: { [localRole]: snapshot } } });
+            const result = settleEquipmentWear(economy, collection, { ...state, equipmentSnapshot: { [localRole]: snapshot } }, localRole);
+            if (result.applied) { player.put(result.economy); result.updatedPokemon.forEach(pokemon => pokedex.put(pokemon)); }
+            if (result.ok && state.status === "finished") player.delete(journalId);
+            tx.result = result;
+          };
+        };
+        economyRequest.onsuccess = () => { economy = normalizeEconomy(economyRequest.result); finish(); };
+        identityRequest.onsuccess = () => { identity = identityRequest.result || {}; finish(); };
+        collectionRequest.onsuccess = () => { collection = (collectionRequest.result || []).map(normalizeCapturedPokemon); finish(); };
+        tx.oncomplete = () => resolve(tx.result || { ok: false }); tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error);
+      }));
+    } catch (error) { console.error("Erro ao salvar durabilidade:", error); return { ok: false, reason: "persistence" }; }
+  },
+  async commitBattleEquipment(state, localRole) {
+    if (!state?.matchId || !state.equipmentSnapshot?.[localRole]) return { ok: false };
+    return withDatabase(database => new Promise((resolve, reject) => {
+      const tx = database.transaction(PLAYER_STORE, "readwrite"), store = tx.objectStore(PLAYER_STORE);
+      const request = store.get(TRAINER_PROFILE_KEY);
+      request.onsuccess = () => {
+        const identity = request.result;
+        if (!identity?.playerId || identity.playerId !== state[localRole]?.id) { tx.result = { ok: false }; return; }
+        const key = `equipment-battle:${state.matchId}:${identity.playerId}`, saved = store.get(key);
+        saved.onsuccess = () => {
+          const snapshot = saved.result?.snapshot || state.equipmentSnapshot[localRole];
+          const record = saved.result || { key, snapshot };
+          if (state.status === "finished") record.result = { matchId: state.matchId, status: state.status, winner: state.winner, performance: state.performance, [localRole]: { id: identity.playerId }, equipmentSnapshot: { [localRole]: snapshot } };
+          store.put(record); tx.result = { ok: true };
+        };
+      };
+      tx.oncomplete = () => resolve(tx.result); tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error);
+    }));
+  },
+  async getPendingEquipmentResults() {
+    return withDatabase(database => new Promise((resolve, reject) => {
+      const request = database.transaction(PLAYER_STORE, "readonly").objectStore(PLAYER_STORE).getAll(IDBKeyRange.bound("equipment-battle:", "equipment-battle:\uffff"));
+      request.onsuccess = () => resolve((request.result || []).filter(record => record.key?.startsWith("equipment-battle:") && record.result).map(record => record.result));
+      request.onerror = () => reject(request.error);
+    }));
+  },
   async recordBattleOutcome(matchId, { won, durationMs, usedOnlyOnePokemon, mode = "cpu" }) {
     if (!matchId) return { recorded: false, progress: EMPTY_PROGRESS, unlocked: [] };
     try { return await withDatabase((database) => new Promise((resolve, reject) => {
@@ -603,7 +690,7 @@ export const webStore = {
         const rewardCoins = unlocked.reduce((total, id) => total + (getAchievement(id)?.reward || 0), 0);
         const profileResult = recordCompletedBattle(progress.playerStats, { matchId, won, mode });
         const nextProgress = { ...progress, streak: nextStreak, bestStreak: Math.max(progress.bestStreak || 0, nextStreak), wins: (progress.wins || 0) + Number(won), totalBattles: (progress.totalBattles || 0) + 1, achievements: nextAchievements, processedOutcomeMatchIds: [...processed, matchId].slice(-100), playerStats: profileResult.stats, trainerXp: progress.trainerXp + profileResult.earnedXp };
-        const next = { ...economy, coins: economy.coins + rewardCoins, progress: nextProgress }; store.put(next); transaction.result = { recorded: true, progress: nextProgress, unlocked, rewardCoins, coins: next.coins };
+        const next = { ...economy, coins: economy.coins + rewardCoins, progress: nextProgress }; store.put(normalizeEconomy(next)); transaction.result = { recorded: true, progress: nextProgress, unlocked, rewardCoins, coins: next.coins };
       };
       transaction.oncomplete = () => resolve(transaction.result); transaction.onerror = () => reject(transaction.error); request.onerror = () => reject(request.error);
     })); } catch (error) { console.error("Erro ao salvar progresso de batalha:", error); return { recorded: false, progress: EMPTY_PROGRESS, unlocked: [] }; }
@@ -642,7 +729,7 @@ export const webStore = {
         const active = previous?.routeId === routeId && previous?.status !== "completed" ? previous : {
           runId: `journey_${crypto.randomUUID()}`, routeId, currentBattle: 1, completedBattles: [], perfectRouteEligible: true, settledRewards: [], startedAt: Date.now(), status: "ready",
         };
-        const next = { ...economy, progress: { ...economy.progress, activeExpedition: active } }; store.put(next); transaction.result = { ok: true, active };
+        const next = { ...economy, progress: { ...economy.progress, activeExpedition: active } }; store.put(normalizeEconomy(next)); transaction.result = { ok: true, active };
       };
       transaction.oncomplete = () => resolve(transaction.result); transaction.onerror = () => reject(transaction.error); request.onerror = () => reject(request.error);
     })); } catch (error) { console.error("Erro ao iniciar expedição:", error); return { ok: false, reason: "persistence" }; }
@@ -659,7 +746,7 @@ export const webStore = {
         const nextPerfect = Boolean(active.perfectRouteEligible && perfectEligible);
         if (!won) {
           const nextActive = { ...active, perfectRouteEligible: false, status: "ready" };
-          const next = { ...economy, progress: { ...progress, activeExpedition: nextActive } }; store.put(next); transaction.result = { settled: true, won: false, active: nextActive }; return;
+          const next = { ...economy, progress: { ...progress, activeExpedition: nextActive } }; store.put(normalizeEconomy(next)); transaction.result = { settled: true, won: false, active: nextActive }; return;
         }
         const firstClear = !progress.journeyCompleted.includes(routeId);
         const reward = resolveJourneyLoot({ route, battleIndex, runId: active.runId, firstClear });
@@ -676,7 +763,7 @@ export const webStore = {
           if (medal) { nextProgress.journeyMedals = [...progress.journeyMedals, medal]; nextProgress.lastJourneyResult.medal = medal; }
           nextActive = { ...nextActive, status: "completed", completedAt: Date.now() };
         }
-        const next = { ...economy, coins: economy.coins + reward.coins + (chest?.coins || 0), inventory, progress: { ...nextProgress, activeExpedition: nextActive } }; store.put(next);
+        const next = { ...economy, coins: economy.coins + reward.coins + (chest?.coins || 0), inventory, progress: { ...nextProgress, activeExpedition: nextActive } }; store.put(normalizeEconomy(next));
         transaction.result = { settled: true, won: true, reward, chest, medal, active: nextActive, coins: next.coins };
       };
       transaction.oncomplete = () => resolve(transaction.result); transaction.onerror = () => reject(transaction.error); request.onerror = () => reject(request.error);
@@ -721,7 +808,7 @@ export const webStore = {
         const request = store.get(ECONOMY_KEY);
         request.onsuccess = () => {
           const next = { ...normalizeEconomy(request.result), coins };
-          store.put(next);
+          store.put(normalizeEconomy(next));
           transaction.result = next;
         };
         transaction.oncomplete = () => resolve(transaction.result);
@@ -739,7 +826,7 @@ export const webStore = {
         request.onsuccess = () => {
           const economy = normalizeEconomy(request.result);
           const next = { ...economy, creatorMode: { ...economy.creatorMode, infiniteCoins: Boolean(enabled) } };
-          store.put(next);
+          store.put(normalizeEconomy(next));
           transaction.result = next;
         };
         transaction.oncomplete = () => resolve(transaction.result);
@@ -758,7 +845,7 @@ export const webStore = {
         request.onsuccess = () => {
           const economy = normalizeEconomy(request.result);
           const next = { ...economy, progress: { ...economy.progress, trainerXp } };
-          store.put(next);
+          store.put(normalizeEconomy(next));
           transaction.result = next;
         };
         transaction.oncomplete = () => resolve(transaction.result);
@@ -782,7 +869,7 @@ export const webStore = {
         let collection;
         const finish = () => {
           if (!economy || !collection) return;
-          const reserved = collection.filter((pokemon) => pokemon.heldItem === item.id).length;
+          const reserved = collection.filter(pokemon => pokemon.strategicItem === item.id || pokemon.elementalRelic === item.id).length;
           if (quantity < reserved) {
             transaction.result = { ok: false, reason: "reserved", reserved, quantity: economy.inventory[item.id] || 0, economy };
             return;
@@ -790,7 +877,8 @@ export const webStore = {
           const inventory = { ...economy.inventory };
           if (quantity > 0) inventory[item.id] = quantity;
           else delete inventory[item.id];
-          const next = { ...economy, inventory };
+          const reservedIds = new Set(collection.flatMap(pokemon => EQUIPMENT_FIELDS.map(field => pokemon[field.instance]).filter(Boolean)));
+          const next = resizeDurableInventory({ ...economy, inventory }, item.id, quantity, reservedIds);
           playerStore.put(next);
           transaction.result = { ok: true, item, quantity, reserved, available: quantity - reserved, economy: next };
         };
@@ -807,18 +895,24 @@ export const webStore = {
     const quantity = Math.min(999999, Math.max(0, Math.floor(Number(value) || 0)));
     try {
       return await withDatabase((database) => new Promise((resolve, reject) => {
-        const transaction = database.transaction(PLAYER_STORE, "readwrite");
+        const transaction = database.transaction([PLAYER_STORE, POKEDEX_STORE], "readwrite");
         const store = transaction.objectStore(PLAYER_STORE);
         const request = store.get(ECONOMY_KEY);
         request.onsuccess = () => {
+          const records = transaction.objectStore(POKEDEX_STORE).getAll();
+          records.onsuccess = () => {
           const economy = normalizeEconomy(request.result);
           const inventory = { ...economy.inventory };
           ITEM_CATALOG.forEach((item) => {
             inventory[item.id] = preserveHigher ? Math.max(inventory[item.id] || 0, quantity) : quantity;
           });
-          const next = { ...economy, inventory };
-          store.put(next);
+          const collection = (records.result || []).map(normalizeCapturedPokemon);
+          const reservedIds = new Set(collection.flatMap(pokemon => EQUIPMENT_FIELDS.map(field => pokemon[field.instance]).filter(Boolean)));
+          let next = { ...economy, inventory };
+          for (const item of ITEM_CATALOG) next = resizeDurableInventory(next, item.id, inventory[item.id], reservedIds);
+          store.put(normalizeEconomy(next));
           transaction.result = next;
+          };
         };
         transaction.oncomplete = () => resolve(transaction.result);
         transaction.onerror = () => reject(transaction.error);
@@ -939,8 +1033,8 @@ export const webStore = {
           const playerStore = transaction.objectStore(PLAYER_STORE);
           const collectionRequest = pokedexStore.getAll();
           const economyRequest = playerStore.get(ECONOMY_KEY);
-          collectionRequest.onsuccess = () => (collectionRequest.result || []).map(normalizeCapturedPokemon).filter((pokemon) => pokemon.heldItem).forEach((pokemon) => pokedexStore.put({ ...pokemon, heldItem: null }));
-          economyRequest.onsuccess = () => playerStore.put({ ...normalizeEconomy(economyRequest.result), inventory: {} });
+          collectionRequest.onsuccess = () => (collectionRequest.result || []).map(normalizeCapturedPokemon).forEach(pokemon => pokedexStore.put(EQUIPMENT_FIELDS.reduce((next, field) => clearEquipmentSlot(next, field), pokemon)));
+          economyRequest.onsuccess = () => playerStore.put({ ...normalizeEconomy(economyRequest.result), inventory: {}, durableItems: {} });
         }
         transaction.oncomplete = () => resolve(true);
         transaction.onerror = () => reject(transaction.error);

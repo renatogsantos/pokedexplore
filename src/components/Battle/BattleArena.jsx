@@ -30,6 +30,7 @@ import {
   multiplier,
 } from "@/lib/battle/engine";
 import { createItemFeedbackScheduler, getItemActivationEvents, EXIT_DURATION } from "@/lib/battle/itemFeedback";
+import { getEquipmentDurabilityLabel } from "@/lib/economy/durableEquipment";
 import { SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
 import PokemonImage from "@/components/PokemonImage/PokemonImage";
 import {
@@ -312,14 +313,14 @@ function Fighter({
             />
             <span className="held-item-copy">
               <span>{getItemLabel(pokemon.heldItem)}</span>
-              <b>{heldItemPresentation?.persistenceLabel || "PRONTO"}</b>
+              <b>{getEquipmentDurabilityLabel(pokemon, "STRATEGIC") || heldItemPresentation?.persistenceLabel || "PRONTO"}</b>
             </span>
           </span>
         )}
         {pokemon.elementalRelic && (
           <span className="held-item-indicator" title={`Relíquia · ${getItemLabel(pokemon.elementalRelic)}`}>
             <ItemSprite item={pokemon.elementalRelic} alt="" className="battle-held-indicator-sprite" />
-            <span className="held-item-copy"><span>{getItemLabel(pokemon.elementalRelic)}</span><b>RELÍQUIA</b></span>
+            <span className="held-item-copy"><span>{getItemLabel(pokemon.elementalRelic)}</span><b>{getEquipmentDurabilityLabel(pokemon, "ELEMENTAL_RELIC") || "RELÍQUIA"}</b></span>
           </span>
         )}
         <BattleItemEffectIndicators pokemon={pokemon} />
@@ -1246,6 +1247,8 @@ export default function BattleArena({
   mode,
   inventory = {},
   inventoryStatus = "ready",
+  equipmentSettlement = null,
+  onRetryEquipmentWear,
   onAction,
   onRematch,
   tournamentContext = null,
@@ -1786,6 +1789,13 @@ export default function BattleArena({
           )}
         </div>
       </section>
+      {state.status === "finished" && equipmentSettlement && (equipmentSettlement.error || equipmentSettlement.changes?.length > 0) && <aside className="equipment-wear-feedback" aria-live="polite">
+        {equipmentSettlement.error ? <><p role="alert">{equipmentSettlement.error}</p><button type="button" onClick={onRetryEquipmentWear}>TENTAR NOVAMENTE</button></> : <>
+          <strong>DURABILIDADE DA EQUIPE</strong>
+          {equipmentSettlement.changes.map(change => <p key={change.instanceId}><ItemSprite item={change.itemId} alt="" /> <span>{change.broken ? "ITEM QUEBRADO · " : ""}{getItemLabel(change.itemId)}</span><b>{change.durabilityBefore}/{change.maxDurability} → {change.durabilityAfter}/{change.maxDurability}</b></p>)}
+          {equipmentSettlement.changes.some(change => change.broken) && <button type="button" onClick={onRematch}>EQUIPAR OUTRA</button>}
+        </>}
+      </aside>}
       <AnimatePresence>
         {state.status === "finished" &&
           (badgeContext ? (

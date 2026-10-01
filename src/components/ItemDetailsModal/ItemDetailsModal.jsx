@@ -16,6 +16,7 @@ function DetailRow({ label, value }) {
 
 export default function ItemDetailsModal({
   item,
+  instance,
   quantity = 0,
   available,
   actionLabel,
@@ -41,6 +42,7 @@ export default function ItemDetailsModal({
         {Number.isFinite(Number(item.price)) && <strong className={styles.price}><img src="/coin.png" alt="" aria-hidden="true" /> {item.price}</strong>}
         <DetailRow label="EFEITO" value={presentation?.effectLabel || item.description || item.shortDescription} />
         <DetailRow label="ATIVAÇÃO" value={presentation?.triggerLabel || (isTm ? "Ensina este golpe permanentemente à sua coleção." : null)} />
+        {presentation?.durabilityLabel && <DetailRow label="DURABILIDADE" value={instance ? `${instance.durability}/${instance.maxDurability}${instance.durability === 1 ? " · ÚLTIMA BATALHA" : ""}` : presentation.durabilityLabel} />}
         <DetailRow label="CONSUMO" value={presentation?.afterUseLabel || (isTm ? "Depois de adquirida, a TM permanece na sua coleção." : null)} />
         {isRelic && <DetailRow label="RELÍQUIA DE TIPO" value={`Tipo: ${item.elementalType}`} />}
         {item.role && <DetailRow label="IDEAL PARA" value={getRoleLabel(item.role)} />}

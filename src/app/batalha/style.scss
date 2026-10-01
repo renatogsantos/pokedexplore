@@ -8470,3 +8470,11 @@
   .tournament-prize-preview > div { grid-template-columns: 1fr; }
   .tournament-prize-preview article small { grid-column: 2; }
 }
+
+.equipment-wear-feedback { position: fixed; z-index: 130; right: max(12px, env(safe-area-inset-right)); bottom: max(12px, env(safe-area-inset-bottom)); width: min(360px, calc(100vw - 24px)); max-height: 25dvh; overflow: auto; padding: 12px; border: 1px solid #ffdf5d88; border-radius: 14px; background: #0b2038f5; color: #edf8ff; font-size: .7rem; box-shadow: 0 8px 28px #0008; }
+.equipment-wear-feedback > strong { color: #ffdf5d; }
+.equipment-wear-feedback p { display: flex; align-items: center; gap: 6px; margin: 7px 0; }
+.equipment-wear-feedback p img { width: 24px; height: 24px; object-fit: contain; }
+.equipment-wear-feedback p span { flex: 1; }
+.equipment-wear-feedback b { white-space: nowrap; }
+.equipment-wear-feedback button { min-height: 36px; padding: 6px 12px; border: 1px solid #ffdf5d; border-radius: 8px; background: #283920; color: #ffdf5d; font: inherit; font-weight: 800; cursor: pointer; }
