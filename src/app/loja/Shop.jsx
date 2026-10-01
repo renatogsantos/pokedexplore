@@ -256,7 +256,9 @@ function UpgradeCard({
         </span>
         <span className="shop-upgrade-name">{upgrade.name}</span>
         {upgrade.lifecycle === "DURABLE" && (
-          <small className="f-10">DURÁVEL · {upgrade.durabilityMax} batalhas</small>
+          <small className="f-10">
+            DURÁVEL · {upgrade.durabilityMax} batalhas
+          </small>
         )}
         {!isTm && (
           <span className="shop-upgrade-rarity">

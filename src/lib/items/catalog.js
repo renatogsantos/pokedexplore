@@ -1,9 +1,24 @@
 export const ITEM_SYSTEM_VERSION = 3;
 
 export const DEFAULT_DURABLE_ITEM_BATTLES = 5;
-export const ITEM_LIFECYCLE = Object.freeze({ BAG: "BAG", SINGLE_USE: "SINGLE_USE", DURABLE: "DURABLE" });
+export const ITEM_LIFECYCLE = Object.freeze({
+  BAG: "BAG",
+  SINGLE_USE: "SINGLE_USE",
+  DURABLE: "DURABLE",
+});
 // Audited reusable strategic equipment; single-trigger items intentionally excluded.
-const DURABLE_STRATEGIC_IDS = new Set(["resistance-crystal", "power-claw", "elemental-core", "unstable-charge", "impulse-boots", "strategist-eye", "poison-thorn", "vampiric-crystal", "challenger-crown", "cristal-da-furia"]);
+const DURABLE_STRATEGIC_IDS = new Set([
+  "resistance-crystal",
+  "power-claw",
+  "elemental-core",
+  "unstable-charge",
+  "impulse-boots",
+  "strategist-eye",
+  "poison-thorn",
+  "vampiric-crystal",
+  "challenger-crown",
+  "cristal-da-furia",
+]);
 export const ITEM_RARITY = Object.freeze({
   COMMON: "COMMON",
   RARE: "RARE",
@@ -48,15 +63,51 @@ const item = (definition) =>
     code: definition.id.toUpperCase().replaceAll("-", "_"),
     image: `/items/${definition.id}.png`,
     purchasable: true,
-    equipmentSlot: definition.equipmentSlot || (definition.usageType === "HELD" ? "STRATEGIC" : null),
+    equipmentSlot:
+      definition.equipmentSlot ||
+      (definition.usageType === "HELD" ? "STRATEGIC" : null),
     ...definition,
-    lifecycle: definition.usageType === "BAG" ? ITEM_LIFECYCLE.BAG : definition.equipmentSlot === "ELEMENTAL_RELIC" || DURABLE_STRATEGIC_IDS.has(definition.id) ? ITEM_LIFECYCLE.DURABLE : ITEM_LIFECYCLE.SINGLE_USE,
-    durabilityMax: definition.equipmentSlot === "ELEMENTAL_RELIC" || DURABLE_STRATEGIC_IDS.has(definition.id) ? DEFAULT_DURABLE_ITEM_BATTLES : null,
+    lifecycle:
+      definition.usageType === "BAG"
+        ? ITEM_LIFECYCLE.BAG
+        : definition.equipmentSlot === "ELEMENTAL_RELIC" ||
+            DURABLE_STRATEGIC_IDS.has(definition.id)
+          ? ITEM_LIFECYCLE.DURABLE
+          : ITEM_LIFECYCLE.SINGLE_USE,
+    durabilityMax:
+      definition.equipmentSlot === "ELEMENTAL_RELIC" ||
+      DURABLE_STRATEGIC_IDS.has(definition.id)
+        ? DEFAULT_DURABLE_ITEM_BATTLES
+        : null,
     rules: Object.freeze(definition.rules || {}),
   });
 
-const elementalRelic = ({ id, name, type, description, shortDescription, rules = {}, price = 330 }) =>
-  item({ id, name, category: "ARTIFACT", usageType: "HELD", equipmentSlot: "ELEMENTAL_RELIC", rarity: "RARE", role: "attack", shortDescription, description, effectType: "ELEMENTAL_RELIC", trigger: "DAMAGE_CALCULATION", consumable: false, price, elementalType: type, rules: { type, baseMultiplier: 1.12, ...rules } });
+const elementalRelic = ({
+  id,
+  name,
+  type,
+  description,
+  shortDescription,
+  rules = {},
+  price = 330,
+}) =>
+  item({
+    id,
+    name,
+    category: "ARTIFACT",
+    usageType: "HELD",
+    equipmentSlot: "ELEMENTAL_RELIC",
+    rarity: "RARE",
+    role: "attack",
+    shortDescription,
+    description,
+    effectType: "ELEMENTAL_RELIC",
+    trigger: "DAMAGE_CALCULATION",
+    consumable: false,
+    price,
+    elementalType: type,
+    rules: { type, baseMultiplier: 1.12, ...rules },
+  });
 
 // Authoritative PokédExplore item catalog. Economy, UI and battle handlers use
 // these values; tune initial balance here without changing components.
@@ -404,7 +455,11 @@ export const ITEM_CATALOG = Object.freeze([
     consumable: true,
     price: 120,
     rules: { multiplier: 0.5 },
-    battleUsage: { maxPerPokemon: 2, category: "DEFENSIVE", blocksDuplicatePendingEffect: true },
+    battleUsage: {
+      maxPerPokemon: 2,
+      category: "DEFENSIVE",
+      blocksDuplicatePendingEffect: true,
+    },
   }),
   item({
     id: "stimulant",
@@ -421,7 +476,11 @@ export const ITEM_CATALOG = Object.freeze([
     consumable: true,
     price: 120,
     rules: { multiplier: 1.35 },
-    battleUsage: { maxPerPokemon: 3, category: "OFFENSIVE", blocksDuplicatePendingEffect: true },
+    battleUsage: {
+      maxPerPokemon: 3,
+      category: "OFFENSIVE",
+      blocksDuplicatePendingEffect: true,
+    },
   }),
   item({
     id: "recharge-crystal",
@@ -503,36 +562,400 @@ export const ITEM_CATALOG = Object.freeze([
     price: 1900,
     rules: { healPercent: 0.4 },
   }),
-  item({ id: "fragmento-da-ruina", name: "Fragmento da Ruína", category: "ARTIFACT", usageType: "BAG", rarity: "EPIC", role: "tactical", shortDescription: "Ruína por 3 rodadas", description: "Aplica Ruína ao Pokémon inimigo ativo. Ao fim de cada rodada, ele perde 5% do HP máximo por 3 rodadas.", effectType: "BAG_RUIN", trigger: "MANUAL", consumable: true, price: 300, rules: { rounds: 3, damagePercent: .05 }, battleUsage: { maxPerPokemon: 1, category: "TACTICAL", target: "ENEMY_ACTIVE" } }),
-  item({ id: "espelho-prismatico", name: "Espelho Prismático", category: "ARTIFACT", usageType: "HELD", rarity: "LEGENDARY", role: "defense", shortDescription: "Reflete 50% de Especial", description: "Na primeira vez que receber um golpe Especial com dano, reflete 50% do dano realmente sofrido ao atacante e é consumido.", effectType: "REFLECT_SPECIAL", trigger: "AFTER_DAMAGE", consumable: true, price: 2200, rules: { reflectPercent: .5 } }),
-  item({ id: "bomba-temporal", name: "Bomba Temporal", category: "ARTIFACT", usageType: "BAG", rarity: "EPIC", role: "tactical", shortDescription: "15% após 3 rodadas", description: "Anexa uma bomba ao inimigo. Após 3 rodadas completas, causa 15% do HP máximo.", effectType: "BAG_TIME_BOMB", trigger: "MANUAL", consumable: true, price: 330, rules: { rounds: 3, damagePercent: .15 }, battleUsage: { maxPerPokemon: 1, category: "TACTICAL", target: "ENEMY_ACTIVE" } }),
-  item({ id: "marca-do-cacador", name: "Marca do Caçador", category: "ARTIFACT", usageType: "BAG", rarity: "RARE", role: "attack", shortDescription: "Alvo recebe +10%", description: "Marca o inimigo por 3 rodadas. Seus golpes causam 10% mais dano contra ele.", effectType: "BAG_HUNTER_MARK", trigger: "MANUAL", consumable: true, price: 150, rules: { rounds: 3, multiplier: 1.1 }, battleUsage: { maxPerPokemon: 2, category: "OFFENSIVE", target: "ENEMY_ACTIVE" } }),
-  item({ id: "escudo-refletor", name: "Escudo Refletor", category: "DEFENSE", usageType: "BAG", rarity: "EPIC", role: "defense", shortDescription: "−30% e reflete 30%", description: "No próximo ataque recebido, reduz 30% do dano e reflete 30% do dano realmente sofrido.", effectType: "BAG_REFLECT_SHIELD", trigger: "MANUAL", consumable: true, price: 300, rules: { mitigationMultiplier: .7, reflectPercent: .3 }, battleUsage: { maxPerPokemon: 1, category: "DEFENSIVE", target: "ACTIVE" } }),
-  item({ id: "parasita-de-energia", name: "Parasita de Energia", category: "ARTIFACT", usageType: "BAG", rarity: "EPIC", role: "tactical", shortDescription: "Rouba 1 Momentum", description: "Remove 1 Momentum do inimigo ativo e concede 1 Momentum ao usuário.", effectType: "BAG_STEAL_MOMENTUM", trigger: "MANUAL", consumable: true, price: 300, battleUsage: { maxPerPokemon: 2, category: "RESOURCE", target: "ENEMY_ACTIVE" } }),
-  item({ id: "selo-do-silencio", name: "Selo do Silêncio", category: "ARTIFACT", usageType: "BAG", rarity: "LEGENDARY", role: "tactical", shortDescription: "Bloqueia o próximo Especial", description: "Bloqueia o próximo turno acionável de golpe Especial do inimigo, sem impedir outros movimentos, itens ou troca.", effectType: "BAG_SILENCE", trigger: "MANUAL", consumable: true, price: 1900, rules: { rounds: 1 }, battleUsage: { maxPerPokemon: 1, category: "TACTICAL", target: "ENEMY_ACTIVE" } }),
-  item({ id: "cristal-da-furia", name: "Cristal da Fúria", category: "CRYSTAL", usageType: "HELD", rarity: "EPIC", role: "attack", shortDescription: "Fúria com HP baixo", description: "Ao chegar a 25% de HP ou menos, por 2 rodadas causa 20% mais dano e recebe 10% mais dano.", effectType: "FURY", trigger: "AFTER_DAMAGE", consumable: false, price: 330, rules: { hpRatioLTE: .25, rounds: 2, dealtMultiplier: 1.2, receivedMultiplier: 1.1 } }),
-  item({ id: "ancora-dimensional", name: "Âncora Dimensional", category: "ARTIFACT", usageType: "BAG", rarity: "RARE", role: "tactical", shortDescription: "Bloqueia troca por 2 rodadas", description: "O inimigo não pode fazer trocas voluntárias por 2 rodadas.", effectType: "BAG_ANCHOR", trigger: "MANUAL", consumable: true, price: 150, rules: { rounds: 2 }, battleUsage: { maxPerPokemon: 2, category: "TACTICAL", target: "ENEMY_ACTIVE" } }),
-  item({ id: "mina-elemental", name: "Mina Elemental", category: "ARTIFACT", usageType: "BAG", rarity: "EPIC", role: "tactical", shortDescription: "10% no próximo switch", description: "Mina o lado inimigo. A próxima troca voluntária do inimigo causa 10% do HP máximo ao Pokémon que entrar.", effectType: "BAG_ELEMENTAL_MINE", trigger: "MANUAL", consumable: true, price: 300, rules: { damagePercent: .1 }, battleUsage: { maxPerPokemon: 2, category: "TACTICAL", target: "ENEMY_SIDE" } }),
-  item({ id: "nucleo-de-sobrecarga", name: "Núcleo de Sobrecarga", category: "CORE", usageType: "BAG", rarity: "EPIC", role: "attack", shortDescription: "+2 Momentum, recebe +15%", description: "Concede 2 Momentum ao ativo. No próximo ataque recebido, ele sofre 15% mais dano.", effectType: "BAG_OVERLOAD", trigger: "MANUAL", consumable: true, price: 300, rules: { momentum: 2, receivedMultiplier: 1.15 }, battleUsage: { maxPerPokemon: 1, category: "RESOURCE", target: "ACTIVE" } }),
-  item({ id: "ampulheta-quebrada", name: "Ampulheta Quebrada", category: "ARTIFACT", usageType: "HELD", rarity: "LEGENDARY", role: "special", shortDescription: "Último Especial devolve +1", description: "Após usar legitimamente o último golpe Especial, restaura 1 uso uma única vez e é consumida.", effectType: "RESTORE_SPECIAL", trigger: "AFTER_SPECIAL_EXHAUSTED", consumable: true, price: 1800, rules: { amount: 1 } }),
-  elementalRelic({ id: "brasa-primordial", name: "Brasa Primordial", type: "fire", shortDescription: "Fogo +12%/+18%", description: "Para Pokémon de Fogo: golpes de Fogo causam 12% mais dano, ou 18% abaixo de 40% de HP.", rules: { lowHpRatio: .4, lowHpMultiplier: 1.18 } }),
-  elementalRelic({ id: "perola-abissal", name: "Pérola Abissal", type: "water", shortDescription: "Água +12%, defesa baixa", description: "Para Pokémon de Água: golpes de Água causam 12% mais dano; abaixo de 40% de HP, recebe 8% menos dano.", rules: { lowHpRatio: .4, incomingMultiplier: .92 } }),
-  elementalRelic({ id: "condutor-de-tempestade", name: "Condutor de Tempestade", type: "electric", shortDescription: "Elétrico +12%/+18%", description: "Para Pokémon Elétricos: golpes Elétricos causam 12% mais dano, ou 18% contra alvo paralisado.", rules: { status: "paralysis", statusMultiplier: 1.18 } }),
-  elementalRelic({ id: "semente-ancestral", name: "Semente Ancestral", type: "grass", shortDescription: "Grama +12% e regenera", description: "Para Pokémon de Grama: golpes de Grama causam 12% mais dano. Em HP baixo, recupera 3% ao fim da rodada até 3 vezes.", rules: { lowHpRatio: .35, endRoundHealPercent: .03, maxTicks: 3 } }),
-  elementalRelic({ id: "coracao-glacial", name: "Coração Glacial", type: "ice", shortDescription: "Gelo +12%, reduz super eficaz", description: "Para Pokémon de Gelo: golpes de Gelo causam 12% mais dano e golpes super eficazes recebidos sofrem redução adicional de 5%.", rules: { superEffectiveIncomingMultiplier: .95 } }),
-  elementalRelic({ id: "faixa-do-tita", name: "Faixa do Titã", type: "fighting", shortDescription: "Luta +12%/+17%", description: "Para Pokémon Lutadores: golpes de Luta causam 12% mais dano; abaixo de 50% de HP, golpes de contato recebem mais 5%.", rules: { lowHpRatio: .5, contactMultiplier: 1.17 } }),
-  elementalRelic({ id: "presa-toxica", name: "Presa Tóxica", type: "poison", shortDescription: "Veneno +12%, chance +5pp", description: "Para Pokémon de Veneno: golpes de Veneno causam 12% mais dano e golpes que já envenenam recebem 5 pontos percentuais de chance.", rules: { poisonChanceBonus: .05 } }),
-  elementalRelic({ id: "nucleo-sismico", name: "Núcleo Sísmico", type: "ground", shortDescription: "Terra +12%/+17% após troca", description: "Para Pokémon de Terra: golpes de Terra causam 12% mais dano; o primeiro após entrar voluntariamente recebe mais 5%.", rules: { switchInMultiplier: 1.17 } }),
-  elementalRelic({ id: "pluma-celeste", name: "Pluma Celeste", type: "flying", shortDescription: "Voador +12%, defesa após troca", description: "Para Pokémon Voadores: golpes de Voador causam 12% mais dano e o primeiro dano recebido após troca voluntária é reduzido em 5%.", rules: { switchInIncomingMultiplier: .95 } }),
-  elementalRelic({ id: "prisma-mental", name: "Prisma Mental", type: "psychic", shortDescription: "Psíquico +12%, Técnico +5pp", description: "Para Pokémon Psíquicos: golpes Psíquicos causam 12% mais dano; com Momentum máximo, Técnico recebe mais 5 pontos percentuais.", rules: { technicalMomentumBonus: .05 } }),
-  elementalRelic({ id: "casulo-ancestral", name: "Casulo Ancestral", type: "bug", shortDescription: "Inseto +12%, proteção baixa", description: "Para Pokémon Insetos: golpes de Inseto causam 12% mais dano; ao entrar abaixo de 50% de HP, reduz 5% do dano até atacar com sucesso.", rules: { entryHpRatio: .5, incomingMultiplier: .95 } }),
-  elementalRelic({ id: "fragmento-colossal", name: "Fragmento Colossal", type: "rock", shortDescription: "Pedra +12%, primeiro dano −8%", description: "Para Pokémon de Pedra: golpes de Pedra causam 12% mais dano e o primeiro dano recebido em HP cheio é reduzido em 8%.", rules: { fullHpIncomingMultiplier: .92 } }),
-  elementalRelic({ id: "veu-espectral", name: "Véu Espectral", type: "ghost", shortDescription: "Fantasma +12%, Momentum ao nocautear", description: "Para Pokémon Fantasma: golpes de Fantasma causam 12% mais dano e cada nocaute concede 1 Momentum, até o máximo.", rules: { momentumOnFaint: 1 } }),
-  elementalRelic({ id: "escama-draconica", name: "Escama Dracônica", type: "dragon", shortDescription: "Dragão +12%/+18%", description: "Para Pokémon Dragão: golpes de Dragão causam 12% mais dano, ou 18% contra outro Dragão.", rules: { opponentType: "dragon", opponentMultiplier: 1.18 } }),
-  elementalRelic({ id: "orbe-sombrio", name: "Orbe Sombrio", type: "dark", shortDescription: "Sombrio +12%/+18%", description: "Para Pokémon Sombrios: golpes Sombrios causam 12% mais dano, ou 18% contra alvo com estado negativo.", rules: { targetStatusMultiplier: 1.18 } }),
-  elementalRelic({ id: "liga-arcana", name: "Liga Arcana", type: "steel", shortDescription: "Aço +12%, super eficaz −5%", description: "Para Pokémon de Aço: golpes de Aço causam 12% mais dano e golpes super eficazes recebidos sofrem redução adicional de 5%.", rules: { superEffectiveIncomingMultiplier: .95 } }),
-  elementalRelic({ id: "cristal-feerico", name: "Cristal Feérico", type: "fairy", shortDescription: "Fada +12%/+18%", description: "Para Pokémon Fada: golpes de Fada causam 12% mais dano, ou 18% contra Dragões.", rules: { opponentType: "dragon", opponentMultiplier: 1.18 } }),
-  elementalRelic({ id: "simbolo-primordial", name: "Símbolo Primordial", type: "normal", shortDescription: "Normal +12%/+15% neutro", description: "Para Pokémon Normais: golpes Normais causam 12% mais dano e recebem mais 3% quando não são super eficazes.", rules: { neutralMultiplier: 1.15 } }),
+  item({
+    id: "fragmento-da-ruina",
+    name: "Fragmento da Ruína",
+    category: "ARTIFACT",
+    usageType: "BAG",
+    rarity: "EPIC",
+    role: "tactical",
+    shortDescription: "Ruína por 3 rodadas",
+    description:
+      "Aplica Ruína ao Pokémon inimigo ativo. Ao fim de cada rodada, ele perde 5% do HP máximo por 3 rodadas.",
+    effectType: "BAG_RUIN",
+    trigger: "MANUAL",
+    consumable: true,
+    price: 300,
+    rules: { rounds: 3, damagePercent: 0.05 },
+    battleUsage: {
+      maxPerPokemon: 1,
+      category: "TACTICAL",
+      target: "ENEMY_ACTIVE",
+    },
+  }),
+  item({
+    id: "espelho-prismatico",
+    name: "Espelho Prismático",
+    category: "ARTIFACT",
+    usageType: "HELD",
+    rarity: "LEGENDARY",
+    role: "defense",
+    shortDescription: "Reflete 50% de Especial",
+    description:
+      "Na primeira vez que receber um golpe Especial com dano, reflete 50% do dano realmente sofrido ao atacante e é consumido.",
+    effectType: "REFLECT_SPECIAL",
+    trigger: "AFTER_DAMAGE",
+    consumable: true,
+    price: 2200,
+    rules: { reflectPercent: 0.5 },
+  }),
+  item({
+    id: "bomba-temporal",
+    name: "Bomba Temporal",
+    category: "ARTIFACT",
+    usageType: "BAG",
+    rarity: "EPIC",
+    role: "tactical",
+    shortDescription: "15% após 3 rodadas",
+    description:
+      "Anexa uma bomba ao inimigo. Após 3 rodadas completas, causa 15% do HP máximo.",
+    effectType: "BAG_TIME_BOMB",
+    trigger: "MANUAL",
+    consumable: true,
+    price: 330,
+    rules: { rounds: 3, damagePercent: 0.15 },
+    battleUsage: {
+      maxPerPokemon: 1,
+      category: "TACTICAL",
+      target: "ENEMY_ACTIVE",
+    },
+  }),
+  item({
+    id: "marca-do-cacador",
+    name: "Marca do Caçador",
+    category: "ARTIFACT",
+    usageType: "BAG",
+    rarity: "RARE",
+    role: "attack",
+    shortDescription: "Alvo recebe +10%",
+    description:
+      "Marca o inimigo por 3 rodadas. Seus golpes causam 10% mais dano contra ele.",
+    effectType: "BAG_HUNTER_MARK",
+    trigger: "MANUAL",
+    consumable: true,
+    price: 150,
+    rules: { rounds: 3, multiplier: 1.1 },
+    battleUsage: {
+      maxPerPokemon: 2,
+      category: "OFFENSIVE",
+      target: "ENEMY_ACTIVE",
+    },
+  }),
+  item({
+    id: "escudo-refletor",
+    name: "Escudo Refletor",
+    category: "DEFENSE",
+    usageType: "BAG",
+    rarity: "EPIC",
+    role: "defense",
+    shortDescription: "−30% e reflete 30%",
+    description:
+      "No próximo ataque recebido, reduz 30% do dano e reflete 30% do dano realmente sofrido.",
+    effectType: "BAG_REFLECT_SHIELD",
+    trigger: "MANUAL",
+    consumable: true,
+    price: 300,
+    rules: { mitigationMultiplier: 0.7, reflectPercent: 0.3 },
+    battleUsage: { maxPerPokemon: 1, category: "DEFENSIVE", target: "ACTIVE" },
+  }),
+  item({
+    id: "parasita-de-energia",
+    name: "Parasita de Energia",
+    category: "ARTIFACT",
+    usageType: "BAG",
+    rarity: "EPIC",
+    role: "tactical",
+    shortDescription: "Rouba 1 Momentum",
+    description:
+      "Remove 1 Momentum do inimigo ativo e concede 1 Momentum ao usuário.",
+    effectType: "BAG_STEAL_MOMENTUM",
+    trigger: "MANUAL",
+    consumable: true,
+    price: 300,
+    battleUsage: {
+      maxPerPokemon: 2,
+      category: "RESOURCE",
+      target: "ENEMY_ACTIVE",
+    },
+  }),
+  item({
+    id: "selo-do-silencio",
+    name: "Selo do Silêncio",
+    category: "ARTIFACT",
+    usageType: "BAG",
+    rarity: "LEGENDARY",
+    role: "tactical",
+    shortDescription: "Bloqueia o próximo Especial",
+    description:
+      "Bloqueia o próximo turno acionável de golpe Especial do inimigo, sem impedir outros movimentos, itens ou troca.",
+    effectType: "BAG_SILENCE",
+    trigger: "MANUAL",
+    consumable: true,
+    price: 1900,
+    rules: { rounds: 1 },
+    battleUsage: {
+      maxPerPokemon: 1,
+      category: "TACTICAL",
+      target: "ENEMY_ACTIVE",
+    },
+  }),
+  item({
+    id: "cristal-da-furia",
+    name: "Cristal da Fúria",
+    category: "CRYSTAL",
+    usageType: "HELD",
+    rarity: "EPIC",
+    role: "attack",
+    shortDescription: "Fúria com HP baixo",
+    description:
+      "Ao chegar a 25% de HP ou menos, por 2 rodadas causa 20% mais dano e recebe 10% mais dano.",
+    effectType: "FURY",
+    trigger: "AFTER_DAMAGE",
+    consumable: false,
+    price: 330,
+    rules: {
+      hpRatioLTE: 0.25,
+      rounds: 2,
+      dealtMultiplier: 1.2,
+      receivedMultiplier: 1.1,
+    },
+  }),
+  item({
+    id: "ancora-dimensional",
+    name: "Âncora Dimensional",
+    category: "ARTIFACT",
+    usageType: "BAG",
+    rarity: "RARE",
+    role: "tactical",
+    shortDescription: "Bloqueia troca por 2 rodadas",
+    description: "O inimigo não pode fazer trocas voluntárias por 2 rodadas.",
+    effectType: "BAG_ANCHOR",
+    trigger: "MANUAL",
+    consumable: true,
+    price: 150,
+    rules: { rounds: 2 },
+    battleUsage: {
+      maxPerPokemon: 2,
+      category: "TACTICAL",
+      target: "ENEMY_ACTIVE",
+    },
+  }),
+  item({
+    id: "mina-elemental",
+    name: "Mina Elemental",
+    category: "ARTIFACT",
+    usageType: "BAG",
+    rarity: "EPIC",
+    role: "tactical",
+    shortDescription: "10% no próximo switch",
+    description:
+      "Mina o lado inimigo. A próxima troca voluntária do inimigo causa 10% do HP máximo ao Pokémon que entrar.",
+    effectType: "BAG_ELEMENTAL_MINE",
+    trigger: "MANUAL",
+    consumable: true,
+    price: 300,
+    rules: { damagePercent: 0.1 },
+    battleUsage: {
+      maxPerPokemon: 2,
+      category: "TACTICAL",
+      target: "ENEMY_SIDE",
+    },
+  }),
+  item({
+    id: "nucleo-de-sobrecarga",
+    name: "Núcleo de Sobrecarga",
+    category: "CORE",
+    usageType: "BAG",
+    rarity: "EPIC",
+    role: "attack",
+    shortDescription: "+2 Momentum, recebe +15%",
+    description:
+      "Concede 2 Momentum ao ativo. No próximo ataque recebido, ele sofre 15% mais dano.",
+    effectType: "BAG_OVERLOAD",
+    trigger: "MANUAL",
+    consumable: true,
+    price: 300,
+    rules: { momentum: 2, receivedMultiplier: 1.15 },
+    battleUsage: { maxPerPokemon: 1, category: "RESOURCE", target: "ACTIVE" },
+  }),
+  item({
+    id: "ampulheta-quebrada",
+    name: "Ampulheta Quebrada",
+    category: "ARTIFACT",
+    usageType: "HELD",
+    rarity: "LEGENDARY",
+    role: "special",
+    shortDescription: "Último Especial devolve +1",
+    description:
+      "Após usar legitimamente o último golpe Especial, restaura 1 uso uma única vez e é consumida.",
+    effectType: "RESTORE_SPECIAL",
+    trigger: "AFTER_SPECIAL_EXHAUSTED",
+    consumable: true,
+    price: 1800,
+    rules: { amount: 1 },
+  }),
+  elementalRelic({
+    id: "brasa-primordial",
+    name: "Brasa Primordial",
+    type: "fire",
+    shortDescription: "Fogo +12%/+18%",
+    description:
+      "Para Pokémon de Fogo: golpes de Fogo causam 12% mais dano, ou 18% abaixo de 40% de HP.",
+    rules: { lowHpRatio: 0.4, lowHpMultiplier: 1.18 },
+  }),
+  elementalRelic({
+    id: "perola-abissal",
+    name: "Pérola Abissal",
+    type: "water",
+    shortDescription: "Água +12%, defesa baixa",
+    description:
+      "Para Pokémon de Água: golpes de Água causam 12% mais dano; abaixo de 40% de HP, recebe 8% menos dano.",
+    rules: { lowHpRatio: 0.4, incomingMultiplier: 0.92 },
+  }),
+  elementalRelic({
+    id: "condutor-de-tempestade",
+    name: "Condutor de Tempestade",
+    type: "electric",
+    shortDescription: "Elétrico +12%/+18%",
+    description:
+      "Para Pokémon Elétricos: golpes Elétricos causam 12% mais dano, ou 18% contra alvo paralisado.",
+    rules: { status: "paralysis", statusMultiplier: 1.18 },
+  }),
+  elementalRelic({
+    id: "semente-ancestral",
+    name: "Semente Ancestral",
+    type: "grass",
+    shortDescription: "Grama +12% e regenera",
+    description:
+      "Para Pokémon de Grama: golpes de Grama causam 12% mais dano. Em HP baixo, recupera 3% ao fim da rodada até 3 vezes.",
+    rules: { lowHpRatio: 0.35, endRoundHealPercent: 0.03, maxTicks: 3 },
+  }),
+  elementalRelic({
+    id: "coracao-glacial",
+    name: "Coração Glacial",
+    type: "ice",
+    shortDescription: "Gelo +12%, reduz super eficaz",
+    description:
+      "Para Pokémon de Gelo: golpes de Gelo causam 12% mais dano e golpes super eficazes recebidos sofrem redução adicional de 5%.",
+    rules: { superEffectiveIncomingMultiplier: 0.95 },
+  }),
+  elementalRelic({
+    id: "faixa-do-tita",
+    name: "Faixa do Titã",
+    type: "fighting",
+    shortDescription: "Luta +12%/+17%",
+    description:
+      "Para Pokémon Lutadores: golpes de Luta causam 12% mais dano; abaixo de 50% de HP, golpes de contato recebem mais 5%.",
+    rules: { lowHpRatio: 0.5, contactMultiplier: 1.17 },
+  }),
+  elementalRelic({
+    id: "presa-toxica",
+    name: "Presa Tóxica",
+    type: "poison",
+    shortDescription: "Veneno +12%, chance +5pp",
+    description:
+      "Para Pokémon de Veneno: golpes de Veneno causam 12% mais dano e golpes que já envenenam recebem 5 pontos percentuais de chance.",
+    rules: { poisonChanceBonus: 0.05 },
+  }),
+  elementalRelic({
+    id: "nucleo-sismico",
+    name: "Núcleo Sísmico",
+    type: "ground",
+    shortDescription: "Terra +12%/+17% após troca",
+    description:
+      "Para Pokémon de Terra: golpes de Terra causam 12% mais dano; o primeiro após entrar voluntariamente recebe mais 5%.",
+    rules: { switchInMultiplier: 1.17 },
+  }),
+  elementalRelic({
+    id: "pluma-celeste",
+    name: "Pluma Celeste",
+    type: "flying",
+    shortDescription: "Voador +12%, defesa após troca",
+    description:
+      "Para Pokémon Voadores: golpes de Voador causam 12% mais dano e o primeiro dano recebido após troca voluntária é reduzido em 5%.",
+    rules: { switchInIncomingMultiplier: 0.95 },
+  }),
+  elementalRelic({
+    id: "prisma-mental",
+    name: "Prisma Mental",
+    type: "psychic",
+    shortDescription: "Psíquico +12%, Técnico +5pp",
+    description:
+      "Para Pokémon Psíquicos: golpes Psíquicos causam 12% mais dano; com Momentum máximo, Técnico recebe mais 5 pontos percentuais.",
+    rules: { technicalMomentumBonus: 0.05 },
+  }),
+  elementalRelic({
+    id: "casulo-ancestral",
+    name: "Casulo Ancestral",
+    type: "bug",
+    shortDescription: "Inseto +12%, proteção baixa",
+    description:
+      "Para Pokémon Insetos: golpes de Inseto causam 12% mais dano; ao entrar abaixo de 50% de HP, reduz 5% do dano até atacar com sucesso.",
+    rules: { entryHpRatio: 0.5, incomingMultiplier: 0.95 },
+  }),
+  elementalRelic({
+    id: "fragmento-colossal",
+    name: "Fragmento Colossal",
+    type: "rock",
+    shortDescription: "Pedra +12%, primeiro dano −8%",
+    description:
+      "Para Pokémon de Pedra: golpes de Pedra causam 12% mais dano e o primeiro dano recebido em HP cheio é reduzido em 8%.",
+    rules: { fullHpIncomingMultiplier: 0.92 },
+  }),
+  elementalRelic({
+    id: "veu-espectral",
+    name: "Véu Espectral",
+    type: "ghost",
+    shortDescription: "Fantasma +12%, Momentum ao nocautear",
+    description:
+      "Para Pokémon Fantasma: golpes de Fantasma causam 12% mais dano e cada nocaute concede 1 Momentum, até o máximo.",
+    rules: { momentumOnFaint: 1 },
+  }),
+  elementalRelic({
+    id: "escama-draconica",
+    name: "Escama Dracônica",
+    type: "dragon",
+    shortDescription: "Dragão +12%/+18%",
+    description:
+      "Para Pokémon Dragão: golpes de Dragão causam 12% mais dano, ou 18% contra outro Dragão.",
+    rules: { opponentType: "dragon", opponentMultiplier: 1.18 },
+  }),
+  elementalRelic({
+    id: "orbe-sombrio",
+    name: "Orbe Sombrio",
+    type: "dark",
+    shortDescription: "Sombrio +12%/+18%",
+    description:
+      "Para Pokémon Sombrios: golpes Sombrios causam 12% mais dano, ou 18% contra alvo com estado negativo.",
+    rules: { targetStatusMultiplier: 1.18 },
+  }),
+  elementalRelic({
+    id: "liga-arcana",
+    name: "Liga Arcana",
+    type: "steel",
+    shortDescription: "Aço +12%, super eficaz −5%",
+    description:
+      "Para Pokémon de Aço: golpes de Aço causam 12% mais dano e golpes super eficazes recebidos sofrem redução adicional de 5%.",
+    rules: { superEffectiveIncomingMultiplier: 0.95 },
+  }),
+  elementalRelic({
+    id: "cristal-feerico",
+    name: "Cristal Feérico",
+    type: "fairy",
+    shortDescription: "Fada +12%/+18%",
+    description:
+      "Para Pokémon Fada: golpes de Fada causam 12% mais dano, ou 18% contra Dragões.",
+    rules: { opponentType: "dragon", opponentMultiplier: 1.18 },
+  }),
+  elementalRelic({
+    id: "simbolo-primordial",
+    name: "Símbolo Primordial",
+    type: "normal",
+    shortDescription: "Normal +12%/+15% neutro",
+    description:
+      "Para Pokémon Normais: golpes Normais causam 12% mais dano e recebem mais 3% quando não são super eficazes.",
+    rules: { neutralMultiplier: 1.15 },
+  }),
 ]);
 
 const ITEMS_BY_ID = new Map(ITEM_CATALOG.map((entry) => [entry.id, entry]));
@@ -543,10 +966,14 @@ export const BAG_ITEM_CATALOG = Object.freeze(
   ITEM_CATALOG.filter((entry) => entry.usageType === ITEM_USAGE.BAG),
 );
 export const STRATEGIC_ITEM_CATALOG = Object.freeze(
-  HELD_ITEM_CATALOG.filter((entry) => entry.equipmentSlot !== "ELEMENTAL_RELIC"),
+  HELD_ITEM_CATALOG.filter(
+    (entry) => entry.equipmentSlot !== "ELEMENTAL_RELIC",
+  ),
 );
 export const ELEMENTAL_RELIC_CATALOG = Object.freeze(
-  HELD_ITEM_CATALOG.filter((entry) => entry.equipmentSlot === "ELEMENTAL_RELIC"),
+  HELD_ITEM_CATALOG.filter(
+    (entry) => entry.equipmentSlot === "ELEMENTAL_RELIC",
+  ),
 );
 export const ELEMENTAL_RELICS_BY_TYPE = Object.freeze(
   ELEMENTAL_RELIC_CATALOG.reduce((index, relic) => {
@@ -580,28 +1007,37 @@ export function getRoleLabel(role) {
 // Player-facing copy derived from the authoritative catalog. Every item UI
 // consumes this layer instead of duplicating gameplay rules in components.
 export function getItemUsagePresentation(itemOrId) {
-  const item = typeof itemOrId === "string" ? getItemDefinition(itemOrId) : itemOrId;
+  const item =
+    typeof itemOrId === "string" ? getItemDefinition(itemOrId) : itemOrId;
   if (!item || item.category === "tm") return null;
   const rules = item.rules || {};
   const percent = (value) => `${Math.round(Number(value || 0) * 100)}%`;
-  const triggerLabel = {
-    MANUAL: "Você usa manualmente durante a batalha.",
-    AFTER_DAMAGE: `Ativa automaticamente após receber dano${rules.hpRatioLTE != null ? `, quando o HP fica em ${percent(rules.hpRatioLTE)} ou menos` : ""}.`,
-    BEFORE_LETHAL_DAMAGE: "Ativa automaticamente quando um golpe seria fatal.",
-    BEFORE_STATUS: "Ativa automaticamente antes de um estado negativo ser aplicado.",
-    AFTER_STATUS: "Ativa automaticamente quando um estado negativo é aplicado.",
-    AFTER_DAMAGE_DEALT: "Ativa após causar dano direto.",
-    AFTER_SWITCH_IN: "Prepara o próximo ataque após entrar por uma troca.",
-    BEFORE_SWITCH_OUT: "Ativa ao sair voluntariamente da batalha com vida.",
-    PASSIVE: "Funciona passivamente durante a batalha.",
-    DAMAGE_CALCULATION: item.effectType === "NEXT_ATTACK" || item.effectType === "SPECIAL_DAMAGE"
-      ? "Ativa no próximo ataque válido que acertar."
-      : "Funciona automaticamente ao calcular o dano.",
-  }[item.trigger] || "Funciona conforme a condição da batalha.";
+  const triggerLabel =
+    {
+      MANUAL: "Você usa manualmente durante a batalha.",
+      AFTER_DAMAGE: `Ativa automaticamente após receber dano${rules.hpRatioLTE != null ? `, quando o HP fica em ${percent(rules.hpRatioLTE)} ou menos` : ""}.`,
+      BEFORE_LETHAL_DAMAGE:
+        "Ativa automaticamente quando um golpe seria fatal.",
+      BEFORE_STATUS:
+        "Ativa automaticamente antes de um estado negativo ser aplicado.",
+      AFTER_STATUS:
+        "Ativa automaticamente quando um estado negativo é aplicado.",
+      AFTER_DAMAGE_DEALT: "Ativa após causar dano direto.",
+      AFTER_SWITCH_IN: "Prepara o próximo ataque após entrar por uma troca.",
+      BEFORE_SWITCH_OUT: "Ativa ao sair voluntariamente da batalha com vida.",
+      PASSIVE: "Funciona passivamente durante a batalha.",
+      DAMAGE_CALCULATION:
+        item.effectType === "NEXT_ATTACK" ||
+        item.effectType === "SPECIAL_DAMAGE"
+          ? "Ativa no próximo ataque válido que acertar."
+          : "Funciona automaticamente ao calcular o dano.",
+    }[item.trigger] || "Funciona conforme a condição da batalha.";
   return {
     usageLabel: item.usageType === ITEM_USAGE.HELD ? "EQUIPÁVEL" : "MOCHILA",
     persistenceLabel: isDurableItem(item) ? "DURÁVEL" : "CONSUMÍVEL",
-    durabilityLabel: isDurableItem(item) ? `${item.durabilityMax} batalhas` : null,
+    durabilityLabel: isDurableItem(item)
+      ? `${item.durabilityMax} batalhas`
+      : null,
     triggerLabel,
     effectLabel: item.description || item.shortDescription,
     afterUseLabel: item.consumable
@@ -641,6 +1077,11 @@ export function migrateItemInventory(inventory = {}) {
 }
 
 export function getItemLifecycle(itemOrId) {
-  return (typeof itemOrId === "string" ? getItemDefinition(itemOrId) : itemOrId)?.lifecycle || null;
+  return (
+    (typeof itemOrId === "string" ? getItemDefinition(itemOrId) : itemOrId)
+      ?.lifecycle || null
+  );
 }
-export function isDurableItem(itemOrId) { return getItemLifecycle(itemOrId) === ITEM_LIFECYCLE.DURABLE; }
+export function isDurableItem(itemOrId) {
+  return getItemLifecycle(itemOrId) === ITEM_LIFECYCLE.DURABLE;
+}
