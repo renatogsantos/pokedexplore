@@ -37,10 +37,11 @@ import { getPokemonSprite, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
 import { getRarityLabel } from "@/lib/items/catalog";
 
 const PAGE_SIZE = 12;
-const artwork = (pokemon) => getPokemonSprite({
-  pokemon,
-  context: SPRITE_CONTEXT.GENERAL,
-});
+const artwork = (pokemon) =>
+  getPokemonSprite({
+    pokemon,
+    context: SPRITE_CONTEXT.GENERAL,
+  });
 const typesOf = (pokemon) =>
   pokemon?.types?.map((item) => item.type?.name || item.name).filter(Boolean) ||
   [];
@@ -93,12 +94,22 @@ function ShopCard({ pokemon, owned, balance, infiniteCoins, onBuy }) {
   );
 }
 
-function QuantityModal({ purchase, balance, infiniteCoins, onChange, onCancel, onConfirm }) {
+function QuantityModal({
+  purchase,
+  balance,
+  infiniteCoins,
+  onChange,
+  onCancel,
+  onConfirm,
+}) {
   const level = purchase.owned ? getPokemonLevel(purchase.owned) : 0;
   const limit = purchase.owned ? MAX_POKEMON_LEVEL - level : MAX_POKEMON_LEVEL;
   const maximum = Math.max(
     1,
-    Math.min(limit, infiniteCoins ? limit : Math.floor(balance / purchase.price)),
+    Math.min(
+      limit,
+      infiniteCoins ? limit : Math.floor(balance / purchase.price),
+    ),
   );
   const quantity = Math.min(purchase.quantity, maximum);
   const total = quantity * purchase.price;
@@ -217,22 +228,65 @@ function Pagination({ page, pages, disabled, onChange }) {
   );
 }
 
-function UpgradeCard({ upgrade, economy, balance, infiniteCoins, onBuy, onDetail, purchasing }) {
+function UpgradeCard({
+  upgrade,
+  economy,
+  balance,
+  infiniteCoins,
+  onBuy,
+  onDetail,
+  purchasing,
+}) {
   const isTm = upgrade.category === "tm";
   const quantity = isTm
     ? Number((economy.ownedTms || []).includes(upgrade.id))
     : economy.inventory?.[upgrade.id] || 0;
   return (
-    <article className={`shop-upgrade shop-upgrade--${isTm ? "tm" : upgrade.rarity?.toLowerCase()}`}>
-      <button type="button" className="shop-upgrade-open" onClick={() => onDetail(upgrade)} aria-label={`Ver detalhes de ${upgrade.name}`}>
-        <span className="shop-upgrade-icon"><ItemSprite item={upgrade.id} alt="" /></span>
-        <span className="shop-upgrade-name">{upgrade.name}</span>{upgrade.lifecycle === "DURABLE" && <small>DURÁVEL · {upgrade.durabilityMax} batalhas</small>}
-        {!isTm && <span className="shop-upgrade-rarity">{getRarityLabel(upgrade.rarity)}</span>}
+    <article
+      className={`shop-upgrade shop-upgrade--${isTm ? "tm" : upgrade.rarity?.toLowerCase()}`}
+    >
+      <button
+        type="button"
+        className="shop-upgrade-open"
+        onClick={() => onDetail(upgrade)}
+        aria-label={`Ver detalhes de ${upgrade.name}`}
+      >
+        <span className="shop-upgrade-icon">
+          <ItemSprite item={upgrade.id} alt="" />
+        </span>
+        <span className="shop-upgrade-name">{upgrade.name}</span>
+        {upgrade.lifecycle === "DURABLE" && (
+          <small className="f-10">DURÁVEL · {upgrade.durabilityMax} batalhas</small>
+        )}
+        {!isTm && (
+          <span className="shop-upgrade-rarity">
+            {getRarityLabel(upgrade.rarity)}
+          </span>
+        )}
       </button>
       <div className="shop-upgrade-footer">
-        <strong><Coin /> {formatCoins(upgrade.price)}</strong>
+        <strong>
+          <Coin /> {formatCoins(upgrade.price)}
+        </strong>
         <small>{isTm && quantity ? "Adquirida" : `×${quantity}`}</small>
-        <button type="button" disabled={purchasing || (!infiniteCoins && balance < upgrade.price) || (isTm && Boolean(quantity))} aria-label={`Comprar ${upgrade.name} por ${formatCoins(upgrade.price)} moedas`} onClick={() => onBuy(upgrade)}>{purchasing ? "COMPRANDO..." : isTm && quantity ? "ADQUIRIDA" : !infiniteCoins && balance < upgrade.price ? "SEM MOEDAS" : "COMPRAR"}</button>
+        <button
+          type="button"
+          disabled={
+            purchasing ||
+            (!infiniteCoins && balance < upgrade.price) ||
+            (isTm && Boolean(quantity))
+          }
+          aria-label={`Comprar ${upgrade.name} por ${formatCoins(upgrade.price)} moedas`}
+          onClick={() => onBuy(upgrade)}
+        >
+          {purchasing
+            ? "COMPRANDO..."
+            : isTm && quantity
+              ? "ADQUIRIDA"
+              : !infiniteCoins && balance < upgrade.price
+                ? "SEM MOEDAS"
+                : "COMPRAR"}
+        </button>
       </div>
     </article>
   );
@@ -282,7 +336,12 @@ export default function Shop() {
     webStore.getData("Pokedex").then((data) => dispatch(actAddPokedex(data)));
     webStore.getEconomy().then((data) => {
       setEconomy(data);
-      dispatch(actCoins({ coins: data.coins, infiniteCoins: data.creatorMode?.infiniteCoins }));
+      dispatch(
+        actCoins({
+          coins: data.coins,
+          infiniteCoins: data.creatorMode?.infiniteCoins,
+        }),
+      );
     });
   }, [dispatch]);
   useEffect(() => {
@@ -382,7 +441,9 @@ export default function Shop() {
       return;
     }
     playBattleSound("coin", 0.6);
-    dispatch(actCoins({ coins: result.coins, infiniteCoins: result.infiniteCoins }));
+    dispatch(
+      actCoins({ coins: result.coins, infiniteCoins: result.infiniteCoins }),
+    );
     dispatch(actAddPokedex(await webStore.getData("Pokedex")));
     if (!result.duplicate)
       celebratePokemonPurchase({ rarity: result.pokemon?.rarity });
@@ -410,20 +471,24 @@ export default function Shop() {
     }
     playBattleSound("coin", 0.6);
     setEconomy(result.economy);
-    dispatch(actCoins({ coins: result.coins, infiniteCoins: result.infiniteCoins }));
+    dispatch(
+      actCoins({ coins: result.coins, infiniteCoins: result.infiniteCoins }),
+    );
     setFeedback(
       upgrade.category === "tm"
         ? `${upgrade.name.toUpperCase()} foi adicionada à coleção de TMs!`
         : `ITEM ADQUIRIDO! ${upgrade.name.toUpperCase()} · agora você possui ${result.economy.inventory?.[upgrade.id] || 0}.`,
     );
   }
-  const upgrades = SHOP_UPGRADES.filter(
-    (upgrade) =>
-      upgradeCategory === "all"
-        ? upgrade.category !== "tm"
-        : upgradeCategory === "tm"
-          ? upgrade.category === "tm"
-          : upgrade.category !== "tm" && (upgrade.role === upgradeCategory || (upgradeCategory === "artifact" && upgrade.category === "ARTIFACT")),
+  const upgrades = SHOP_UPGRADES.filter((upgrade) =>
+    upgradeCategory === "all"
+      ? upgrade.category !== "tm"
+      : upgradeCategory === "tm"
+        ? upgrade.category === "tm"
+        : upgrade.category !== "tm" &&
+          (upgrade.role === upgradeCategory ||
+            (upgradeCategory === "artifact" &&
+              upgrade.category === "ARTIFACT")),
   );
   const pokemonContent = (
     <>
@@ -585,9 +650,27 @@ export default function Shop() {
         >
           Defesa
         </button>
-        <button type="button" className={upgradeCategory === "tactical" ? "selected" : ""} onClick={() => setUpgradeCategory("tactical")}>Táticos</button>
-        <button type="button" className={upgradeCategory === "artifact" ? "selected" : ""} onClick={() => setUpgradeCategory("artifact")}>Artefatos</button>
-        <button type="button" className={upgradeCategory === "tm" ? "selected" : ""} onClick={() => setUpgradeCategory("tm")}>TMs</button>
+        <button
+          type="button"
+          className={upgradeCategory === "tactical" ? "selected" : ""}
+          onClick={() => setUpgradeCategory("tactical")}
+        >
+          Táticos
+        </button>
+        <button
+          type="button"
+          className={upgradeCategory === "artifact" ? "selected" : ""}
+          onClick={() => setUpgradeCategory("artifact")}
+        >
+          Artefatos
+        </button>
+        <button
+          type="button"
+          className={upgradeCategory === "tm" ? "selected" : ""}
+          onClick={() => setUpgradeCategory("tm")}
+        >
+          TMs
+        </button>
       </div>
       <div className="shop-upgrade-grid">
         {upgrades.map((upgrade) => (
@@ -661,7 +744,34 @@ export default function Shop() {
         </section>
       </div>
       <AnimatePresence>
-        {itemDetail && <ItemDetailsModal item={itemDetail} quantity={itemDetail.category === "tm" ? Number((economy.ownedTms || []).includes(itemDetail.id)) : economy.inventory?.[itemDetail.id] || 0} actionLabel={purchasingId === itemDetail.id ? "COMPRANDO..." : itemDetail.category === "tm" && (economy.ownedTms || []).includes(itemDetail.id) ? "ADQUIRIDA" : !infiniteCoins && balance < itemDetail.price ? "SEM MOEDAS" : `COMPRAR — ${formatCoins(itemDetail.price)}`} actionDisabled={purchasingId === itemDetail.id || (!infiniteCoins && balance < itemDetail.price) || (itemDetail.category === "tm" && (economy.ownedTms || []).includes(itemDetail.id))} onAction={() => void buyUpgrade(itemDetail)} onClose={() => setItemDetail(null)} />}
+        {itemDetail && (
+          <ItemDetailsModal
+            item={itemDetail}
+            quantity={
+              itemDetail.category === "tm"
+                ? Number((economy.ownedTms || []).includes(itemDetail.id))
+                : economy.inventory?.[itemDetail.id] || 0
+            }
+            actionLabel={
+              purchasingId === itemDetail.id
+                ? "COMPRANDO..."
+                : itemDetail.category === "tm" &&
+                    (economy.ownedTms || []).includes(itemDetail.id)
+                  ? "ADQUIRIDA"
+                  : !infiniteCoins && balance < itemDetail.price
+                    ? "SEM MOEDAS"
+                    : `COMPRAR — ${formatCoins(itemDetail.price)}`
+            }
+            actionDisabled={
+              purchasingId === itemDetail.id ||
+              (!infiniteCoins && balance < itemDetail.price) ||
+              (itemDetail.category === "tm" &&
+                (economy.ownedTms || []).includes(itemDetail.id))
+            }
+            onAction={() => void buyUpgrade(itemDetail)}
+            onClose={() => setItemDetail(null)}
+          />
+        )}
         {purchase && (
           <QuantityModal
             purchase={purchase}
