@@ -11,7 +11,7 @@ import {
   WarningCircle,
   X,
 } from "@phosphor-icons/react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSelector } from "react-redux";
@@ -29,6 +29,7 @@ import {
   getSupportedAbility,
   multiplier,
 } from "@/lib/battle/engine";
+import { createItemFeedbackScheduler, getItemActivationEvents, EXIT_DURATION } from "@/lib/battle/itemFeedback";
 import { SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
 import PokemonImage from "@/components/PokemonImage/PokemonImage";
 import {
@@ -157,41 +158,48 @@ const TEMPORARY_ITEM_IDS = Object.freeze({
   regeneration: "regeneration-leaf",
 });
 
-function getItemActivationEvents(effect, pokemon) {
-  const itemEvents = [...(effect?.itemEvents || [])];
-  if (effect?.kind === "item" && effect?.itemId && String(effect.targetPokemonId) === String(pokemon.id))
-    itemEvents.push({ itemId: effect.itemId, eventId: effect.eventId, pokemonId: pokemon.id, targetPokemonId: pokemon.id, remaining: effect.remaining, itemUsageCount: effect.itemUsageCount, itemUsageLimit: effect.itemUsageLimit, effect: { type: effect.healing ? "heal_hp" : "armed", amount: effect.healing || null } });
-  return itemEvents.filter((event) => event?.itemId && [event.pokemonId, event.targetPokemonId].some((id) => String(id) === String(pokemon.id)));
-}
-
 function BattleItemEffectIndicators({ pokemon }) {
   const effects = Object.entries(pokemon.temporaryEffects || {}).filter(([key, value]) => value && TEMPORARY_ITEM_LABELS[key]);
   if (!effects.length) return null;
   return <div className="battle-item-effects" aria-label={`Efeitos de item em ${pokemon.name}`}>{effects.map(([key, value]) => <span key={key} className={`battle-item-effect is-${key}`}>{TEMPORARY_ITEM_LABELS[key]}{value?.ticks ? ` · ${value.ticks}T` : ""}</span>)}</div>;
 }
 
-function ItemEffectOverlay({ pokemon, effect, sideEffects }) {
+function ItemEffectOverlay({ pokemon, effect, sideEffects, enabled, revision, targetKey }) {
+  const [feedback, setFeedback] = useState(null);
+  const scheduler = useRef(null);
+  const reducedMotion = useReducedMotion();
+  useEffect(() => {
+    scheduler.current = createItemFeedbackScheduler(setFeedback);
+    return () => { scheduler.current.dispose(); scheduler.current = null; };
+  }, []);
+  useEffect(() => {
+    scheduler.current.clear();
+  }, [targetKey, enabled]);
+  useEffect(() => {
+    if (enabled && pokemon.hp > 0) scheduler.current.enqueue(getItemActivationEvents(effect, pokemon), revision);
+    else scheduler.current.clear();
+  }, [effect, revision, targetKey, enabled, pokemon.hp]);
   const activeEffects = Object.entries(pokemon.temporaryEffects || {}).filter(([key, value]) => value && TEMPORARY_ITEM_IDS[key]);
   if (sideEffects?.elementalMine) activeEffects.push(["elementalMine", sideEffects.elementalMine]);
-  const activations = getItemActivationEvents(effect, pokemon);
+  const activations = feedback && enabled && pokemon.hp > 0 ? getItemActivationEvents({ itemEvents: [feedback.event] }, pokemon) : [];
   if (!activeEffects.length && !activations.length) return null;
   return <div className="item-effect-overlay" aria-label={`Efeitos de itens sobre ${pokemon.name}`}>
-    <AnimatePresence initial={false}>
-      {activations.map((event, index) => {
+    <>
+      {activations.map((event) => {
         const definition = getItemDefinition(event.itemId);
         if (!definition) return null;
         const amount = event.effect?.amount;
         const result = amount ? `${event.effect?.type === "heal_hp" ? "+" : "−"}${amount} HP` : event.effect?.type === "delayed_damage" ? "ATIVADA" : "EM EFEITO";
         const metadata = [Number.isFinite(event.remaining) ? `×${event.remaining} restantes` : null, Number.isFinite(event.itemUsageCount) ? `usos ${event.itemUsageCount}/${event.itemUsageLimit}` : null].filter(Boolean).join(" · ");
         const tone = event.effect?.type === "heal_hp" ? "heal" : event.effect?.type === "delayed_damage" ? "damage" : definition.effectType?.includes("BARRIER") || definition.effectType?.includes("SHIELD") ? "defense" : "power";
-        return <span key={`${event.eventId || event.itemId}-${index}`} className="item-effect-activation-anchor"><motion.div className={`item-effect-activation is-${tone}`} initial={{ opacity: 0, scale: .86, y: 6 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: .96, y: -4 }} transition={{ duration: .22 }}>
+        return <span key={feedback.key} className="item-effect-activation-anchor"><motion.div className={`item-effect-activation is-${tone}`} initial={{ opacity: 0, scale: reducedMotion ? 1 : .90, y: 0 }} animate={feedback.phase === "exiting" ? { opacity: 0, scale: reducedMotion ? 1 : .96, y: 0 } : { opacity: 1, scale: 1, y: 0 }} transition={{ type: "tween", duration: EXIT_DURATION / 1000 }}>
           <ItemSprite item={event.itemId} alt="" className="item-effect-activation__sprite" />
           <small className="item-effect-activation__name">{definition.name}</small>
           <strong className="item-effect-activation__result">{result}</strong>
           {metadata ? <small className="item-effect-activation__meta">{metadata}</small> : null}
         </motion.div></span>;
       })}
-    </AnimatePresence>
+    </>
     <div className="item-effect-cluster">
       {activeEffects.map(([key, value]) => {
         const itemId = key === "elementalMine" ? "mina-elemental" : TEMPORARY_ITEM_IDS[key];
@@ -235,6 +243,9 @@ function StatusBadge({ pokemon, onOpen }) {
 
 function Fighter({
   side,
+  matchId,
+  battleStatus,
+  revision,
   player,
   isHit,
   isAttacking,
@@ -363,7 +374,7 @@ function Fighter({
             alt={pokemon.name}
           />
         </PokemonAura>
-        <ItemEffectOverlay pokemon={pokemon} effect={effect} sideEffects={player.temporarySideEffects} />
+        <ItemEffectOverlay key={`${matchId}:${side}`} pokemon={pokemon} effect={effect} sideEffects={player.temporarySideEffects} enabled={battleStatus === "playing"} revision={revision} targetKey={`${player.active}:${pokemon.id}`} />
       </div>
     </div>
   );
@@ -1364,6 +1375,9 @@ export default function BattleArena({
         </div>
         <div className="arena-stage">
           <Fighter
+            matchId={state.matchId}
+            battleStatus={state.status}
+            revision={state.revision}
             side="opponent"
             player={opponent}
             effect={effect}
@@ -1387,6 +1401,9 @@ export default function BattleArena({
             <span>VS</span>
           </div>
           <Fighter
+            matchId={state.matchId}
+            battleStatus={state.status}
+            revision={state.revision}
             side="player"
             player={me}
             effect={effect}
