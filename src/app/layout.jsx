@@ -1,6 +1,11 @@
 import "./globals.scss";
 import ProviderLayout from "@/Provider/ProviderLayout";
 
+export const metadata = {
+  "title": "PokédExplore",
+  "description": "Explore e descubra informações sobre os Pokémon com a PokedExplore, uma Pokedex online baseada na API PokeAPI."
+};
+
 export default function RootLayout({ children }) {
   return (
     <html lang="pt-BR">
@@ -12,10 +17,6 @@ export default function RootLayout({ children }) {
           content="PokedExplore, Pokémon, exploration, game, creatures"
         />
 
-        <meta
-          name="description"
-          content="Explore e descubra informações sobre os Pokémon com a PokedExplore, uma Pokedex online baseada na API PokeAPI."
-        />
         <meta name="author" content="Renato Gomes dos Santos" />
 
         <meta property="og:title" content="PokedExplore - Sua Pokedex Online" />
@@ -55,7 +56,6 @@ export default function RootLayout({ children }) {
             `,
           }}
         />
-        <title>PokédExplore</title>
       </head>
       <ProviderLayout>{children}</ProviderLayout>
     </html>

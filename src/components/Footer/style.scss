@@ -1,0 +1,21 @@
+.project-footer {
+  padding: 24px max(16px, env(safe-area-inset-right)) 24px max(16px, env(safe-area-inset-left));
+  border-top: 1px solid #ffffff20;
+  background: #091322;
+  color: #d2dfef;
+  font-size: .875rem;
+  line-height: 1.6;
+  font-family: "Montserrat", sans-serif;
+  * { font-family: inherit; }
+  &__inner { width: min(100%, 1120px); margin: auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 24px; }
+  strong { color: #ffda57; font-size: 1rem; }
+  p { margin: 6px 0; }
+  span { display: block; }
+  div > a { display: inline-flex; align-items: center; min-height: 44px; }
+  a { color: #d2dfef; overflow-wrap: anywhere; }
+  nav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  nav a { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; }
+  &__legal { padding-inline: 12px; text-decoration: underline; text-underline-offset: 4px; }
+  a:hover { color: #ffda57; }
+  a:focus-visible { outline: 3px solid #ffda57; outline-offset: 3px; }
+}
