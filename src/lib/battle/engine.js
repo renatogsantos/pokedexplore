@@ -1627,7 +1627,7 @@ function resolveBagAction(state, next, actor, enemy, action) {
 export function resolveAction(state, actor, action) {
   if (!state || !["host", "guest"].includes(actor) || !action || state.status !== "playing" || state.turn !== actor) return state;
   const enemy = actor === "host" ? "guest" : "host";
-  const next = structuredClone(state);
+  const next = cloneBattleState(state);
   const fighter = next[actor].team[next[actor].active];
   if (!fighter) return state;
   if (action.type === "switch") {
@@ -2226,4 +2226,20 @@ export function resolveAction(state, actor, action) {
   }
   next.revision += 1;
   return next;
+}
+
+// Battle state is plain structured data. Preserve undefined and aliases in the
+// fallback; JSON round trips would lose values and are not equivalent.
+export function cloneBattleState(state) {
+  if (typeof globalThis.structuredClone === "function") return globalThis.structuredClone(state);
+  const seen = new Map();
+  const clone = value => {
+    if (!value || typeof value !== "object") return value;
+    if (seen.has(value)) return seen.get(value);
+    const next = Array.isArray(value) ? [] : {};
+    seen.set(value, next);
+    for (const key of Object.keys(value)) next[key] = clone(value[key]);
+    return next;
+  };
+  return clone(state);
 }
