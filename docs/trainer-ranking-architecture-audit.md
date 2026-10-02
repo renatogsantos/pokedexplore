@@ -1,6 +1,8 @@
 # Ranking global e Mestre Pokémon — auditoria inicial
 
-Status: implementação parcial; escolha da autoridade de identidade/resultados pendente. Não há ranking global, migration aplicada ou pagamento do bônus nesta etapa.
+Status atual (2026-10-02): decisão resolvida pelo usuário — ranking casual, sem login, aceitando eventos individuais do cliente. Ranking, ledger e bônus implementados localmente; migration remota não aplicada nesta execução. Consulte [o relatório de implementação](trainer-ranking-implementation.md).
+
+O restante deste documento preserva a auditoria histórica anterior à decisão. As alternativas e pendências abaixo não representam um bloqueio atual.
 
 ## Contratos atuais verificados
 

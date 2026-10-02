@@ -59,3 +59,7 @@
   opacity: .62;
 }
 .trainer-master-title { display: inline-flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px; max-width: 100%; margin-top: 10px; padding: 8px 12px; border: 1px solid var(--profile-gold, #ffcb05); border-radius: 12px; color: var(--profile-gold, #ffcb05); background: #ffcb0514; font-size: .8rem; font-weight: 900; line-height: 1.5; }
+.trainer-ranking-link { display: flex; align-items: center; gap: 14px; min-height: 72px; padding: 16px; margin: 18px 0; border: 1px solid #ffda5755; border-radius: 16px; color: #ffda57; background: #182a40; text-decoration: none; }
+.trainer-ranking-link > span:nth-child(2) { flex: 1; }
+.trainer-ranking-link strong { display: block; font-size: .875rem; }
+.trainer-ranking-link small { display: block; margin-top: 4px; color: #c3d3e6; font-size: .75rem; }

@@ -72,6 +72,7 @@ export default function useTrainerProfile() {
     try {
       const previousName = local?.identity?.displayName;
       const identity = await webStore.setLocalPlayerProfile({ ...local.identity, displayName, avatarId });
+      window.dispatchEvent(new Event("trainer-profile-updated"));
       setLocal((current) => ({ ...current, identity }));
       const badgeService = await import("@/lib/badges/service");
       if (badgeService.hasBadgeServiceConfig() && displayName !== previousName) {

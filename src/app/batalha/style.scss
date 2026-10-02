@@ -8478,3 +8478,6 @@
 .equipment-wear-feedback p span { flex: 1; }
 .equipment-wear-feedback b { white-space: nowrap; }
 .equipment-wear-feedback button { min-height: 36px; padding: 6px 12px; border: 1px solid #ffdf5d; border-radius: 8px; background: #283920; color: #ffdf5d; font: inherit; font-weight: 800; cursor: pointer; }
+.competitive-result-sync { margin-top: 12px; padding: 12px; border: 1px solid #ffda5744; border-radius: 12px; background: #102139; color: #c8d9ed; font-size: .8rem; line-height: 1.5; }
+.competitive-result-sync button { min-height: 44px; padding: 8px 14px; border: 1px solid #ffda57; border-radius: 8px; background: #ffda57; color: #102139; font-weight: 800; }
+.competitive-result-sync button:focus-visible { outline: 3px solid white; outline-offset: 3px; }

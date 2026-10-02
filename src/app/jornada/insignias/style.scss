@@ -17,3 +17,7 @@
 @media (max-width: 520px) { .badge-detail__action-group { grid-template-columns: 1fr; } }
 @media (max-width: 360px) { .competitive-badges-page { padding-inline: 10px; }.competitive-badge-card { min-height: 412px; padding-inline: 14px; }.badge-detail { padding-inline: 15px; }.badge-detail__actions { margin-inline: -15px; padding-inline: 15px; } }
 @media (prefers-reduced-motion: reduce) { .competitive-badge-skeleton { animation: none; }.competitive-badge-card > button { transition: none; } }
+.badge-master-achievement { display: flex; align-items: flex-start; gap: 14px; padding: 20px; margin-bottom: 20px; border: 1px solid #ffda57; border-radius: 18px; background: #293326; color: #ffda57; }
+.badge-master-achievement > svg { flex-shrink: 0; }
+.badge-master-achievement h2 { font-size: 1.125rem; font-weight: 900; line-height: 1.5; }
+.badge-master-achievement p { margin: 8px 0 0; font-size: .875rem; color: #edf4fc; line-height: 1.6; }

@@ -1,0 +1,4 @@
+.toast { position: fixed; z-index: 10010; top: max(16px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; width: max-content; max-width: calc(100% - 32px); padding: 14px 20px; border: 1px solid #ffda57; border-radius: 16px; background: #112238; color: #ffda57; box-shadow: 0 8px 32px #0008; pointer-events: none; font-size: .8rem; font-weight: 800; line-height: 1.5;
+  strong { display: block; font-size: 1rem; color: #fff4b5; }
+  svg { flex-shrink: 0; }
+}

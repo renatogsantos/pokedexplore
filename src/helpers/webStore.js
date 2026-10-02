@@ -9,6 +9,7 @@ import { normalizePlayerStats, recordCompletedBattle } from "@/lib/profile/progr
 import { DEFAULT_PLAYER_AVATAR_ID, normalizePlayerAvatarId } from "@/lib/profile/avatars";
 import { getItemDefinition, ITEM_CATALOG, ITEM_SYSTEM_VERSION, migrateItemInventory } from "@/lib/items/catalog";
 import { applyTournamentRewardReceipt } from "@/lib/tournament/rewards";
+import { validateCompetitiveEvent, validateMasterReceipt } from "@/lib/ranking/results";
 
 const DATABASE_NAME = "PokedExploreDB";
 const DATABASE_VERSION = 4;
@@ -18,6 +19,8 @@ const PLAYER_STORE = "player";
 const CACHE_STORE = "pokeapi-cache";
 const ECONOMY_KEY = "economy";
 const TRAINER_PROFILE_KEY = "trainer-profile";
+const competitiveKey = (kind, playerId, matchId = "") => `${kind}:${encodeURIComponent(playerId)}:${encodeURIComponent(matchId)}`;
+const competitiveOutboxKey = event => competitiveKey("competitive-outbox",event.playerId,`${event.completedAt}:${event.matchId}`);
 const DECKS_KEY = "pokemon-decks";
 const EMPTY_CREATOR_MODE = { infiniteCoins: false };
 const EMPTY_ECONOMY = { key: ECONOMY_KEY, coins: 0, wagerReservations: {}, settledWagerIds: [], rewardedMatchIds: [], tournamentRewardReceipts: [], secretRewards: {}, inventory: {}, ownedTms: [], consumedItemActionIds: [], itemSystemVersion: ITEM_SYSTEM_VERSION, creatorMode: EMPTY_CREATOR_MODE };
@@ -340,6 +343,100 @@ export const webStore = {
         transaction.onerror = () => reject(transaction.error);
       }));
     } catch (error) { console.error("Erro ao recuperar moedas:", error); if (strict) throw error; return { ...EMPTY_ECONOMY }; }
+  },
+  async enqueueCompetitiveResult(event) {
+    if (!validateCompetitiveEvent(event)) throw new Error("Resultado competitivo inválido.");
+    const queued = await withDatabase(database => new Promise((resolve, reject) => {
+      const tx = database.transaction(PLAYER_STORE, "readwrite"), store = tx.objectStore(PLAYER_STORE);
+      const owner = store.get(TRAINER_PROFILE_KEY);
+      owner.onsuccess = () => {
+        if (owner.result?.playerId !== event.playerId) { tx.result = false; return; }
+        const settled = store.get(competitiveKey("competitive-settlement", event.playerId, event.matchId));
+        settled.onsuccess = () => {
+          if (settled.result) { tx.result = false; return; }
+          const key = competitiveOutboxKey(event);
+          const pending = store.get(key);
+          pending.onsuccess = () => {
+            if (!pending.result) store.put({ key, event, queuedAt: Date.now() });
+            tx.result = true;
+          };
+        };
+      };
+      tx.oncomplete = () => resolve(Boolean(tx.result));
+      tx.onerror = tx.onabort = () => reject(tx.error || new Error("Não foi possível guardar o resultado."));
+    }));
+    if (queued && typeof window !== "undefined") window.dispatchEvent(new Event("competitive-outbox"));
+    return queued;
+  },
+  async getPendingCompetitiveResults(playerId, limit = 30) {
+    if (!playerId) return [];
+    return withDatabase(database => new Promise((resolve, reject) => {
+      const prefix = competitiveKey("competitive-outbox", playerId);
+      const tx = database.transaction(PLAYER_STORE, "readonly");
+      const request = tx.objectStore(PLAYER_STORE).getAll(IDBKeyRange.bound(prefix, `${prefix}\uffff`), limit);
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    }));
+  },
+  async getCompetitiveSettlement(playerId, matchId) {
+    return withDatabase(database => new Promise((resolve, reject) => {
+      const request = database.transaction(PLAYER_STORE, "readonly").objectStore(PLAYER_STORE).get(competitiveKey("competitive-settlement", playerId, matchId));
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error);
+    }));
+  },
+  async recordPokemonMasterState(playerId, active) {
+    const transition = await withDatabase(database => new Promise((resolve,reject) => {
+      const tx=database.transaction(PLAYER_STORE,"readwrite"),store=tx.objectStore(PLAYER_STORE);
+      const owner=store.get(TRAINER_PROFILE_KEY);
+      owner.onsuccess=()=>{
+        if(owner.result?.playerId!==playerId) return;
+        const key=competitiveKey("pokemon-master-state",playerId);
+        const previous=store.get(key);
+        previous.onsuccess=()=>{tx.result=previous.result?.active===false && active===true;store.put({key,active:Boolean(active)});};
+      };
+      tx.oncomplete=()=>resolve(Boolean(tx.result));tx.onerror=tx.onabort=()=>reject(tx.error);
+    }));
+    if(transition) window.dispatchEvent(new CustomEvent("pokemon-master-achievement",{detail:{playerId}}));
+    return transition;
+  },
+  async applyCompetitiveSettlement(event, response) {
+    if (!validateCompetitiveEvent(event) || !response || (response.accepted !== true && response.duplicate !== true)
+      || (response.receipt && !validateMasterReceipt(response.receipt, event))) throw new Error("Recibo competitivo inválido.");
+    return withDatabase(database => new Promise((resolve, reject) => {
+      const tx = database.transaction(PLAYER_STORE, "readwrite"), store = tx.objectStore(PLAYER_STORE);
+      const owner = store.get(TRAINER_PROFILE_KEY);
+      owner.onsuccess = () => {
+        if (owner.result?.playerId !== event.playerId) { tx.result = { ownerChanged: true, applied: false }; return; }
+        const economyRequest = store.get(ECONOMY_KEY);
+        economyRequest.onsuccess = () => {
+          const economy = normalizeEconomy(economyRequest.result);
+          if (!Number.isSafeInteger(economy.coins) || economy.coins < 0) { tx.abort(); return; }
+          const receipt = response.receipt;
+          const apply = existing => {
+            const applied = Boolean(receipt && !existing);
+            const coins = economy.coins + (applied ? receipt.amount : 0);
+            if (applied) {
+              store.put(normalizeEconomy({ ...economy, coins }));
+              // Permanent standalone record; NEVER truncated with the old reward arrays.
+              store.put({ key: `competitive-reward:${receipt.id}`, playerId: event.playerId, receipt, appliedAt: Date.now() });
+            }
+            const settlement = { key: competitiveKey("competitive-settlement", event.playerId, event.matchId),
+              matchId: event.matchId, playerId: event.playerId, receipt: receipt || null,
+              masterBonus: receipt?.amount || 0, settledAt: Date.now() };
+            store.put(settlement);
+            store.delete(competitiveOutboxKey(event));
+            tx.result = { ...settlement, applied, coins };
+          };
+          if (receipt) {
+            const receiptRequest = store.get(`competitive-reward:${receipt.id}`);
+            receiptRequest.onsuccess = () => apply(receiptRequest.result);
+          } else apply(null);
+        };
+      };
+      tx.oncomplete = () => resolve(tx.result);
+      tx.onerror = tx.onabort = () => reject(tx.error || new Error("Não foi possível aplicar o recibo."));
+    }));
   },
   async rewardVictory(matchId, amount, itemId = null) {
     if (!matchId) return { rewarded: false, coins: 0 };

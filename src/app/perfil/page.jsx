@@ -253,6 +253,8 @@ export default function TrainerProfilePage() {
           </div>
         </section>
 
+        <Link className="trainer-ranking-link" href="/ranking"><Trophy size={24} weight="fill" aria-hidden="true" /><span><strong>RANKING GLOBAL</strong><small>Conheça os treinadores mais fortes</small></span><span aria-hidden="true">→</span></Link>
+
         {editing && (
           <div
             className="trainer-profile-editor-backdrop"

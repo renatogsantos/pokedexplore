@@ -14,7 +14,8 @@
     "balance:battle": "node src/lib/battle/balanceReport.mjs",
     "test:gameplay-audit": "node --experimental-loader ./scripts/test-alias-loader.mjs --test src/lib/battle/startAudit.test.mjs",
     "test:equipment": "node --experimental-loader ./scripts/test-alias-loader.mjs --test src/lib/economy/equipmentGrouping.test.mjs",
-    "test:mobile-start": "node --experimental-loader ./scripts/test-alias-loader.mjs --test src/lib/battle/mobileStart.test.mjs"
+    "test:mobile-start": "node --experimental-loader ./scripts/test-alias-loader.mjs --test src/lib/battle/mobileStart.test.mjs",
+    "test:ranking": "node --experimental-loader ./scripts/test-alias-loader.mjs --test src/lib/profile/pokemonMaster.test.mjs src/lib/ranking/database.test.mjs src/lib/ranking/results.test.mjs src/lib/ranking/wallet.test.mjs"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.0.10",
@@ -33,5 +34,9 @@
     "react-parallax-tilt": "^1.7.175",
     "react-redux": "^8.1.1",
     "sass": "^1.63.6"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "fake-indexeddb": "^6.2.5"
   }
 }

@@ -28,6 +28,8 @@ import {
   subscribeBadges,
 } from "@/lib/badges/service";
 import { webStore } from "@/helpers/webStore";
+import { hasPokemonMasterTitle, POKEMON_MASTER_TITLE, POKEMON_MASTER_BONUS_COINS } from "@/lib/profile/pokemonMaster";
+import { formatCoins } from "@/lib/economy";
 import "./style.scss";
 
 const FILTERS = Object.freeze([
@@ -184,6 +186,10 @@ export default function CompetitiveBadgesPage() {
     }
   }, [badges, searchParams, selected]);
 
+  const masterActive = hasPokemonMasterTitle(profile?.playerId, badges);
+  useEffect(() => {
+    if(profile?.playerId && badges && !error) void webStore.recordPokemonMasterState(profile.playerId,masterActive).catch(()=>{});
+  },[profile?.playerId,badges,error,masterActive]);
   const summary = useMemo(() => ({
     available: badges?.filter((badge) => badge.status === "AVAILABLE").length || 0,
     owned: badges?.filter((badge) => badge.status === "OWNED").length || 0,
@@ -249,6 +255,7 @@ export default function CompetitiveBadgesPage() {
     <main className="competitive-badges-page">
       <section className="competitive-badges-shell">
         <header className="competitive-badges-heading"><Link href="/jornada"><ArrowLeft size={20} /> Jornada</Link><span className="eyebrow">TÍTULOS COMPETITIVOS</span><h1>Insígnias</h1><p>Conquiste. Defenda. Domine. Cada tipo possui um único campeão entre todos os jogadores.</p></header>
+        {masterActive && !error && <section className="badge-master-achievement" aria-labelledby="badge-master-title"><Crown size={28} weight="fill" aria-hidden="true" /><div><h2 id="badge-master-title">{POKEMON_MASTER_TITLE}</h2><p>Você conquistou todas as 18 Insígnias!</p><p>Enquanto mantiver todas elas, você receberá +{formatCoins(POKEMON_MASTER_BONUS_COINS)} moedas em cada partida elegível concluída.</p></div></section>}
         {feedback && <p className="competitive-badges-feedback" role="status"><Check size={20} weight="bold" aria-hidden="true" /> {feedback}</p>}
         {error && <section className="competitive-badges-error" role="alert"><Warning size={28} weight="fill" /><div><strong>{error}</strong><p>Verifique sua conexão e tente novamente. Sua coleção local continua disponível.</p></div><button type="button" onClick={refresh}>Tentar novamente</button></section>}
         <section className="competitive-badges-summary" aria-label="Resumo das Insígnias"><article><Trophy weight="fill" /><strong>{BADGE_CONFIG.length}</strong><span>Insígnias</span></article><article><ShieldCheck weight="fill" /><strong>{summary.available}</strong><span>Disponíveis</span></article><article><Crown weight="fill" /><strong>{summary.owned}</strong><span>Com campeão</span></article><article><Sword weight="fill" /><strong>{summary.challenged}</strong><span>Em disputa</span></article></section>

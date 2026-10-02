@@ -41,6 +41,7 @@ import { PVP_CONNECTION, getPvpConnectionMessage } from "@/lib/battle/pvpConnect
 import { canApplyBattleSnapshot, canResolveRemoteAction } from "@/lib/battle/protocol";
 import { appendBattleAudioEvents, playBattleSound } from "@/lib/battle/sound";
 import { calculateBattleRewards } from "@/lib/battle/rewards";
+import { buildCompetitiveResult } from "@/lib/ranking/results";
 import { actCoins } from "@/redux/economy";
 import CoinBalance from "@/components/CoinBalance";
 import { celebrateBadgeChampionship, celebrateBattleVictory } from "@/lib/celebration";
@@ -72,6 +73,7 @@ const makePlayer = (name, playerId) => ({
 const makeMatchId = () => createUuid();
 
 export default function BattlePage() {
+  const [settledJourneyReward, setSettledJourneyReward] = useState(null);
   const dispatch = useDispatch();
   const router = useRouter();
   const params = useSearchParams();
@@ -462,6 +464,7 @@ export default function BattlePage() {
           const noPokemonFainted = !next[localRole]?.team?.some((pokemon) => Number(pokemon.hp) <= 0);
           void webStore.settleJourneyBattle({ routeId: journeyNode.id, battleIndex: journeyBattleIndex, matchId: next.matchId, won, perfectEligible: noPokemonFainted }).then((result) => {
             if (!result.settled) return;
+            setSettledJourneyReward({ matchId: next.matchId, base: result.reward?.coins || 0, chest: result.chest?.coins || 0, itemId: result.reward?.itemId || null });
             if (result.won) {
               dispatch(actCoins(result.coins));
               const itemText = result.reward?.itemId ? " + item encontrado" : "";
@@ -514,6 +517,13 @@ export default function BattlePage() {
     },
     [awardVictory, badgeChallenge, cpuDifficulty, dispatch, isBadgeChampion, journeyBattle, journeyBattleIndex, journeyNode, mode, profile, router],
   );
+
+  // Persist a canonical terminal event outside render/state-updater callbacks.
+  // Reconnect/remount can revisit it: the durable outbox and server ledger dedupe.
+  useEffect(() => {
+    const event = buildCompetitiveResult({ state: battle, role, playerId: profile?.playerId, mode, journey: Boolean(journeyNode) });
+    if (event) void webStore.enqueueCompetitiveResult(event).catch(() => setNotice("Resultado salvo na batalha, mas não foi possível guardar a sincronização. Tente novamente antes de sair."));
+  }, [battle?.matchId, battle?.status, battle?.revision, role, profile?.playerId, mode, journeyNode]);
 
   useEffect(() => {
     if (mode !== "tournament" || battle?.status !== "finished" || (!tournamentCpuOpponent && battle.winner !== role) || !tournamentMatch || !profile) return;
@@ -1416,6 +1426,8 @@ export default function BattlePage() {
             inventoryStatus={inventoryStatus}
             onAction={sendAction}
             onRematch={rematch}
+            journeyContext={Boolean(journeyNode)}
+            journeyReward={settledJourneyReward?.matchId === battle.matchId ? settledJourneyReward : null}
             tournamentContext={mode === "tournament" && tournamentMatch ? { round: tournamentMatch.round, mode: tournament?.mode, receipt: tournamentRewardReceipt?.tournamentId === tournament?.id ? tournamentRewardReceipt : null } : null}
             championBonusEligible={isBadgeChampion && ["cpu", "friend"].includes(mode)}
             badgeContext={String(mode).startsWith("badge") && badgeChallenge ? { config: getBadgeConfig(badgeChallenge.badge?.code), challenge: badgeChallenge, resolution: badgeResolution, resolving: badgeResolving, error: badgeResultError, playerId: profile?.playerId } : null}

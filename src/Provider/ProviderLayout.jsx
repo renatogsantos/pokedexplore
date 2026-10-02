@@ -4,12 +4,14 @@ import { Provider } from "react-redux";
 import MobileBottomNavigation from "@/components/MobileBottomNavigation";
 import GlobalUiClickSound from "@/components/GlobalUiClickSound";
 import Footer from "@/components/Footer";
+import CompetitiveSync from "@/components/CompetitiveSync";
 
 export default function ProviderLayout({ children }) {
   return (
     <Provider store={store}>
       <body suppressHydrationWarning={true}>
         <GlobalUiClickSound />
+        <CompetitiveSync />
         <div className="global-battle-content">{children}<Footer /></div>
         <MobileBottomNavigation />
       </body>

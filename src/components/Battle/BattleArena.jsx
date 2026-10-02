@@ -1,4 +1,5 @@
 "use client";
+import useCompetitiveSettlement from "@/hooks/useCompetitiveSettlement";
 
 import {
   ArrowsClockwise,
@@ -1005,6 +1006,7 @@ function BattleResultModal({
   onRematch,
   tournamentContext,
   wagerResult,
+  competitiveSettlement,
 }) {
   const rematchRef = useRef(null);
   useEffect(() => {
@@ -1090,7 +1092,7 @@ function BattleResultModal({
           </section>
         )}
 
-        {won ? (
+        {won || reward.bonuses.masterPokemon > 0 ? (
           <>
             {isPerfect && (
               <span className="result-modal__perfect">
@@ -1120,7 +1122,9 @@ function BattleResultModal({
             >
               <span className="result-modal__section-label">RECOMPENSAS</span>
               <ul>
-                <RewardRow icon={Sword} label="Vitória" value={reward.base} />
+                {reward.base > 0 && <RewardRow icon={Sword} label="Vitória" value={reward.base} />}
+                {reward.bonuses.journeyChest > 0 && <RewardRow icon={Trophy} label="Baú da Jornada" value={reward.bonuses.journeyChest} />}
+                {reward.bonuses.masterPokemon > 0 && <RewardRow icon={Crown} label="Mestre Pokémon" value={reward.bonuses.masterPokemon} />}
                 {reward.bonuses.fastVictory > 0 && (
                   <RewardRow
                     icon={Lightning}
@@ -1154,6 +1158,7 @@ function BattleResultModal({
                   </li>
                 )}
               </ul>
+              <div className="result-modal__balance"><span>TOTAL</span><strong>+{formatCoins(reward.total)}</strong></div>
               <div className="result-modal__balance">
                 <span>Saldo atual</span>
                 <strong>
@@ -1181,6 +1186,13 @@ function BattleResultModal({
             <span>
               <strong>+0 moedas</strong> Você não perdeu moedas.
             </span>
+          </div>
+        )}
+
+        {competitiveSettlement?.eligible && competitiveSettlement.status !== "settled" && (
+          <div className="competitive-result-sync" role="status">
+            <p>{competitiveSettlement.status === "error" ? "Não foi possível sincronizar o resultado." : "Resultado pendente de sincronização. O bônus será confirmado após verificar suas insígnias."}</p>
+            <button type="button" onClick={competitiveSettlement.retry}>TENTAR NOVAMENTE</button>
           </div>
         )}
 
@@ -1256,6 +1268,8 @@ export default function BattleArena({
   tournamentContext = null,
   badgeContext = null,
   championBonusEligible = false,
+  journeyContext = false,
+  journeyReward = null,
 }) {
   useEffect(() => {
     traceBattleStart("15_BATTLE_ARENA_MOUNT", { mode, matchId: state.matchId, playerId: state[role]?.id });
@@ -1266,6 +1280,7 @@ export default function BattleArena({
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState(null);
   const coins = useSelector((store) => store.economy.coins);
+  const competitiveSettlement = useCompetitiveSettlement(state, role, mode, journeyContext);
   const me = state[role];
   const opponentRole = role === "host" ? "guest" : "host";
   const opponent = state[opponentRole];
@@ -1319,7 +1334,7 @@ export default function BattleArena({
     championBonusEligible,
     baseCoins: mode === "cpu" ? state.cpuReward?.baseCoins : undefined,
   });
-  const victoryReward = tournamentContext
+  const normalVictoryReward = tournamentContext
     ? {
         base: tournamentContext.reward,
         bonuses: { fastVictory: 0, onePokemonVictory: 0, champion: 0 },
@@ -1329,6 +1344,9 @@ export default function BattleArena({
         ...normalReward,
         itemId: mode === "cpu" ? state.cpuReward?.itemId || null : null,
       };
+  const victoryReward = journeyContext
+    ? { base: journeyReward?.base || 0, bonuses: { fastVictory: 0, onePokemonVictory: 0, champion: 0, journeyChest: journeyReward?.chest || 0, masterPokemon: competitiveSettlement.masterBonus }, total: (journeyReward?.base || 0) + (journeyReward?.chest || 0) + competitiveSettlement.masterBonus, itemId: journeyReward?.itemId || null }
+    : { ...normalVictoryReward, bonuses: { ...normalVictoryReward.bonuses, masterPokemon: competitiveSettlement.masterBonus }, total: normalVictoryReward.total + competitiveSettlement.masterBonus };
   const wagerResult =
     mode === "friend" ? getWagerResult(state.wager, state.winner, role) : null;
   const performanceRewardsVisible = mode === "cpu" || mode === "friend";
@@ -1820,6 +1838,7 @@ export default function BattleArena({
               onRematch={onRematch}
               tournamentContext={tournamentContext}
               wagerResult={wagerResult}
+              competitiveSettlement={competitiveSettlement}
             />
           ))}
       </AnimatePresence>

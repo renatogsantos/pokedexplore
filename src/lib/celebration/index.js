@@ -66,3 +66,7 @@ export function celebrateBadgeChampionship(color = "#ffcb05") {
   later(() => void fire({ particleCount: 58, angle: 60, spread: 62, startVelocity: 42, origin: { x: .03, y: .7 }, colors, zIndex: 140 }), 180);
   later(() => void fire({ particleCount: 58, angle: 120, spread: 62, startVelocity: 42, origin: { x: .97, y: .7 }, colors, zIndex: 140 }), 230);
 }
+
+export function celebratePokemonMaster() {
+  void fire({ particleCount: 60, spread: 80, startVelocity: 28, origin: { x: .5, y: .3 }, colors: COLORS.legendary, zIndex: 10011 });
+}
