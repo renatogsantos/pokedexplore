@@ -8,7 +8,7 @@ import styles from "./ItemSprite.module.scss";
 export default function ItemSprite({ item, alt = "", className = "" }) {
   const [sprite, setSprite] = useState(() => getItemSprite(item));
   const [failed, setFailed] = useState(false);
-  useEffect(() => { let active = true; setFailed(false); setSprite(getItemSprite(item)); void loadItemVisual(item).then((visual) => active && setSprite(visual?.sprite || null)); return () => { active = false; }; }, [item]);
+  useEffect(() => { let active = true; setFailed(false); setSprite(getItemSprite(item)); void loadItemVisual(item).then((visual) => active && setSprite(visual?.sprite || null)).catch(error => { if (active) setFailed(true); if (process.env.NODE_ENV !== "production") console.debug("[item-visual] optional visual unavailable", error); }); return () => { active = false; }; }, [item]);
   if (!sprite || failed) return <span className={`${styles.fallback} ${className}`} aria-label={alt || "Item"}><Package size={18} weight="fill" aria-hidden="true" /></span>;
   return <img className={`${styles.sprite} ${className}`} src={sprite} alt={alt} onError={() => setFailed(true)} loading="lazy" />;
 }

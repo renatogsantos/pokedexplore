@@ -1,0 +1,11 @@
+2026-10-02
+Battle: 178 pass, 0 fail
+Gameplay audit: 10 pass, 0 fail
+Equipment: 8 pass, 0 fail
+Mobile start: 15 pass, 0 fail
+Total: 211 pass
+Production build: exit 0
+Final production smoke: 35b0a8bf-9544-41af-b8fc-3b365a233996, BATTLE_ACTIVE, revision 2, viewport 390x844
+Before/after storage fixture: 258.5ms / 65ms; full collection reads 1 / 0; get operations 5 / 5
+Preserved: 130 Pokemon, 500 durable copies at 5/5, coins 2400, wins 42, 1 saved Deck
+Original player device/save unavailable. Real-device CPU throttling and remote mode E2E not verified in this turn.

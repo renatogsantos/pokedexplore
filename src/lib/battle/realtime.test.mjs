@@ -21,6 +21,7 @@ const channel = {
 };
 globalThis.__createClientForRealtimeTest = () => ({ channel: () => channel, removeChannel: () => Promise.resolve() });
 const source = (await readFile(new URL("./realtime.js", import.meta.url), "utf8"))
+  .replace('import { createUuid } from "@/lib/runtime/uuid";', `import { createUuid } from "${new URL("../runtime/uuid.js", import.meta.url).href}";`)
   .replace('import { createClient } from "@supabase/supabase-js";', "const createClient = globalThis.__createClientForRealtimeTest;")
   .replace(/import\s*\{[\s\S]*?\}\s*from "@\/lib\/battle\/pvpConnection";/,
     "const { PVP_CONNECTION, getPvpChannelTopic, getSubscribeConnectionState, isTrackSuccessful, normalizePvpRoomCode } = globalThis.__pvpConnectionForRealtimeTest;");

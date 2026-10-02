@@ -1,6 +1,6 @@
-import { getPokemonSprite, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
+import { getPokemonSprite, normalizePokemonVisuals, SPRITE_CONTEXT } from "@/lib/pokemon/sprites";
 import { resolvePokemonAbilityId } from "@/lib/pokemon/progression";
-import { getPokemonElementalRelic, getPokemonStrategicItem } from "@/lib/economy/heldItems";
+import { getPokemonElementalRelic, getPokemonStrategicItem, getPokemonTypes as getEquipmentPokemonTypes } from "@/lib/economy/heldItems";
 
 export function getPokemonArtwork(pokemon) { return getPokemonSprite({ pokemon, context: SPRITE_CONTEXT.GENERAL }); }
 
@@ -18,12 +18,12 @@ export function getShowdownThumbnail(pokemon) {
 export function getReserveSprite(pokemon) { return getShowdownThumbnail(pokemon); }
 
 export function getPokemonType(pokemon) {
-  return pokemon?.type || (typeof pokemon?.types?.[0] === "string" ? pokemon.types[0] : pokemon?.types?.[0]?.type?.name) || "normal";
+  return getEquipmentPokemonTypes(pokemon)[0] || "normal";
 }
 
 export function getPokemonTypes(pokemon) {
-  if (Array.isArray(pokemon?.types) && pokemon.types.length) return pokemon.types.map((type) => typeof type === "string" ? type : type?.type?.name || type?.name).filter(Boolean);
-  return [getPokemonType(pokemon)];
+  const types = getEquipmentPokemonTypes(pokemon);
+  return types.length ? types : ["normal"];
 }
 
 export function getPokemonHp(pokemon) {
@@ -52,8 +52,7 @@ export function toBattlePokemon(pokemon) {
     image: pokemon.image || null,
     imageUrl: pokemon.imageUrl || null,
     sprite: pokemon.sprite || null,
-    sprites: pokemon.sprites,
-    visuals: pokemon.visuals,
+    visuals: normalizePokemonVisuals(pokemon),
     homeShinySprite: getHomeShinySprite(pokemon),
     homeDefaultSprite: getHomeDefaultSprite(pokemon),
     animatedShiny: getReserveSprite(pokemon),
@@ -67,7 +66,13 @@ export function toBattlePokemon(pokemon) {
     heldItem: getPokemonStrategicItem(pokemon),
     strategicItemInstanceId: pokemon.strategicItemInstanceId || null,
     elementalRelicInstanceId: pokemon.elementalRelicInstanceId || null,
-    equipmentDurability: pokemon.equipmentDurability || {},
+    equipmentDurability: Object.fromEntries(["STRATEGIC", "ELEMENTAL_RELIC"].flatMap(slot => {
+      const copy = pokemon.equipmentDurability?.[slot];
+      const instanceId = slot === "STRATEGIC" ? pokemon.strategicItemInstanceId : pokemon.elementalRelicInstanceId;
+      const itemId = slot === "STRATEGIC" ? getPokemonStrategicItem(pokemon) : getPokemonElementalRelic(pokemon);
+      return copy && copy.instanceId === instanceId && copy.itemId === itemId && copy.durability > 0
+        ? [[slot, { itemId, instanceId, durability: copy.durability, maxDurability: copy.maxDurability }]] : [];
+    })),
     equipmentVersion: pokemon.equipmentVersion || (pokemon.saveVersion ? 1 : null),
     moveset: pokemon.moveset || [],
     maxHp,

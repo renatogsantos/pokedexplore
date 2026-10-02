@@ -24,7 +24,7 @@ export function createBattleRoom(roomCode, player, handlers = {}) {
   const client = createClient(url, key, { auth: { persistSession: false } });
   const normalizedRoomCode = normalizePvpRoomCode(roomCode);
   const topic = getPvpChannelTopic(normalizedRoomCode);
-  const instanceId = `pvp-channel-${++channelSequence}-${crypto.randomUUID()}`;
+  const instanceId = `pvp-channel-${++channelSequence}-${createUuid()}`;
   let subscribed = false;
   let active = true;
   let trackCount = 0;
@@ -150,3 +150,5 @@ export function createBattleRoom(roomCode, player, handlers = {}) {
     },
   };
 }
+
+import { createUuid } from "@/lib/runtime/uuid";

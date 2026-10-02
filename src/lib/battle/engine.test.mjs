@@ -156,7 +156,7 @@ test("catalog exposes the complete expanded collection", () => {
   assert.equal(new Set(catalog.ITEM_CATALOG.map((item) => item.id)).size, 58);
   assert.equal(
     catalog.getItemDefinition("vampiric-crystal").rules.damageHealPercent,
-    0.1,
+    0.15,
   );
 });
 
@@ -263,7 +263,7 @@ test("90 complete CPU matches across Easy, Medium and Hard never stall or violat
   }
 });
 
-test("Vampiric Crystal restores 10% of the direct damage dealt", () => {
+test("Vampiric Crystal restores 15% of the direct damage dealt", () => {
   const state = makeState("vampiric-crystal");
   state.host.team[0].hp = 20;
   const next = resolveAction(state, "host", {
@@ -273,7 +273,7 @@ test("Vampiric Crystal restores 10% of the direct damage dealt", () => {
   const healEvent = next.effect.itemEvents.find(
     (event) => event.itemId === "vampiric-crystal",
   );
-  assert.equal(healEvent.effect.amount, Math.ceil(next.effect.damage * 0.1));
+  assert.equal(healEvent.effect.amount, Math.ceil(next.effect.damage * 0.15));
   assert.equal(next.host.team[0].hp, 20 + healEvent.effect.amount);
 });
 

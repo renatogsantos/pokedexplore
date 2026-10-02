@@ -1452,6 +1452,7 @@ export function analyzeMoveDecision({
 
 export function createBattleState(host, guest, firstTurn) {
   const preparePlayer = (player) => {
+    const { inventory, ...battlePlayer } = player;
     const bag = Object.fromEntries(
       BAG_ITEM_CATALOG.map((entry) => [
         entry.id,
@@ -1459,7 +1460,7 @@ export function createBattleState(host, guest, firstTurn) {
       ]),
     );
     return {
-      ...player,
+      ...battlePlayer,
       privateBag: Boolean(player.privateBag),
       active: 0,
       bag,

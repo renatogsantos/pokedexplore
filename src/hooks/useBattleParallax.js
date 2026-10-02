@@ -17,6 +17,7 @@ export default function useBattleParallax(enabled) {
 
   useEffect(() => {
     const arena = arenaRef.current;
+    if (typeof window.matchMedia !== "function" || typeof requestAnimationFrame !== "function") return undefined;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
     if (!arena || !enabled || reducedMotion.matches) return undefined;
 
@@ -85,8 +86,8 @@ export default function useBattleParallax(enabled) {
     const requestOrientationPermission = () => {
       if (!requiresPermission || permissionRequested) return;
       permissionRequested = true;
-      orientation
-        .requestPermission()
+      Promise.resolve()
+        .then(() => orientation.requestPermission())
         .then((permission) => {
           if (permission === "granted") enableOrientation();
         })

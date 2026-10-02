@@ -1,4 +1,4 @@
-import { resizeDurableInventory, EQUIPMENT_FIELDS, clearEquipmentSlot, normalizeDurableInventory, migrateDurableEquipment, resolveDurableEquipment, settleEquipmentWear, DURABLE_EQUIPMENT_VERSION } from "@/lib/economy/durableEquipment";
+import { resizeDurableInventory, EQUIPMENT_FIELDS, clearEquipmentSlot, normalizeDurableInventory, migrateDurableEquipment, resolveDurableEquipment, settleEquipmentWear, DURABLE_EQUIPMENT_VERSION, DURABLE_REPAIR_VERSION } from "@/lib/economy/durableEquipment";
 import { MAX_POKEMON_LEVEL, normalizeCapturedPokemon } from "@/lib/pokemon/progression";
 import { enrichPokemonRarity, hasResolvedPokemonRarity } from "@/lib/pokemon/rarity";
 import { getShopUpgrade } from "@/lib/economy/gameItems";
@@ -39,7 +39,9 @@ const normalizeEconomy = (economy) => {
   progress.journeyPerfectRoutes = [...new Set(savedProgress.journeyPerfectRoutes || [])];
   progress.journeyRewardIds = [...new Set(savedProgress.journeyRewardIds || [])].slice(-240);
   const legacy = Number(economy?.itemSystemVersion || 1) < ITEM_SYSTEM_VERSION;
-  const rawInventory = Object.fromEntries(Object.entries(economy?.inventory || {}).filter(([, quantity]) => Number(quantity) > 0).map(([id, quantity]) => [id, Math.floor(Number(quantity))]));
+  const inventoryEntries = Array.isArray(economy?.inventory) ? economy.inventory.map(entry => [entry?.itemId || entry?.id, entry?.quantity]) : Object.entries(economy?.inventory || {});
+  const rawInventory = {};
+  for (const [id, quantity] of inventoryEntries) if (id && Number.isFinite(Number(quantity)) && Number(quantity) > 0) rawInventory[id] = (rawInventory[id] || 0) + Math.floor(Number(quantity));
   const tournamentRewardReceipts = Array.isArray(economy?.tournamentRewardReceipts)
     ? economy.tournamentRewardReceipts.filter((receipt) => receipt?.id && receipt?.tournamentId && receipt?.playerId).slice(-240)
     : [];
@@ -107,12 +109,14 @@ async function migrateEquipmentDatabase(database) {
     const player = tx.objectStore(PLAYER_STORE), pokedex = tx.objectStore(POKEDEX_STORE);
     const request = player.get(ECONOMY_KEY);
     request.onsuccess = () => {
-      if (request.result?.durableEquipmentVersion === DURABLE_EQUIPMENT_VERSION) return;
+      if (request.result?.durableEquipmentVersion === DURABLE_EQUIPMENT_VERSION && request.result?.durableRepairVersion === DURABLE_REPAIR_VERSION) return;
       const records = pokedex.getAll();
       records.onsuccess = () => {
-        const migrated = migrateDurableEquipment(normalizeEconomy(request.result), (records.result || []).map(normalizeCapturedPokemon));
-        player.put(migrated.economy);
-        migrated.collection.forEach(pokemon => pokedex.put(pokemon));
+        try {
+          const migrated = migrateDurableEquipment(normalizeEconomy(request.result), (records.result || []).map(normalizeCapturedPokemon));
+          player.put(migrated.economy);
+          migrated.collection.forEach(pokemon => pokedex.put(pokemon));
+        } catch (error) { tx.abort(); reject(error); }
       };
     };
     tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error);
@@ -120,6 +124,33 @@ async function migrateEquipmentDatabase(database) {
 }
 
 export const webStore = {
+  async prepareBattleTeam(pokemonIds) {
+    if (!Array.isArray(pokemonIds) || pokemonIds.length !== 3 || new Set(pokemonIds.map(String)).size !== 3) throw new Error("Selecione três Pokémon diferentes.");
+    return withDatabase(database => new Promise((resolve, reject) => {
+      const tx = database.transaction([POKEDEX_STORE, PLAYER_STORE], "readwrite");
+      const pokedex = tx.objectStore(POKEDEX_STORE);
+      const rawTeam = Array(3); let savedEconomy; let completed = 0;
+      const finish = () => {
+        if (completed !== 4) return;
+        try {
+          const normalizedTeam = rawTeam.map(raw => raw ? normalizeCapturedPokemon(raw) : null);
+          const relevantIds = normalizedTeam.flatMap(pokemon => EQUIPMENT_FIELDS.map(field => pokemon?.[field.instance]).filter(Boolean));
+          const durableItems = Object.fromEntries([...new Set(relevantIds)].flatMap(id => savedEconomy?.durableItems?.[id] ? [[id, savedEconomy.durableItems[id]]] : []));
+          // Startup migration already owns normalization of the complete save.
+          // Preparation interprets only equipped copies, not all spare copies.
+          const economy = { inventory: savedEconomy?.inventory || {}, durableItems, durableEquipmentVersion: savedEconomy?.durableEquipmentVersion, durableRepairVersion: savedEconomy?.durableRepairVersion, itemSystemVersion: savedEconomy?.itemSystemVersion };
+          const team = normalizedTeam.map(pokemon => pokemon ? resolveDurableEquipment(pokemon, economy) : null);
+          if (team.some(pokemon => !pokemon)) throw new Error("Um Pokémon selecionado não foi encontrado. Selecione sua equipe novamente.");
+          team.forEach((pokemon, index) => { if (JSON.stringify(rawTeam[index]) !== JSON.stringify(pokemon)) pokedex.put(pokemon); });
+          tx.result = { team, economy, diagnostics: { databaseVersion: DATABASE_VERSION, saveVersion: SAVE_VERSION, itemSystemVersion: economy.itemSystemVersion, durableEquipmentVersion: economy.durableEquipmentVersion, durableRepairVersion: economy.durableRepairVersion, pokemonReads: 3, economyReads: 1, itemInstancesProcessed: Object.keys(economy.durableItems).length } };
+        } catch (error) { tx.abort(); reject(error); }
+      };
+      const request = tx.objectStore(PLAYER_STORE).get(ECONOMY_KEY);
+      request.onsuccess = () => { savedEconomy = request.result; completed++; finish(); };
+      pokemonIds.forEach((id, index) => { const request = pokedex.get(id); request.onsuccess = () => { rawTeam[index] = request.result; completed++; finish(); }; });
+      tx.oncomplete = () => resolve(tx.result); tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error || new Error("Não foi possível carregar sua equipe. Tente novamente."));
+    }));
+  },
   async getTrainerName() {
     try {
       return await withDatabase((database) => new Promise((resolve, reject) => {
@@ -140,7 +171,7 @@ export const webStore = {
         request.onsuccess = () => {
           const saved = request.result || {};
           const profile = {
-            playerId: saved.playerId || `player_${crypto.randomUUID()}`,
+            playerId: saved.playerId || `player_${createUuid()}`,
             displayName: String(saved.name || "").trim() || "Treinador",
             avatarId: normalizePlayerAvatarId(saved.avatarId),
             createdAt: saved.createdAt || Date.now(),
@@ -156,12 +187,12 @@ export const webStore = {
     } catch (error) {
       console.error("Erro ao recuperar perfil local:", error);
       if (strict) throw error;
-      return { playerId: `player_${crypto.randomUUID()}`, displayName: "Treinador", avatarId: DEFAULT_PLAYER_AVATAR_ID, createdAt: Date.now() };
+      return { playerId: `player_${createUuid()}`, displayName: "Treinador", avatarId: DEFAULT_PLAYER_AVATAR_ID, createdAt: Date.now() };
     }
   },
   async setLocalPlayerProfile(profile) {
     const displayName = String(profile?.displayName || profile?.name || "").trim().slice(0, 18) || "Treinador";
-    const playerId = String(profile?.playerId || `player_${crypto.randomUUID()}`);
+    const playerId = String(profile?.playerId || `player_${createUuid()}`);
     const avatarId = normalizePlayerAvatarId(profile?.avatarId);
     const record = { key: TRAINER_PROFILE_KEY, name: displayName, playerId, avatarId, createdAt: profile?.createdAt || Date.now(), updatedAt: Date.now() };
     try {
@@ -177,7 +208,7 @@ export const webStore = {
   async resetLocalPlayerIdentity() {
     const current = await this.getLocalPlayerProfile();
     return this.setLocalPlayerProfile({
-      playerId: `player_${crypto.randomUUID()}`,
+      playerId: `player_${createUuid()}`,
       displayName: current.displayName,
       avatarId: current.avatarId,
       createdAt: Date.now(),
@@ -190,7 +221,7 @@ export const webStore = {
         const transaction = database.transaction(PLAYER_STORE, "readwrite");
         const store = transaction.objectStore(PLAYER_STORE);
         const request = store.get(TRAINER_PROFILE_KEY);
-        request.onsuccess = () => store.put({ ...(request.result || {}), key: TRAINER_PROFILE_KEY, name: trainerName, playerId: request.result?.playerId || `player_${crypto.randomUUID()}`, createdAt: request.result?.createdAt || Date.now(), updatedAt: Date.now() });
+        request.onsuccess = () => store.put({ ...(request.result || {}), key: TRAINER_PROFILE_KEY, name: trainerName, playerId: request.result?.playerId || `player_${createUuid()}`, createdAt: request.result?.createdAt || Date.now(), updatedAt: Date.now() });
         transaction.oncomplete = resolve;
         transaction.onerror = () => reject(transaction.error);
       }));
@@ -209,7 +240,7 @@ export const webStore = {
   async saveDeck(deck) {
     const pokemonIds = [...new Set((deck?.pokemonIds || []).map(String).filter(Boolean))];
     if (pokemonIds.length !== 3) return null;
-    const id = String(deck?.id || `deck_${crypto.randomUUID()}`);
+    const id = String(deck?.id || `deck_${createUuid()}`);
     const name = String(deck?.name || "").trim().slice(0, 28);
     if (!name) return null;
     try {
@@ -502,7 +533,7 @@ export const webStore = {
         collectionRequest.onsuccess = () => { collection = (collectionRequest.result || []).map(normalizeCapturedPokemon); finish(); };
         profileRequest.onsuccess = () => {
           const saved = profileRequest.result || {};
-          identity = { playerId: saved.playerId || `player_${crypto.randomUUID()}`, displayName: String(saved.name || "").trim() || "Treinador", avatarId: normalizePlayerAvatarId(saved.avatarId), createdAt: saved.createdAt || Date.now() };
+          identity = { playerId: saved.playerId || `player_${createUuid()}`, displayName: String(saved.name || "").trim() || "Treinador", avatarId: normalizePlayerAvatarId(saved.avatarId), createdAt: saved.createdAt || Date.now() };
           finish();
         };
         economyRequest.onsuccess = () => {
@@ -525,7 +556,7 @@ export const webStore = {
       console.error("Erro ao recuperar o perfil local:", error);
       return {
         identity: {
-          playerId: `player_${crypto.randomUUID()}`,
+          playerId: `player_${createUuid()}`,
           displayName: "Treinador",
           avatarId: normalizePlayerAvatarId(),
           createdAt: Date.now(),
@@ -736,7 +767,7 @@ export const webStore = {
         const economy = normalizeEconomy(request.result); const previous = economy.progress.activeExpedition;
         if (!isJourneyNodeUnlocked(routeId, economy.progress.journeyCompleted, economy.progress.journeyMedals)) { transaction.result = { ok: false, reason: "locked" }; return; }
         const active = previous?.routeId === routeId && previous?.status !== "completed" ? previous : {
-          runId: `journey_${crypto.randomUUID()}`, routeId, currentBattle: 1, completedBattles: [], perfectRouteEligible: true, settledRewards: [], startedAt: Date.now(), status: "ready",
+          runId: `journey_${createUuid()}`, routeId, currentBattle: 1, completedBattles: [], perfectRouteEligible: true, settledRewards: [], startedAt: Date.now(), status: "ready",
         };
         const next = { ...economy, progress: { ...economy.progress, activeExpedition: active } }; store.put(normalizeEconomy(next)); transaction.result = { ok: true, active };
       };
@@ -1067,3 +1098,5 @@ export const webStore = {
   },
   deleteAllData() { return this.deleteData(); },
 };
+
+import { createUuid } from "@/lib/runtime/uuid";

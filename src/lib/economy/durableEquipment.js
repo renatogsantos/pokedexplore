@@ -1,6 +1,7 @@
 import { ITEM_CATALOG, getItemDefinition, isDurableItem, migrateLegacyItemId } from "../items/catalog.js";
 
 export const DURABLE_EQUIPMENT_VERSION = 1;
+export const DURABLE_REPAIR_VERSION = 1;
 export const EQUIPMENT_FIELDS = Object.freeze([
   { slot: "STRATEGIC", item: "strategicItem", instance: "strategicItemInstanceId" },
   { slot: "ELEMENTAL_RELIC", item: "elementalRelic", instance: "elementalRelicInstanceId" },
@@ -16,7 +17,13 @@ export function normalizeDurableInventory(economy = {}) {
     const definition = getItemDefinition(raw.itemId);
     if (!isDurableItem(definition)) continue;
     const maxDurability = definition.durabilityMax;
-    const durability = Math.min(maxDurability, Math.max(0, Math.floor(Number(raw.durability) || 0)));
+    // Unknown wear is not a broken item and must not become a fresh replacement.
+    const knownDurability = raw.durability !== null && raw.durability !== undefined && raw.durability !== "" && Number.isFinite(Number(raw.durability));
+    const durability = knownDurability ? Math.min(maxDurability, Math.max(0, Math.floor(Number(raw.durability)))) : null;
+    if (!knownDurability) {
+      durableItems[id] = { ...raw, instanceId: id, maxDurability, durability: null, requiresDurabilityReview: true };
+      continue;
+    }
     if (durability <= 0 && inventory[raw.itemId]) inventory[raw.itemId] = Math.max(0, inventory[raw.itemId] - 1);
     if (durability > 0) durableItems[id] = { ...raw, instanceId: id, maxDurability, durability };
   }
@@ -56,7 +63,7 @@ export function resolveDurableEquipment(pokemon, economy) {
       continue;
     }
     const copy = economy.durableItems?.[next[field.instance]];
-    if (!copy || copy.itemId !== next[field.item] || copy.durability <= 0) {
+    if (!copy || copy.itemId !== next[field.item] || !(copy.durability > 0)) {
       if (process.env.NODE_ENV !== "production") console.debug("[equipment] stale reference", { pokemonId: next.id, slot: field.slot, instanceId: next[field.instance] });
       next = clearEquipmentSlot(next, field);
     } else next = bindEquipmentCopy(next, field, copy);
@@ -81,19 +88,19 @@ export function migrateDurableEquipment(economy, collection) {
       continue;
     }
       let copy = nextEconomy.durableItems[next[field.instance]];
-      if (!copy && legacy) copy = (copiesByItem.get(next[field.item]) || []).find(entry => !reserved.has(entry.instanceId));
-      if (!copy || copy.itemId !== next[field.item] || reserved.has(copy.instanceId)) next = clearEquipmentSlot(next, field);
+      if (!copy && legacy) copy = (copiesByItem.get(next[field.item]) || []).find(entry => entry.durability > 0 && !reserved.has(entry.instanceId));
+      if (!copy || !(copy.durability > 0) || copy.itemId !== next[field.item] || reserved.has(copy.instanceId)) next = clearEquipmentSlot(next, field);
       else { reserved.add(copy.instanceId); next = bindEquipmentCopy(next, field, copy); }
     }
     return next;
   });
-  return { economy: { ...nextEconomy, durableEquipmentVersion: DURABLE_EQUIPMENT_VERSION }, collection: nextCollection };
+  return { economy: { ...nextEconomy, durableEquipmentVersion: DURABLE_EQUIPMENT_VERSION, durableRepairVersion: DURABLE_REPAIR_VERSION }, collection: nextCollection };
 }
 
 export function getEquippedDurableInstances(team = []) {
   return team.flatMap(pokemon => EQUIPMENT_FIELDS.flatMap(field => {
     const copy = pokemon.equipmentDurability?.[field.slot];
-    return isDurableItem(pokemon[field.item]) && copy?.instanceId === pokemon[field.instance] && copy.itemId === pokemon[field.item] && copy.durability > 0
+    return isDurableItem(pokemon[field.item]) && copy && copy.instanceId === pokemon[field.instance] && copy.itemId === pokemon[field.item] && copy.durability > 0
       ? [{ ...copy, pokemonId: pokemon.instanceId || pokemon.id, slot: field.slot }] : [];
   }));
 }

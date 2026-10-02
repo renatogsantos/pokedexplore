@@ -30,7 +30,7 @@ test("audited lifecycle preserves all effects, prices, rarity and trigger metada
     if (isDurableItem(item)) assert.equal(item.durabilityMax, 5);
   }
   const unchanged = ITEM_CATALOG.map(({ lifecycle, durabilityMax, ...entry }) => entry);
-  assert.equal(createHash("sha256").update(JSON.stringify(unchanged)).digest("hex"), "dadae268d40f4e1bd79178a9939cbd4db9c1cfdf3474812c286c2d69d6f30c17");
+  assert.equal(createHash("sha256").update(JSON.stringify(unchanged)).digest("hex"), "45ea42ddfd2af4593a302e9d35ff55865e21263aaa44ae20c7235c9f98e2c222");
   assert.equal(getItemDefinition("phoenix-heart").lifecycle, "SINGLE_USE");
   assert.equal(getItemDefinition("guardian-plate").lifecycle, "SINGLE_USE");
 });

@@ -1241,6 +1241,8 @@ function BattleEnvironment({ background }) {
   );
 }
 
+import { traceBattleStart } from "@/lib/battle/startTrace";
+
 export default function BattleArena({
   state,
   role,
@@ -1255,6 +1257,11 @@ export default function BattleArena({
   badgeContext = null,
   championBonusEligible = false,
 }) {
+  useEffect(() => {
+    traceBattleStart("15_BATTLE_ARENA_MOUNT", { mode, matchId: state.matchId, playerId: state[role]?.id });
+    traceBattleStart("16_FIRST_RENDER", { matchId: state.matchId });
+  }, [state.matchId]);
+  useEffect(() => { if (state.status === "playing") traceBattleStart("17_BATTLE_READY", { matchId: state.matchId, revision: state.revision }); }, [state.matchId, state.status]);
   const [actionMode, setActionMode] = useState("moves");
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState(null);
