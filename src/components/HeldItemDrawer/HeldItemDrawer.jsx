@@ -1,7 +1,7 @@
 "use client";
 
 import { X } from "@phosphor-icons/react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ItemDetailsModal from "@/components/ItemDetailsModal/ItemDetailsModal";
 import ItemSprite from "@/components/ItemSprite/ItemSprite";
 import { webStore } from "@/helpers/webStore";
@@ -24,6 +24,15 @@ export default function HeldItemDrawer({ pokemon, economy, collection, slot = EQ
   const reservationIndex = useMemo(() => buildEquipmentReservationIndex(collection), [collection]);
   const itemStates = useMemo(() => getEquipmentItemStates({ economy, collection, pokemon, slot, reservationIndex }), [economy, collection, pokemon, slot, reservationIndex]);
   const selected = detail ? itemStates.find((entry) => entry.selectionId === detail) : null;
+  useEffect(() => {
+    if (!open || process.env.NODE_ENV === "production") return;
+    console.debug("[equipment-selector]", itemStates.flatMap(state => (state.instances || []).map(copy => ({
+      itemId: state.item.id, instanceId: copy.instanceId, durability: copy.durability, maxDurability: copy.maxDurability,
+      equippedPokemonId: collection.find(entry => entry.strategicItemInstanceId === copy.instanceId || entry.elementalRelicInstanceId === copy.instanceId)?.id || null,
+      slot, source: "economy.durableItems"
+    }))));
+  }, [open, itemStates, collection, slot]);
+
 
   if (!open) return null;
   if (openedAt.current) {
@@ -66,6 +75,12 @@ export default function HeldItemDrawer({ pokemon, economy, collection, slot = EQ
       onEquipped(result.pokemon, "Equipamento atualizado.", result);
       setDetail(null);
       measure(itemId ? (slot === EQUIPMENT_SLOT.ELEMENTAL_RELIC ? "EQUIP_RELIC" : "EQUIP_STRATEGIC") : "UNEQUIP", startedAt, { persisted: true });
+    } catch {
+      if (operationId === operation.current) {
+        const previousPokemon = previousCollection.find(entry => String(entry.id) === String(pokemon.id));
+        if (previousPokemon) onEquipped(previousPokemon, "", { economy, collection: previousCollection, rollback: true });
+        setError("Não foi possível salvar o equipamento. Tente novamente.");
+      }
     } finally {
       if (operationId === operation.current) setPendingItemId(null);
     }
@@ -79,13 +94,13 @@ export default function HeldItemDrawer({ pokemon, economy, collection, slot = EQ
       <div className={styles.grid}>{itemStates.map((state) => {
         const { item, equippedOnCurrent: equipped } = state;
         const unavailable = !equipped && state.available === 0;
-        const pending = pendingItemId === state.selectionId || (pendingItemId === "__unequip__" && equipped);
+        const pending = pendingItemId === (state.copy?.instanceId || state.selectionId) || (pendingItemId === "__unequip__" && equipped);
         return <article key={state.selectionId} className={`${styles.card} ${equipped ? styles.selected : ""} ${unavailable ? styles.empty : ""}`} role="button" tabIndex={0} onClick={() => setDetail(state.selectionId)} onKeyDown={(event) => { if (event.key === "Enter") setDetail(state.selectionId); }}>
-          <ItemSprite item={item.id} alt="" /><strong>{item.name}</strong><small>{state.copy ? `Durabilidade ${state.copy.durability}/${state.copy.maxDurability}` : `×${equipped ? state.owned : state.available}`}</small>{state.copy?.durability === 1 && <em>ÚLTIMA BATALHA</em>}{equipped && <em>✓ EQUIPADA</em>}
+          <span className={styles.quantity} aria-label={`${state.owned} cópias possuídas`}>×{state.owned}</span><ItemSprite item={item.id} alt="" /><strong>{item.name}</strong><small>{state.copy ? `${equipped ? "◆" : "Próximo:"} ${state.copy.durability}/${state.copy.maxDurability}` : `${state.available} disponíveis`}</small>{state.copy?.durability === 1 && <em>ÚLTIMA BATALHA</em>}{equipped && <em>✓ EQUIPADA</em>}
           <button type="button" disabled={Boolean(pendingItemId) || unavailable} onClick={(event) => { event.stopPropagation(); void equip(equipped ? null : item.id, equipped ? null : state.copy?.instanceId); }}>{pending ? "EQUIPANDO..." : equipped ? "DESEQUIPAR" : unavailable ? "×0" : "EQUIPAR"}</button>
         </article>;
       })}</div>
-      {selected && <ItemDetailsModal item={selected.item} instance={selected.copy} quantity={selected.owned} available={selected.available} actionLabel={selected.equippedOnCurrent ? "DESEQUIPAR" : "EQUIPAR"} actionDisabled={Boolean(pendingItemId) || (!selected.available && !selected.equippedOnCurrent)} onAction={() => void equip(selected.equippedOnCurrent ? null : selected.item.id, selected.equippedOnCurrent ? null : selected.copy?.instanceId)} onClose={() => setDetail(null)} />}
+      {selected && <ItemDetailsModal item={selected.item} instance={selected.copy} quantity={selected.owned} available={selected.available} equipped={selected.equipped} actionLabel={selected.equippedOnCurrent ? "DESEQUIPAR" : "EQUIPAR"} actionDisabled={Boolean(pendingItemId) || (!selected.available && !selected.equippedOnCurrent)} onAction={() => void equip(selected.equippedOnCurrent ? null : selected.item.id, selected.equippedOnCurrent ? null : selected.copy?.instanceId)} onClose={() => setDetail(null)} />}
     </aside>
   </div>;
 }

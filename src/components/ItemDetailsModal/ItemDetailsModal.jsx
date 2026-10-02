@@ -19,6 +19,7 @@ export default function ItemDetailsModal({
   instance,
   quantity = 0,
   available,
+  equipped,
   actionLabel,
   actionDisabled = false,
   onAction,
@@ -39,6 +40,7 @@ export default function ItemDetailsModal({
         <span className={styles.classifications}>{classifications}</span>
         <h2 id="item-details-title">{item.name}</h2>
         <small className={styles.stock}>Possui: {quantity}{available != null ? ` · Disponível: ${available}` : ""}</small>
+        {equipped != null && <DetailRow label="EQUIPADOS" value={`×${equipped}`} />}
         {Number.isFinite(Number(item.price)) && <strong className={styles.price}><img src="/coin.png" alt="" aria-hidden="true" /> {item.price}</strong>}
         <DetailRow label="EFEITO" value={presentation?.effectLabel || item.description || item.shortDescription} />
         <DetailRow label="ATIVAÇÃO" value={presentation?.triggerLabel || (isTm ? "Ensina este golpe permanentemente à sua coleção." : null)} />

@@ -12,7 +12,8 @@
     "lint": "next lint",
     "test:battle": "node --test src/lib/economy/durableEquipment.test.mjs src/lib/battle/itemFeedback.test.mjs src/lib/battle/pvpStart.test.mjs src/lib/battle/pvpConnection.test.mjs src/lib/battle/realtime.test.mjs src/lib/battle/protocol.test.mjs src/lib/battle/engine.test.mjs src/lib/battle/itemConsumption.test.mjs src/lib/battle/rewards.test.mjs src/lib/battle/cpu.test.mjs src/lib/battle/wager.test.mjs src/lib/battle/selectionTimer.test.mjs src/lib/battle/sound.test.mjs src/lib/badges/rules.test.mjs src/lib/badges/cancellation.test.mjs src/lib/journey/index.test.mjs src/lib/pokemon/progression.test.mjs src/lib/pokemon/sprites.test.mjs src/lib/profile/avatars.test.mjs src/lib/profile/progression.test.mjs src/lib/economy/index.test.mjs src/lib/economy/heldItems.test.mjs src/lib/easter-egg/pokemonSequence.test.mjs src/lib/tournament/snapshot.test.mjs src/lib/tournament/rewards.test.mjs src/lib/tournament/match.test.mjs src/lib/tournament/presentation.test.mjs src/lib/tournament/cpu.test.mjs src/lib/tournament/service.test.mjs",
     "balance:battle": "node src/lib/battle/balanceReport.mjs",
-    "test:gameplay-audit": "node --experimental-loader ./scripts/test-alias-loader.mjs --test src/lib/battle/startAudit.test.mjs"
+    "test:gameplay-audit": "node --experimental-loader ./scripts/test-alias-loader.mjs --test src/lib/battle/startAudit.test.mjs",
+    "test:equipment": "node --experimental-loader ./scripts/test-alias-loader.mjs --test src/lib/economy/equipmentGrouping.test.mjs"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.0.10",

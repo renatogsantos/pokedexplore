@@ -96,26 +96,39 @@ export function getEquipmentInventoryState({ economy, collection, pokemonId, pok
   return { ...stock, equippedOnCurrent, reservedByOthers, available, state: equippedOnCurrent ? "CURRENTLY_EQUIPPED" : stock.owned === 0 ? "NOT_OWNED" : available > 0 ? "AVAILABLE" : "ALL_RESERVED" };
 }
 
+// The dictionary key is the canonical instance identity, as in normalizeDurableInventory.
+// This view never combines the compatibility quantity aggregate with physical copies.
+export function getUsableEquipmentCopies(economy) {
+  return Object.entries(economy?.durableItems || {}).flatMap(([instanceId, copy]) =>
+    copy && isDurableItem(copy.itemId) && copy.durability > 0
+      ? [{ ...copy, instanceId }] : []);
+}
+const compareEquipmentCopies = (a, b) => a.durability - b.durability || (a.instanceId < b.instanceId ? -1 : a.instanceId > b.instanceId ? 1 : 0);
+
 export function getEquipmentItemStates({ economy, collection, pokemon, slot, reservationIndex = buildEquipmentReservationIndex(collection) }) {
   const reserved = new Map();
-  for (const entry of collection || []) for (const field of EQUIPMENT_FIELDS) if (entry[field.instance]) reserved.set(entry[field.instance], String(entry.id));
+  for (const entry of collection || []) for (const field of EQUIPMENT_FIELDS) {
+    if (entry[field.instance]) reserved.set(entry[field.instance], { pokemonId: String(entry.id), slot: field.slot });
+  }
   const byItem = new Map();
-  for (const copy of Object.values(economy?.durableItems || {})) {
-    if (copy.durability <= 0) continue;
+  for (const copy of getUsableEquipmentCopies(economy)) {
     if (!byItem.has(copy.itemId)) byItem.set(copy.itemId, []);
     byItem.get(copy.itemId).push(copy);
   }
-  return getEquipableItemsForSlot({ pokemon, slot }).flatMap(item => {
-    const state = { item, ...getEquipmentInventoryState({ economy, collection, pokemon, itemId: item.id, reservationIndex }) };
-    if (!isDurableItem(item)) return [{ ...state, selectionId: item.id }];
-    const copies = byItem.get(item.id) || [];
-    if (!copies.length) return [{ ...state, selectionId: item.id, available: 0, equippedOnCurrent: false }];
-    return copies.map(copy => {
-      const owner = reserved.get(copy.instanceId);
-      const equippedOnCurrent = owner === String(pokemon.id);
-      return { ...state, copy, selectionId: copy.instanceId, equippedOnCurrent, available: owner ? 0 : 1 };
-    }).sort((a, b) => Number(b.equippedOnCurrent) - Number(a.equippedOnCurrent) || a.copy.durability - b.copy.durability || a.copy.instanceId.localeCompare(b.copy.instanceId));
-  });
+  const field = EQUIPMENT_FIELDS.find(entry => entry.slot === slot);
+  return [...new Map(getEquipableItemsForSlot({ pokemon, slot }).map(item => [item.id, item])).values()].map(item => {
+    const state = { item, ...getEquipmentInventoryState({ economy, collection, pokemon, itemId: item.id, reservationIndex }), selectionId: item.id };
+    if (!isDurableItem(item)) return state;
+    const instances = byItem.get(item.id) || [];
+    const availableInstances = instances.filter(copy => !reserved.has(copy.instanceId)).sort(compareEquipmentCopies);
+    const equippedInstances = instances.filter(copy => reserved.has(copy.instanceId));
+    const currentCopy = instances.find(copy => copy.instanceId === pokemon?.[field?.instance] && reserved.get(copy.instanceId)?.pokemonId === String(pokemon?.id) && reserved.get(copy.instanceId)?.slot === slot);
+    return { ...state, instances, availableInstances, equippedInstances,
+      owned: instances.length, available: availableInstances.length, equipped: equippedInstances.length,
+      reservedByOthers: equippedInstances.length - Number(Boolean(currentCopy)),
+      equippedOnCurrent: Boolean(currentCopy), copy: currentCopy || availableInstances[0] || null,
+      state: currentCopy ? "CURRENTLY_EQUIPPED" : !instances.length ? "NOT_OWNED" : availableInstances.length ? "AVAILABLE" : "ALL_RESERVED" };
+  }).filter(state => slot !== EQUIPMENT_SLOT.ELEMENTAL_RELIC || state.owned > 0);
 }
 
 export function validateHeldItemAssignments({ economy, collection }) {
@@ -156,7 +169,7 @@ export function planHeldItemChange({ pokemonId, requestedItem, economy, collecti
   if (isDurableItem(requestedDefinition) && economy.durableEquipmentVersion) {
     const requestedId = typeof requestedItem === "object" ? requestedItem.instanceId : heldItem === previousHeldItem ? pokemon[copyField.instance] : null;
     const reserved = new Set(normalizedCollection.filter(entry => String(entry.id) !== String(pokemon.id)).flatMap(entry => EQUIPMENT_FIELDS.map(field => entry[field.instance]).filter(Boolean)));
-    const copy = economy.durableItems?.[requestedId] || (!requestedId ? Object.values(economy.durableItems || {}).filter(entry => entry.itemId === heldItem && entry.durability > 0 && !reserved.has(entry.instanceId)).sort((a,b) => a.durability - b.durability)[0] : null);
+    const copy = getUsableEquipmentCopies(economy).find(entry => entry.instanceId === requestedId) || (!requestedId ? getUsableEquipmentCopies(economy).filter(entry => entry.itemId === heldItem && !reserved.has(entry.instanceId)).sort(compareEquipmentCopies)[0] : null);
     if (!copy || copy.itemId !== heldItem || copy.durability <= 0 || reserved.has(copy.instanceId)) return { ok: false, reason: "not-available", pokemon };
     const nextPokemon = bindEquipmentCopy({ ...pokemon, [field]: heldItem, heldItem: equipmentSlot === EQUIPMENT_SLOT.STRATEGIC ? heldItem : pokemon.strategicItem }, copyField, copy);
     return { ok: true, pokemon: nextPokemon, economy, equipmentSlot, heldItem, previousHeldItem, collection: normalizedCollection.map(entry => String(entry.id) === String(pokemon.id) ? nextPokemon : entry) };
