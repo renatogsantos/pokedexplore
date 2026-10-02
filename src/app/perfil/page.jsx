@@ -24,6 +24,7 @@ import useTrainerProfile from "@/hooks/useTrainerProfile";
 import { BADGE_CONFIG } from "@/lib/badges/config";
 import { formatCoins } from "@/lib/economy";
 import { PLAYER_AVATARS } from "@/lib/profile/avatars";
+import { POKEMON_MASTER_TITLE } from "@/lib/profile/pokemonMaster";
 import "./style.scss";
 
 const modeLabels = {
@@ -186,6 +187,12 @@ export default function TrainerProfilePage() {
                 />
                 <div className="trainer-card__identity">
                   <h1 id="trainer-name">{local.identity.displayName}</h1>
+                  {competitive?.isPokemonMaster && !competitiveLoading && !competitiveError && (
+                    <span className="trainer-master-title" role="status">
+                      <Crown size={20} weight="fill" aria-hidden="true" />
+                      {POKEMON_MASTER_TITLE}
+                    </span>
+                  )}
                   <p>Treinador Nv. {progression.level}</p>
                   <span className="trainer-card__id">ID {local.trainerId}</span>
                   <button

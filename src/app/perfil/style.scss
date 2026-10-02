@@ -58,3 +58,4 @@
   filter: grayscale(1) saturate(0) brightness(.42);
   opacity: .62;
 }
+.trainer-master-title { display: inline-flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px; max-width: 100%; margin-top: 10px; padding: 8px 12px; border: 1px solid var(--profile-gold, #ffcb05); border-radius: 12px; color: var(--profile-gold, #ffcb05); background: #ffcb0514; font-size: .8rem; font-weight: 900; line-height: 1.5; }

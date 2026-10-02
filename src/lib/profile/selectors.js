@@ -2,6 +2,7 @@ import { BADGE_CONFIG } from "@/lib/badges/config";
 import { getPokemonLevel, MAX_POKEMON_LEVEL } from "@/lib/pokemon/progression";
 import { getPokemonRarity, POKEMON_RARITY } from "@/lib/pokemon/rarity";
 import { getTrainerProgress, normalizePlayerStats } from "./progression";
+import { hasPokemonMasterTitle } from "./pokemonMaster";
 
 export function shortenTrainerId(playerId) {
   const compact = String(playerId || "").replace(/[^a-z0-9]/gi, "").toUpperCase();
@@ -41,6 +42,7 @@ export function selectBadgeProfile(remote, playerId) {
   const conqueredBadges = slots.filter((slot) => slot.conquered);
   return {
     slots,
+    isPokemonMaster: hasPokemonMasterTitle(playerId, remote?.badges),
     currentBadges,
     conqueredBadges,
     currentCount: currentBadges.length,
