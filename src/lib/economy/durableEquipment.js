@@ -12,6 +12,7 @@ export function normalizeDurableInventory(economy = {}) {
   const durableItems = {};
   let durableSerial = Number.isFinite(Number(economy.durableSerial)) ? Math.max(0, Math.floor(Number(economy.durableSerial))) : 0;
   for (const [id, raw] of Object.entries(economy.durableItems || {})) {
+    if (!raw || typeof raw !== "object") continue;
     const definition = getItemDefinition(raw.itemId);
     if (!isDurableItem(definition)) continue;
     const maxDurability = definition.durabilityMax;

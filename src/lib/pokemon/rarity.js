@@ -14,11 +14,13 @@ export function getPokemonRarityPresentation(pokemon) {
 export async function enrichPokemonRarity(pokemon) {
   if (!pokemon || hasResolvedPokemonRarity(pokemon)) return pokemon;
   const key = pokemon.id || pokemon.name || pokemon.species?.name;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
   try {
     let rarity = cache.get(key);
     if (!rarity) {
       const speciesUrl = pokemon.species?.url || `https://pokeapi.co/api/v2/pokemon-species/${pokemon.id || pokemon.name}`;
-      const response = await fetch(speciesUrl);
+      const response = await fetch(speciesUrl, { signal: controller.signal });
       if (!response.ok) throw new Error("Species unavailable");
       const species = await response.json();
       rarity = species.is_mythical ? POKEMON_RARITY.MYTHICAL : species.is_legendary ? POKEMON_RARITY.LEGENDARY : POKEMON_RARITY.NORMAL;
@@ -26,6 +28,8 @@ export async function enrichPokemonRarity(pokemon) {
     }
     return { ...pokemon, rarity };
   } catch {
-    return { ...pokemon, rarity: POKEMON_RARITY.NORMAL };
-  }
+    // Unavailable metadata is not proof of NORMAL rarity. Leave unresolved so
+    // a later read can repair it rather than permanently misclassifying a save.
+    return pokemon;
+  } finally { clearTimeout(timeout); }
 }

@@ -53,6 +53,8 @@ function openDatabase() {
       return;
     }
     const request = window.indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
+    let rejected = false;
+    const timeout = setTimeout(() => { rejected = true; reject(new Error("Não foi possível abrir seu save. Feche outras abas do jogo e tente novamente.")); }, 10000);
     request.onupgradeneeded = () => {
       const database = request.result;
       if (!database.objectStoreNames.contains(POKEDEX_STORE)) {
@@ -65,8 +67,9 @@ function openDatabase() {
         database.createObjectStore(CACHE_STORE, { keyPath: "key" });
       }
     };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+    request.onsuccess = () => { clearTimeout(timeout); if (rejected) { request.result.close(); return; } request.result.onversionchange = () => request.result.close(); resolve(request.result); };
+    request.onerror = () => { clearTimeout(timeout); reject(request.error); };
+    request.onblocked = () => { rejected = true; clearTimeout(timeout); reject(new Error("Seu save está aberto em outra versão do jogo. Feche a outra aba e tente novamente.")); };
   });
 }
 
@@ -126,27 +129,33 @@ export const webStore = {
       }));
     } catch (error) { console.error("Erro ao recuperar nome do treinador:", error); return "Treinador"; }
   },
-  async getLocalPlayerProfile() {
+  async getLocalPlayerProfile({ strict = false } = {}) {
     try {
       return await withDatabase((database) => new Promise((resolve, reject) => {
-        const store = database.transaction(PLAYER_STORE, "readonly").objectStore(PLAYER_STORE);
+        // Read/create identity in one serialized transaction. Concurrent mounts
+        // cannot each read an empty profile and persist different player IDs.
+        const transaction = database.transaction(PLAYER_STORE, "readwrite");
+        const store = transaction.objectStore(PLAYER_STORE);
         const request = store.get(TRAINER_PROFILE_KEY);
         request.onsuccess = () => {
           const saved = request.result || {};
-          resolve({
+          const profile = {
             playerId: saved.playerId || `player_${crypto.randomUUID()}`,
             displayName: String(saved.name || "").trim() || "Treinador",
             avatarId: normalizePlayerAvatarId(saved.avatarId),
             createdAt: saved.createdAt || Date.now(),
-          });
+          };
+          store.put({ ...saved, key: TRAINER_PROFILE_KEY, playerId: profile.playerId, name: profile.displayName, avatarId: profile.avatarId, createdAt: profile.createdAt });
+          transaction.result = profile;
         };
         request.onerror = () => reject(request.error);
-      })).then(async (profile) => {
-        await this.setLocalPlayerProfile(profile);
-        return profile;
-      });
+        transaction.oncomplete = () => resolve(transaction.result);
+        transaction.onerror = () => reject(transaction.error);
+        transaction.onabort = () => reject(transaction.error);
+      }));
     } catch (error) {
       console.error("Erro ao recuperar perfil local:", error);
+      if (strict) throw error;
       return { playerId: `player_${crypto.randomUUID()}`, displayName: "Treinador", avatarId: DEFAULT_PLAYER_AVATAR_ID, createdAt: Date.now() };
     }
   },
@@ -285,7 +294,7 @@ export const webStore = {
   async setCachedResource(key, value) {
     try { return await withDatabase((database) => new Promise((resolve, reject) => { const transaction = database.transaction(CACHE_STORE, "readwrite"); transaction.objectStore(CACHE_STORE).put({ key, value, cachedAt: Date.now() }); transaction.oncomplete = () => resolve(true); transaction.onerror = () => reject(transaction.error); })); } catch { return false; }
   },
-  async getEconomy() {
+  async getEconomy({ strict = false } = {}) {
     try {
       return await withDatabase((database) => new Promise((resolve, reject) => {
         const transaction = database.transaction(PLAYER_STORE, "readwrite");
@@ -299,7 +308,7 @@ export const webStore = {
         transaction.oncomplete = () => resolve(transaction.result);
         transaction.onerror = () => reject(transaction.error);
       }));
-    } catch (error) { console.error("Erro ao recuperar moedas:", error); return { ...EMPTY_ECONOMY }; }
+    } catch (error) { console.error("Erro ao recuperar moedas:", error); if (strict) throw error; return { ...EMPTY_ECONOMY }; }
   },
   async rewardVictory(matchId, amount, itemId = null) {
     if (!matchId) return { rewarded: false, coins: 0 };
@@ -378,16 +387,16 @@ export const webStore = {
       return true;
     } catch (error) { console.error("Erro ao salvar dados no IndexedDB:", error); return false; }
   },
-  async getData(_key) {
+  async getData(_key, { enrichRarity = true, strict = false } = {}) {
     try {
       const records = await withDatabase((database) => new Promise((resolve, reject) => {
         const request = database.transaction(POKEDEX_STORE, "readonly").objectStore(POKEDEX_STORE).getAll();
         request.onsuccess = () => resolve(request.result || []);
         request.onerror = () => reject(request.error);
       }));
-      const equipmentEconomy = await this.getEconomy();
+      const equipmentEconomy = await this.getEconomy({ strict });
       const normalized = records.map(normalizeCapturedPokemon).map(pokemon => resolveDurableEquipment(pokemon, equipmentEconomy));
-      const collection = await Promise.all(normalized.map((pokemon) => hasResolvedPokemonRarity(pokemon) ? pokemon : enrichPokemonRarity(pokemon)));
+      const collection = enrichRarity ? await Promise.all(normalized.map((pokemon) => hasResolvedPokemonRarity(pokemon) ? pokemon : enrichPokemonRarity(pokemon))) : normalized;
       const needsMigration = records.some((record, index) =>
         record.saveVersion !== SAVE_VERSION ||
         record.abilityId !== collection[index].abilityId ||
@@ -408,7 +417,7 @@ export const webStore = {
         }));
       }
       return collection;
-    } catch (error) { console.error("Erro ao recuperar dados do IndexedDB:", error); return []; }
+    } catch (error) { console.error("Erro ao recuperar dados do IndexedDB:", error); if (strict) throw error; return []; }
   },
   async capturePokemon(pokemon) {
     try { return await withDatabase((database) => new Promise((resolve, reject) => {

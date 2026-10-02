@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-const isDebugEnabled = () => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("debugBattle") === "1";
+const isDebugEnabled = () => process.env.NODE_ENV !== "production" && typeof window !== "undefined" && new URLSearchParams(window.location.search).get("debugBattle") === "1";
 const describeError = (value) => {
   const error = value instanceof Error ? value : new Error(String(value || "Erro desconhecido"));
   return { name: error.name || "Error", message: error.message || "Erro sem mensagem", stack: error.stack || "Stack indisponível" };
@@ -25,9 +25,11 @@ export default function BattleDebugPanel({ context = {} }) {
   const safeContext = {
     route: typeof window === "undefined" ? "/batalha" : window.location.pathname,
     battleMode: context.mode || null,
+    lifecycle: context.lifecycle || null,
     tournamentId: context.tournamentId || null,
     matchId: context.matchId || null,
     playerPresent: Boolean(context.playerId),
+    playerId: context.playerId || null,
     battlePhase: context.battlePhase || null,
     teamSize: Number(context.teamSize || 0),
     opponentPresent: Boolean(context.opponentPresent),
@@ -43,6 +45,8 @@ export default function BattleDebugPanel({ context = {} }) {
       matchStatus: context.matchStatus || null,
       connectionTimeline: (context.pvpDiagnostics || []).map((entry) => ({
         event: entry.event,
+        type: entry.type || null,
+        playerId: entry.playerId || null,
         timestamp: entry.timestamp,
         instanceId: entry.instanceId,
         roomCode: entry.roomCode,

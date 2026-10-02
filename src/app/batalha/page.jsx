@@ -28,12 +28,13 @@ import { createBattleState, resolveAction } from "@/lib/battle/engine";
 import { createCpuInventory, createCpuVictoryReward, decideCpuIntent, generateCpuTeam, getCpuDifficulty, getCpuIntentCandidates } from "@/lib/battle/cpu";
 import { canStartWagerBattle, getWagerPot, normalizeWagerAmount } from "@/lib/battle/wager";
 import { completeSelection, createSelectionTiming, getReadySelection, getSelectionTimerState } from "@/lib/battle/selectionTimer";
-import { getLogicalPresencePlayers, getPvpStartSnapshot } from "@/lib/battle/pvpStart";
+import { getLogicalPresencePlayers, getPvpStartSnapshot, validatePvpTeam } from "@/lib/battle/pvpStart";
 import {
   BATTLE_EVENTS,
   createBattleRoom,
   hasRealtimeConfig,
 } from "@/lib/battle/realtime";
+import { getMatchLifecycle, withPreparationDeadline } from "@/lib/battle/lifecycle";
 import { PVP_CONNECTION, getPvpConnectionMessage } from "@/lib/battle/pvpConnection";
 import { canApplyBattleSnapshot, canResolveRemoteAction } from "@/lib/battle/protocol";
 import { appendBattleAudioEvents, playBattleSound } from "@/lib/battle/sound";
@@ -112,6 +113,11 @@ export default function BattlePage() {
   const processedTournamentResults = useRef(new Set());
   const processedCpuMatches = useRef(new Set());
   const [preparingTeam, setPreparingTeam] = useState(false);
+  const preparationLock = useRef(false);
+  const preparationGeneration = useRef(0);
+  const [readySnapshot, setReadySnapshot] = useState(null);
+  const [preparationError, setPreparationError] = useState(null);
+  const [localDataStatus, setLocalDataStatus] = useState("loading");
   const [connection, setConnection] = useState(PVP_CONNECTION.IDLE);
   const [pvpDiagnostics, setPvpDiagnostics] = useState([]);
   const [profile, setProfile] = useState(null);
@@ -150,7 +156,7 @@ export default function BattlePage() {
 
   const loadArenaBackgrounds = useCallback(async () => {
     try {
-      const response = await fetch("/api/arena-backgrounds", { cache: "no-store" });
+      const response = await fetch("/api/arena-backgrounds", { cache: "no-store", signal: AbortSignal.timeout(5000) });
       const data = response.ok ? await response.json() : { backgrounds: [] };
       if (Array.isArray(data.backgrounds)) arenaBackgrounds.current = data.backgrounds;
     } catch {}
@@ -162,15 +168,23 @@ export default function BattlePage() {
   }, [loadArenaBackgrounds]);
 
   useEffect(() => {
-    webStore.getData("Pokedex").then(setCollection);
-    webStore.getEconomy()
+    let active = true;
+    void withPreparationDeadline(() => Promise.all([webStore.getData("Pokedex", { enrichRarity: false, strict: true }), webStore.getLocalPlayerProfile({ strict: true })])).then(([items, savedProfile]) => {
+      if (!active) return;
+      setCollection(items); setProfile(savedProfile); setName(savedProfile.displayName); setLocalDataStatus("ready");
+      void getPlayerActiveTournament(savedProfile.playerId).then(value => { if (active) setTournament(value); }).catch(() => {});
+    }).catch(error => { if (active) { setLocalDataStatus("error"); setNotice(error.message); } });
+    withPreparationDeadline(() => webStore.getEconomy({ strict: true }))
       .then((economy) => {
         setInventory(economy.inventory || {});
         setInventoryStatus("ready");
       })
       .catch(() => setInventoryStatus("error"));
-    webStore.getLocalPlayerProfile().then((savedProfile) => { setProfile(savedProfile); setName((currentName) => currentName === "Treinador" ? savedProfile.displayName : currentName); void getPlayerActiveTournament(savedProfile.playerId).then(setTournament).catch(() => {}); });
+
     return () => {
+      active = false;
+      connectionGeneration.current += 1;
+      preparationGeneration.current += 1;
       realtime.current?.leave();
       clearTimeout(cpuTimer.current);
       clearTimeout(introTimer.current);
@@ -317,6 +331,7 @@ export default function BattlePage() {
   const startState = useCallback(
     async (hostTeam, guestTeam, host, guest, cpuContext = null, startAlreadyLocked = false) => {
       if (isStartingBattle.current && !startAlreadyLocked) return;
+      const generation = preparationGeneration.current;
       const badgeConfig = getBadgeConfig(badgeChallenge?.badge?.code);
       if (badgeConfig) {
         const hostValidation = validateBadgeTeam(hostTeam, badgeConfig.type);
@@ -327,31 +342,40 @@ export default function BattlePage() {
             : `A equipe adversária não atende ao formato da ${badgeConfig.name}.`;
           setNotice(message);
           if (!guestValidation.valid) broadcast(BATTLE_EVENTS.BADGE_ERROR, { message });
-          return;
+          isStartingBattle.current = false;
+          throw new Error(message);
         }
+      }
+      const hostSnapshot = hostTeam.map(toBattlePokemon);
+      const guestSnapshot = guestTeam.map(toBattlePokemon);
+      if (!validatePvpTeam(hostSnapshot).valid || !validatePvpTeam(guestSnapshot).valid) {
+        isStartingBattle.current = false;
+        throw new Error("Não foi possível preparar a batalha: equipe inválida.");
       }
       isStartingBattle.current = true;
       void preloadBattlePokemonSprites([...hostTeam, ...guestTeam]);
       if (badgeChallenge?.challenge_kind === "PVP_TAKEOVER") {
         try {
-          const startedChallenge = await markBadgeChallengeStarted({ challengeId: badgeChallenge.id, playerId: profile?.playerId });
+          const startedChallenge = await withPreparationDeadline(() => markBadgeChallengeStarted({ challengeId: badgeChallenge.id, playerId: profile?.playerId }));
+          if (generation !== preparationGeneration.current) return;
           setBadgeChallenge((current) => ({ ...current, ...startedChallenge, badge: current?.badge || badgeChallenge.badge }));
         } catch (error) {
           isStartingBattle.current = false;
           setNotice(error.message);
           broadcast(BATTLE_EVENTS.BADGE_ERROR, { message: error.message });
-          return;
+          throw error;
         }
       }
-      const backgrounds = await loadArenaBackgrounds();
+      // Decorative network work cannot hold the initialization lock.
+      const backgrounds = arenaBackgrounds.current;
       // Persistent Bag stock is private IndexedDB data. Realtime state carries
       // only shared battle legality/results; each client overlays its own stock.
       // In particular, a host must never use its local inventory to validate a
       // guest action or depend on a guest inventory snapshot arriving in READY.
       const privateBagInventory = ["friend", "tournament", "badge-pvp"].includes(mode);
       const next = createBattleState(
-        { ...host, inventory: privateBagInventory ? {} : inventory, privateBag: privateBagInventory, team: hostTeam.map(toBattlePokemon) },
-        { ...guest, inventory: privateBagInventory ? {} : (guest.inventory || {}), privateBag: privateBagInventory, team: guestTeam.map(toBattlePokemon) },
+        { ...host, inventory: privateBagInventory ? {} : inventory, privateBag: privateBagInventory, team: hostSnapshot },
+        { ...guest, inventory: privateBagInventory ? {} : (guest.inventory || {}), privateBag: privateBagInventory, team: guestSnapshot },
       );
       next.matchId = makeMatchId();
       next.equipmentSnapshot = { host: getEquippedDurableInstances(next.host.team), guest: getEquippedDurableInstances(next.guest.team) };
@@ -368,6 +392,7 @@ export default function BattlePage() {
       if (backgrounds.length) next.arenaBackground = backgrounds[Math.floor(Math.random() * backgrounds.length)];
       next.status = "countdown";
       next.log = "3 · 2 · 1 · BATALHA!";
+      battleSnapshot.current = next;
       setBattle(next);
       setScreen("battle");
       broadcast(BATTLE_EVENTS.START, next);
@@ -379,6 +404,7 @@ export default function BattlePage() {
           performance: { ...next.performance, startedAt: Date.now() },
           log: `SUA VEZ, ${host.name.toUpperCase()}!`,
         }, { mode });
+        battleSnapshot.current = playing;
         setBattle(playing);
         broadcast(BATTLE_EVENTS.STATE, playing);
       }, 1650);
@@ -509,12 +535,12 @@ export default function BattlePage() {
     let cancelled = false;
     setTournamentCpuPreparing(true);
     setTournamentCpuError(null);
-    void prepareTournamentCpuOpponent({
+    void withPreparationDeadline(() => prepareTournamentCpuOpponent({
       match: tournamentMatch,
       matchKind: TOURNAMENT_MATCH_KIND.HUMAN_VS_CPU,
       generateTeam: () => generateCpuTeam({ difficulty: "hard", playerTeam: selected }),
       freezeTeam: (team) => getOrCreateTournamentCpuTeam(tournamentMatch.id, team),
-    }).then((result) => {
+    })).then((result) => {
       if (!cancelled) setTournamentCpuTeam(result.team);
     }).catch((error) => {
       if (!cancelled) {
@@ -576,18 +602,27 @@ export default function BattlePage() {
     (code, currentPlayer, currentRole, initialWager = null) => {
       const generation = connectionGeneration.current + 1;
       connectionGeneration.current = generation;
+      preparationGeneration.current += 1;
+      preparationLock.current = false; setPreparingTeam(false);
       lastPeerSession.current = null;
+      setPresence({}); setRemoteTeam(null); setOpponentReady(false);
+      setMyReady(false); setReadySnapshot(null);
       const acceptsCurrentSession = () => connectionGeneration.current === generation;
       try {
         realtime.current?.leave();
         setConnection(PVP_CONNECTION.CONNECTING);
         setPvpDiagnostics([]);
-        realtime.current = createBattleRoom(code, initialWager ? { ...currentPlayer, wager: initialWager } : currentPlayer, {
+        realtime.current = createBattleRoom(code, { ...currentPlayer, role: currentRole, ...(initialWager ? { wager: initialWager } : {}) }, {
+          onStateRequest: (peerId) => {
+            if (!acceptsCurrentSession() || currentRole !== "host") return;
+            const snapshot = battleSnapshot.current;
+            if (snapshot && snapshot.guest?.id === peerId) broadcast(BATTLE_EVENTS.STATE, snapshot);
+          },
           onPresence: (nextPresence) => {
             if (!acceptsCurrentSession()) return;
             setPresence(nextPresence);
             const players = getLogicalPresencePlayers(nextPresence);
-            const peer = players.find((item) => item.id !== currentPlayer.id);
+            const peer = players.find((item) => String(item.id) !== String(currentPlayer.id) && item.role !== currentRole);
             if (peer) {
               if (currentRole === "host" && peer.sessionId && lastPeerSession.current !== peer.sessionId && battleSnapshot.current)
                 broadcast(BATTLE_EVENTS.STATE, battleSnapshot.current);
@@ -596,11 +631,12 @@ export default function BattlePage() {
               if (peer.selectionTiming?.id) {
                 selectionTimingSnapshot.current = peer.selectionTiming;
                 setSelectionTiming(peer.selectionTiming);
-                if (currentRole === "guest") void realtime.current?.updatePresence({ selectionTiming: peer.selectionTiming }).catch(() => {});
+                // Timer is host-owned; reflecting every Presence sync creates a track loop.
               }
               const activeWager = wagerSnapshot.current;
               if (mode === "friend" && currentRole === "host" && (!activeWager || activeWager.status === "LOCKED")) beginFriendSelectionTiming();
               // Always update the team snapshot when peer publishes it
+              if (!Array.isArray(peer.team)) setRemoteTeam(null);
               if (Array.isArray(peer.team)) {
                 setRemoteTeam({ player: { id: peer.id, name: peer.name }, team: peer.team });
               }
@@ -631,12 +667,9 @@ export default function BattlePage() {
             if (!acceptsCurrentSession()) return;
             setPvpDiagnostics((current) => [...current, entry].slice(-30));
           },
-          onEvent: ({ type, payload }) => {
+          onEvent: ({ type, payload, senderPlayerId }) => {
             if (!acceptsCurrentSession()) return;
-            // TEAM broadcast: backward-compat team snapshot. Does NOT imply opponent pressed PRONTO.
-            if (type === BATTLE_EVENTS.TEAM && payload?.player?.id !== currentPlayer.id) {
-              setRemoteTeam(payload);
-            }
+            // Lobby team and READY are atomically reconstructed from Presence.
             if (type === BATTLE_EVENTS.WAGER_PROPOSAL && payload?.hostId !== currentPlayer.id) setWager(payload);
             if (type === BATTLE_EVENTS.WAGER_ACCEPT && currentRole === "host" && payload?.wager?.hostId === currentPlayer.id) {
               const proposed = payload.wager;
@@ -654,29 +687,14 @@ export default function BattlePage() {
             if (type === BATTLE_EVENTS.SELECTION_TIMER && payload?.id) {
               selectionTimingSnapshot.current = payload;
               setSelectionTiming(payload);
-              void realtime.current?.updatePresence({ selectionTiming: payload }).catch(() => {});
+              // Broadcast already updates local state; no Presence echo.
             }
-            // READY: explicit per-player readiness. This is the authoritative ready signal.
-            if (type === BATTLE_EVENTS.READY && payload?.playerId && payload.playerId !== currentPlayer.id) {
-              const isReady = payload.ready === true;
-              setOpponentReady(isReady);
-              if (isReady) {
-                if (Array.isArray(payload.team)) {
-                  setRemoteTeam((prev) =>
-                    prev
-                      ? { ...prev, team: payload.team }
-                      : { player: { id: payload.playerId, name: payload.playerName || "Adversário" }, team: payload.team }
-                  );
-                }
-                setNotice("ADVERSÁRIO PRONTO!");
-              } else {
-                setNotice("Adversário voltou a selecionar o time...");
-              }
-            }
+            // READY/TEAM broadcasts are informational; Presence owns lobby snapshots.
             if (type === BATTLE_EVENTS.START || type === BATTLE_EVENTS.STATE) {
-              if (currentRole !== "guest") return;
+              if (currentRole !== "guest" || senderPlayerId !== payload?.host?.id) return;
               setBattle((previous) => {
                 if (!canApplyBattleSnapshot(previous, payload, { localRole: currentRole, playerId: currentPlayer.id, retiredMatchIds: retiredMatchIds.current })) return previous;
+                battleSnapshot.current = payload;
                 persistBattleConsumables(payload, currentRole);
                 setScreen("battle");
                 return rewardFinishedBattle(previous, payload, currentRole);
@@ -684,9 +702,11 @@ export default function BattlePage() {
             }
             if (type === BATTLE_EVENTS.ACTION && currentRole === "host")
               setBattle((previous) => {
+                if (senderPlayerId !== previous?.guest?.id) return previous;
                 if (!canResolveRemoteAction(previous, payload)) return previous;
                 const next = appendBattleAudioEvents(previous, resolveAction(previous, "guest", payload), { mode });
                 if (next === previous) return previous;
+                battleSnapshot.current = next;
                 persistBattleConsumables(next, currentRole);
                 broadcast(BATTLE_EVENTS.STATE, next);
                 return rewardFinishedBattle(previous, next, currentRole);
@@ -694,6 +714,9 @@ export default function BattlePage() {
             if (type === BATTLE_EVENTS.BADGE_ERROR && payload?.message)
               setNotice(payload.message);
             if (type === BATTLE_EVENTS.REMATCH) {
+              isStartingBattle.current = false;
+              battleSnapshot.current = null;
+              setReadySnapshot(null);
               if (battleSnapshot.current?.matchId) retiredMatchIds.current.add(battleSnapshot.current.matchId);
               setWager(null);
               clearFriendSelectionTiming();
@@ -730,7 +753,7 @@ export default function BattlePage() {
     peerPresent: Boolean(player && getLogicalPresencePlayers(presence).some((entry) => entry.id !== player.id)),
     hostReady: myReady,
     guestReady: opponentReady,
-    hostTeam: selected,
+    hostTeam: readySnapshot,
     guestTeam: remoteTeam?.team,
     matchStatus: battle || isStartingBattle.current ? "STARTING" : "LOBBY",
   });
@@ -744,12 +767,14 @@ export default function BattlePage() {
     if (mode === "tournament" && tournamentMatch) {
       void markTournamentMatchPlaying(tournamentMatch.id).catch((error) => setNotice(error.message));
     }
-    void startState(selected, remoteTeam.team, player, remoteTeam.player, null, true).catch((error) => {
+    void startState(readySnapshot, remoteTeam.team, player, remoteTeam.player, null, true).catch((error) => {
       isStartingBattle.current = false;
+      setMyReady(false); setReadySnapshot(null);
+      void realtime.current?.updatePresence({ ready: false, team: null }).catch(() => {});
       setNotice(error?.message || "Não foi possível iniciar a batalha.");
       console.error("[Battle start error]", error);
     });
-  }, [mode, player, pvpStart.canStart, startState, tournamentMatch, wager]);
+  }, [mode, player, pvpStart.canStart, readySnapshot, remoteTeam, startState, tournamentMatch, wager]);
 
   useEffect(() => {
     if (mode !== "friend" || !selectionTiming?.id || myReady || battle || !player?.id) return undefined;
@@ -758,16 +783,23 @@ export default function BattlePage() {
       const sessionKey = `${selectionTiming.id}:${player.id}`;
       if (autoSelectionSessions.current.has(sessionKey)) return;
       autoSelectionSessions.current.add(sessionKey);
-      const currentCollection = await webStore.getData("Pokedex");
-      const resolvedTeam = completeSelection(currentCollection, selected);
-      if (resolvedTeam.length !== 3) {
-        setNotice("Você precisa ter pelo menos 3 Pokémon para entrar em uma batalha PvP.");
-        return;
+      const generation = connectionGeneration.current;
+      try {
+        const currentCollection = await withPreparationDeadline(() => webStore.getData("Pokedex", { enrichRarity: false, strict: true }));
+        if (generation !== connectionGeneration.current) return;
+        const resolvedTeam = completeSelection(currentCollection, selected);
+        if (resolvedTeam.length !== 3) {
+          setNotice("Você precisa ter pelo menos 3 Pokémon para entrar em uma batalha PvP.");
+          return;
+        }
+        setCollection(currentCollection);
+        setSelected(resolvedTeam);
+        setNotice("Tempo encerrado. Seu time foi confirmado automaticamente.");
+        await readyTeam(resolvedTeam, true);
+      } catch (error) {
+        autoSelectionSessions.current.delete(sessionKey);
+        if (generation === connectionGeneration.current) setNotice(error.message || "Não foi possível preparar a batalha. Confirme sua equipe novamente.");
       }
-      setCollection(currentCollection);
-      setSelected(resolvedTeam);
-      setNotice("Tempo encerrado. Seu time foi confirmado automaticamente.");
-      await readyTeam(resolvedTeam, true);
     };
     const delay = timerState.phase === "expired" ? 0 : Math.max(0, selectionTiming.urgencyDeadline - Date.now());
     const timeout = window.setTimeout(autoConfirm, delay);
@@ -809,10 +841,19 @@ export default function BattlePage() {
 
   function chooseMode(nextMode, difficulty = "medium") {
     isStartingBattle.current = false;
+    preparationGeneration.current += 1;
+    preparationLock.current = false; setPreparingTeam(false);
+    setPreparationError(null); setReadySnapshot(null);
+    realtime.current?.leave(); realtime.current = null;
+    connectionGeneration.current += 1;
+    clearTimeout(cpuTimer.current); clearTimeout(introTimer.current);
+    setRemoteTeam(null); setPresence({}); setWager(null); wagerSnapshot.current = null;
+    if (nextMode === "cpu") setRole("host");
     setMode(nextMode);
     setCpuDifficulty(difficulty);
     setSelected([]);
     setBattle(null);
+    battleSnapshot.current = null;
     setMyReady(false);
     setOpponentReady(false);
     clearFriendSelectionTiming();
@@ -829,129 +870,145 @@ export default function BattlePage() {
     );
   }
   async function readyTeam(teamToConfirm, automatic = false) {
-    if (preparingTeam || myReady) return;
-    await Promise.all([...equipmentOperations.current.values()]);
-    if (pendingEquipmentResult.current) {
-      const pending = pendingEquipmentResult.current;
-      await persistEquipmentWear(pending.state, pending.localRole);
+    if (preparationLock.current || myReady || isStartingBattle.current) return;
+    if (!profile?.playerId || localDataStatus !== "ready") { setNotice("Aguarde o carregamento do seu perfil e da coleção."); return; }
+    preparationLock.current = true;
+    const attempt = ++preparationGeneration.current;
+    const assertCurrent = () => { if (attempt !== preparationGeneration.current) throw new Error("Preparação cancelada."); };
+    setPreparingTeam(true); setPreparationError(null);
+    try {
+      await withPreparationDeadline(() => Promise.all([...equipmentOperations.current.values()]));
+      assertCurrent();
       if (pendingEquipmentResult.current) {
-        setNotice("Não foi possível salvar a durabilidade anterior. Tente confirmar a equipe novamente.");
+        const pending = pendingEquipmentResult.current;
+        await withPreparationDeadline(() => persistEquipmentWear(pending.state, pending.localRole));
+        assertCurrent();
+        if (pendingEquipmentResult.current) {
+          setNotice("Não foi possível salvar a durabilidade anterior. Tente confirmar a equipe novamente.");
+          return;
+        }
+      }
+      const requestedTeam = getReadySelection(teamToConfirm, selected);
+      let currentCollection;
+      let currentEconomy;
+      try {
+        [currentCollection, currentEconomy] = await withPreparationDeadline(() => Promise.all([webStore.getData("Pokedex", { enrichRarity: String(mode).startsWith("badge"), strict: true }), webStore.getEconomy({ strict: true })]));
+        assertCurrent();
+      } catch {
+        throw new Error("Não foi possível carregar sua equipe atual. Tente novamente.");
+      }
+      const currentTeam = requestedTeam.map((selectedPokemon) => currentCollection.find((pokemon) => String(pokemon.id) === String(selectedPokemon.id))).filter(Boolean);
+      if (currentTeam.length !== requestedTeam.length || currentTeam.length !== 3) {
+        setNotice("Um Pokémon selecionado não foi encontrado na sua coleção. Monte a equipe novamente.");
+        setCollection(currentCollection);
+        setSelected(currentTeam);
         return;
       }
-    }
-    const requestedTeam = getReadySelection(teamToConfirm, selected);
-    setPreparingTeam(true);
-    let currentCollection;
-    let currentEconomy;
-    try {
-      [currentCollection, currentEconomy] = await Promise.all([webStore.getData("Pokedex"), webStore.getEconomy()]);
-    } catch {
-      setNotice("Não foi possível carregar sua equipe atual. Tente novamente.");
-      setPreparingTeam(false);
-      return;
-    }
-    const currentTeam = requestedTeam.map((selectedPokemon) => currentCollection.find((pokemon) => String(pokemon.id) === String(selectedPokemon.id))).filter(Boolean);
-    if (currentTeam.length !== requestedTeam.length || currentTeam.length !== 3) {
-      setNotice("Um Pokémon selecionado não foi encontrado na sua coleção. Monte a equipe novamente.");
-      setCollection(currentCollection);
-      setSelected(currentTeam);
-      setPreparingTeam(false);
-      return;
-    }
-    const invalidAssignments = validateHeldItemAssignments({ economy: currentEconomy, collection: currentCollection });
-    if (invalidAssignments.length) {
-      setNotice("Há mais itens equipados do que unidades disponíveis. Remova um item antes de batalhar.");
+      const invalidAssignments = validateHeldItemAssignments({ economy: currentEconomy, collection: currentCollection });
+      if (invalidAssignments.length) {
+        setNotice("Há mais itens equipados do que unidades disponíveis. Remova um item antes de batalhar.");
+        setCollection(currentCollection);
+        setSelected(currentTeam);
+        setInventory(currentEconomy.inventory || {});
+        return;
+      }
       setCollection(currentCollection);
       setSelected(currentTeam);
       setInventory(currentEconomy.inventory || {});
-      setPreparingTeam(false);
-      return;
-    }
-    setCollection(currentCollection);
-    setSelected(currentTeam);
-    setInventory(currentEconomy.inventory || {});
-    const badgeConfig = getBadgeConfig(badgeChallenge?.badge?.code);
-    if (badgeConfig) {
-      const validation = validateBadgeTeam(currentTeam, badgeConfig.type);
-      if (!validation.valid) {
-        setNotice(getBadgeTeamErrorMessage(validation, badgeConfig.localizedTypeName));
-        setPreparingTeam(false);
-        return;
+      setInventoryStatus("ready");
+      const badgeConfig = getBadgeConfig(badgeChallenge?.badge?.code);
+      if (badgeConfig) {
+        if (currentTeam.some(pokemon => !pokemon.rarity)) throw new Error("Não foi possível verificar a raridade da equipe. Tente novamente.");
+        const validation = validateBadgeTeam(currentTeam, badgeConfig.type);
+        if (!validation.valid) {
+          setNotice(getBadgeTeamErrorMessage(validation, badgeConfig.localizedTypeName));
+            return;
+        }
       }
-    }
-    // CPU path: no multiplayer synchronization needed
-    if (["cpu", "badge-cpu"].includes(mode)) {
-      const local = makePlayer(name, profile?.playerId);
-      setPlayer(local);
-      const journeyTeam = mode === "badge-cpu"
-        ? getBadgeCpuTeam(badgeConfig.type, badgeChallenge.current_battle)
-        : journeyNode ? buildJourneyCpuTeam(journeyNode.id, journeyBattleIndex, CPU_ROSTER) : generateCpuTeam({ difficulty: cpuDifficulty, playerTeam: currentTeam, recentTeams: recentCpuTeams.current });
-      if (mode === "cpu" && !journeyNode) recentCpuTeams.current = [...recentCpuTeams.current, journeyTeam].slice(-3);
-      await startState(currentTeam, journeyTeam, local, { id: "cpu", name: mode === "badge-cpu" ? badgeConfig.leaderName : journeyNode?.medalId ? "Líder da Jornada" : journeyNode ? journeyNode.title : "CPU", inventory: mode === "badge-cpu" ? {} : createCpuInventory(journeyBattle?.difficulty || cpuDifficulty) }, mode === "cpu" ? { difficulty: journeyBattle?.difficulty || cpuDifficulty } : null);
-      setPreparingTeam(false);
-      return;
-    }
-    if (mode === "tournament" && tournamentCpuOpponent && tournamentMatch) {
-      const local = makePlayer(name, profile?.playerId);
-      if (!canStartTournamentPrebattle({ kind: TOURNAMENT_MATCH_KIND.HUMAN_VS_CPU, localTeam: currentTeam, cpuTeam: tournamentCpuTeam })) {
-        if (tournamentCpuError) {
-          setTournamentCpuError(null);
-          setTournamentCpuAttempt((attempt) => attempt + 1);
-          setNotice("Tentando preparar o adversário CPU novamente...");
-        } else setNotice(tournamentCpuPreparing ? "Preparando adversário CPU..." : "Selecione três Pokémon e aguarde a equipe da CPU.");
-        setPreparingTeam(false);
-        return;
-      }
-      try {
+      // CPU path: no multiplayer synchronization needed
+      if (["cpu", "badge-cpu"].includes(mode)) {
+        const local = makePlayer(name, profile?.playerId);
         setPlayer(local);
-        void markTournamentMatchPlaying(tournamentMatch.id).catch(() => {});
-        await startState(
-          currentTeam,
-          tournamentCpuTeam,
-          local,
-          { id: tournamentCpuOpponent.player_id, name: tournamentCpuOpponent.display_name, inventory: createCpuInventory("hard") },
-          { difficulty: "hard" },
-        );
-      } catch (error) {
-        setNotice(error.message || "Não foi possível preparar a equipe da CPU.");
+        const journeyTeam = mode === "badge-cpu"
+          ? getBadgeCpuTeam(badgeConfig.type, badgeChallenge.current_battle)
+          : journeyNode ? buildJourneyCpuTeam(journeyNode.id, journeyBattleIndex, CPU_ROSTER) : generateCpuTeam({ difficulty: cpuDifficulty, playerTeam: currentTeam, recentTeams: recentCpuTeams.current });
+        if (mode === "cpu" && !journeyNode) recentCpuTeams.current = [...recentCpuTeams.current, journeyTeam].slice(-3);
+        await startState(currentTeam, journeyTeam, local, { id: "cpu", name: mode === "badge-cpu" ? badgeConfig.leaderName : journeyNode?.medalId ? "Líder da Jornada" : journeyNode ? journeyNode.title : "CPU", inventory: mode === "badge-cpu" ? {} : createCpuInventory(journeyBattle?.difficulty || cpuDifficulty) }, mode === "cpu" ? { difficulty: journeyBattle?.difficulty || cpuDifficulty } : null);
+        return;
       }
-      setPreparingTeam(false);
-      return;
+      if (mode === "tournament" && tournamentCpuOpponent && tournamentMatch) {
+        const local = makePlayer(name, profile?.playerId);
+        if (!canStartTournamentPrebattle({ kind: TOURNAMENT_MATCH_KIND.HUMAN_VS_CPU, localTeam: currentTeam, cpuTeam: tournamentCpuTeam })) {
+          if (tournamentCpuError) {
+            setTournamentCpuError(null);
+            setTournamentCpuAttempt((attempt) => attempt + 1);
+            setNotice("Tentando preparar o adversário CPU novamente...");
+          } else setNotice(tournamentCpuPreparing ? "Preparando adversário CPU..." : "Selecione três Pokémon e aguarde a equipe da CPU.");
+            return;
+        }
+        try {
+          setPlayer(local);
+          void markTournamentMatchPlaying(tournamentMatch.id).catch(() => {});
+          await startState(
+            currentTeam,
+            tournamentCpuTeam,
+            local,
+            { id: tournamentCpuOpponent.player_id, name: tournamentCpuOpponent.display_name, inventory: createCpuInventory("hard") },
+            { difficulty: "hard" },
+          );
+        } catch (error) {
+          setNotice(error.message || "Não foi possível preparar a equipe da CPU.");
+        }
+        return;
+      }
+      // Multiplayer path: publish readiness then WAIT for opponent to also confirm.
+      // HOST will start the battle only when BOTH myReady && opponentReady are true (see useEffect above).
+      if (!realtime.current?.isConnected()) {
+        setNotice("Ainda conectando à sala. Aguarde antes de confirmar.");
+        return;
+      }
+      const battleTeam = currentTeam.map(toBattlePokemon);
+      // Never publish Bag quantities: the other client owns neither this local
+      // IndexedDB record nor the right to inspect it.
+      const teamPayload = { player: { ...player }, team: battleTeam };
+      try {
+        // Update Presence so the opponent sees our ready state immediately
+        const room = realtime.current;
+        await withPreparationDeadline(() => room.updatePresence({ ready: true, team: battleTeam }));
+        assertCurrent();
+        if (room !== realtime.current) throw new Error("A conexão mudou. Confirme a equipe novamente.");
+        // Broadcast READY for diagnostics; the atomic Presence snapshot owns the lobby.
+        broadcast(BATTLE_EVENTS.READY, {
+          playerId: player.id,
+          playerName: player.name,
+          ready: true,
+          readyAt: Date.now(),
+          team: battleTeam,
+        });
+        // TEAM remains part of the versioned protocol for observers.
+        broadcast(BATTLE_EVENTS.TEAM, teamPayload);
+        setReadySnapshot(battleTeam);
+        setMyReady(true);
+        setNotice(automatic ? "Tempo encerrado. Seu time foi confirmado automaticamente." : "PRONTO! Aguardando adversário...");
+      } catch (error) { throw error; }
+    } catch (error) {
+      if (attempt === preparationGeneration.current) {
+        isStartingBattle.current = false;
+        setPreparationError(error.message || "Não foi possível preparar a batalha.");
+        setNotice(error.message || "Não foi possível preparar a batalha. Tente novamente.");
+      }
+    } finally {
+      if (attempt === preparationGeneration.current) {
+        preparationLock.current = false;
+        setPreparingTeam(false);
+      }
     }
-    // Multiplayer path: publish readiness then WAIT for opponent to also confirm.
-    // HOST will start the battle only when BOTH myReady && opponentReady are true (see useEffect above).
-    if (!realtime.current?.isConnected()) {
-      setNotice("Ainda conectando à sala. Aguarde antes de confirmar.");
-      setPreparingTeam(false);
-      return;
-    }
-    const currentInventory = currentEconomy.inventory || {};
-    const battleTeam = currentTeam.map(toBattlePokemon);
-    // Never publish Bag quantities: the other client owns neither this local
-    // IndexedDB record nor the right to inspect it.
-    const teamPayload = { player: { ...player }, team: battleTeam };
-    try {
-      // Update Presence so the opponent sees our ready state immediately
-      await realtime.current.updatePresence({ ready: true, team: battleTeam });
-      // Broadcast explicit READY event with team snapshot (authoritative)
-      broadcast(BATTLE_EVENTS.READY, {
-        playerId: player.id,
-        playerName: player.name,
-        ready: true,
-        readyAt: Date.now(),
-        team: battleTeam,
-      });
-      // Also broadcast TEAM for backward compat with older clients
-      broadcast(BATTLE_EVENTS.TEAM, teamPayload);
-      setMyReady(true);
-      setNotice(automatic ? "Tempo encerrado. Seu time foi confirmado automaticamente." : "PRONTO! Aguardando adversário...");
-    } catch (error) { setNotice(error.message); }
-    setPreparingTeam(false);
   }
   function unreadyTeam() {
     // Let the player cancel their PRONTO and change their team.
     // Battle cannot start while myReady is false, so no race risk.
     setMyReady(false);
+    setReadySnapshot(null);
     void realtime.current?.updatePresence({ ready: false, team: null }).catch(() => {});
     broadcast(BATTLE_EVENTS.READY, { playerId: player?.id, ready: false });
     setNotice("Você voltou a selecionar o time.");
@@ -959,7 +1016,7 @@ export default function BattlePage() {
 
   async function ensureFriendEligible() {
     try {
-      const currentCollection = await webStore.getData("Pokedex");
+      const currentCollection = await withPreparationDeadline(() => webStore.getData("Pokedex", { enrichRarity: false, strict: true }));
       setCollection(currentCollection);
       if (currentCollection.length >= 3) return true;
       setNotice("Capture pelo menos 3 Pokémon antes de entrar em uma batalha PvP.");
@@ -1050,7 +1107,7 @@ export default function BattlePage() {
     try {
       let preparedChallenge = badgeChallenge;
       if (badgeChallenge.challenge_kind === "PVP_TAKEOVER" && currentRole === "guest" && badgeChallenge.status === "PENDING_ACCEPTANCE") {
-        const accepted = await acceptBadgeChallenge({ challengeId: badgeChallenge.id, playerId: profile.playerId });
+        const accepted = await withPreparationDeadline(() => acceptBadgeChallenge({ challengeId: badgeChallenge.id, playerId: profile.playerId }));
         preparedChallenge = { ...badgeChallenge, ...accepted, badge: badgeChallenge.badge };
         setBadgeChallenge(preparedChallenge);
       }
@@ -1185,6 +1242,8 @@ export default function BattlePage() {
   }
   function rematch() {
     isStartingBattle.current = false;
+    setReadySnapshot(null);
+    battleSnapshot.current = null;
     if (battle?.matchId) retiredMatchIds.current.add(battle.matchId);
     if (String(mode).startsWith("badge")) {
       const terminal = ["COMPLETED", "FAILED", "EXPIRED", "CANCELLED"].includes(badgeResolution?.status);
@@ -1238,9 +1297,13 @@ export default function BattlePage() {
     } catch {}
   }
 
+  const lifecycle = getMatchLifecycle({ screen, mode: mode === "tournament" ? (tournamentCpuOpponent ? "tournament-cpu" : "tournament-pvp") : mode, localData: localDataStatus, preparing: preparingTeam || tournamentCpuPreparing, connection, ready: myReady, peerPresent: Boolean(player && getLogicalPresencePlayers(presence).some(entry => String(entry.id) !== String(player.id))), battle, starting: isStartingBattle.current, error: preparationError || (localDataStatus === "error" ? "LOCAL_DATA_FAILED" : null) });
   return (
     <main
       className="battle-page"
+      data-match-lifecycle={lifecycle.state}
+      data-match-id={battle?.matchId}
+      data-match-revision={battle?.revision}
       data-battle-context={screen === "battle" && battle ? "active" : undefined}
       style={
         battle?.arenaBackground
@@ -1266,6 +1329,7 @@ export default function BattlePage() {
             <span className="battle-round">{String(mode).startsWith("badge") ? `${badgeChallenge?.challenger_wins || 0}/${badgeChallenge?.wins_required || BADGE_REQUIRED_WINS} · 3 × 3` : "3 × 3"}</span>
           </span>
         </header>
+        {localDataStatus === "error" && <p role="alert">{notice} <button type="button" onClick={() => window.location.reload()}>Tentar novamente</button></p>}
         {screen === "mode" && <ModeScreen onChoose={chooseMode} activeTournament={tournament} onResumeTournament={() => { setMode("tournament"); setScreen("tournament"); }} />}
         {screen === "tournament" && <TournamentPanel tournament={tournament} profile={profile || {}} rewardReceipt={tournamentRewardReceipt} name={name} setName={setName} code={tournamentCode} setCode={setTournamentCode} notice={notice} busy={tournamentBusy} onCreate={createTournamentFlow} onJoin={joinTournamentFlow} onResetIdentity={resetTournamentIdentity} onStart={startTournamentFlow} onFillWithCpu={fillTournamentWithCpuFlow} onCancel={cancelTournamentFlow} onLeave={leaveTournamentFlow} onEnterMatch={enterTournamentMatch} onBack={() => setScreen("mode")} />}
         {screen === "friend" && (
@@ -1299,6 +1363,7 @@ export default function BattlePage() {
               onAcceptWager={acceptWager}
               onRejectWager={rejectWager}
               onRetryConnection={retryRoomConnection}
+              onBack={mode === "friend" ? () => chooseMode("friend") : null}
               onShare={shareRoom}
             />{" "}
             <TeamSelector
@@ -1308,7 +1373,8 @@ export default function BattlePage() {
               onReady={readyTeam}
               waiting={myReady || preparingTeam || tournamentCpuPreparing}
               preparing={preparingTeam || tournamentCpuPreparing}
-              canReady={["cpu", "badge-cpu"].includes(mode) || (mode === "tournament" && tournamentCpuOpponent ? true : connection === "CONNECTED")}
+              canReady={localDataStatus === "ready" && (["cpu", "badge-cpu"].includes(mode) || (mode === "tournament" && tournamentCpuOpponent ? true : connection === "CONNECTED"))}
+              readyBlockedLabel={localDataStatus === "error" ? "Dados indisponíveis. Tente novamente." : localDataStatus !== "ready" ? "Carregando seus dados..." : [PVP_CONNECTION.ERROR, PVP_CONNECTION.CLOSED].includes(connection) ? "Conexão indisponível. Tente novamente." : "Conectando a sala..."}
               onUseDeck={setSelected}
               selectionTiming={mode === "friend" ? selectionTiming : null}
               opponentReady={opponentReady}
@@ -1343,8 +1409,9 @@ export default function BattlePage() {
         <BattleDebugPanel
           context={{
             mode,
+            lifecycle,
             tournamentId: tournament?.id,
-            matchId: tournamentMatch?.id,
+            matchId: battle?.matchId || tournamentMatch?.id,
             playerId: player?.id,
             battlePhase: battle?.status,
             teamSize: selected.length,
@@ -1494,6 +1561,7 @@ function RoomStatus({
   onAcceptWager,
   onRejectWager,
   onRetryConnection,
+  onBack,
   tournamentCpuOpponent,
   cpuReady,
   cpuPreparing,
@@ -1533,6 +1601,7 @@ function RoomStatus({
         <Copy size={18} /> Compartilhar
       </button>
       {connectionFailed && <button type="button" onClick={onRetryConnection}>Tentar novamente</button>}
+      {onBack && <button type="button" onClick={onBack}>Voltar</button>}
       {wager && <section className="wager-status" aria-label="Estado da aposta"><span>{wager.status === "LOCKED" ? "⚔️ APOSTA ACEITA" : "⚔️ DESAFIO VALENDO MOEDAS"}</span><strong>🪙 {wager.amount} cada · pote 🪙 {getWagerPot(wager)}</strong>{role === "guest" && wager.status === "PROPOSED" && <div><button type="button" onClick={onRejectWager}>Recusar</button><button type="button" onClick={onAcceptWager}>Aceitar aposta</button></div>}</section>}
       {notice && <em>{notice}</em>}
     </div>

@@ -18,16 +18,16 @@ export function getShowdownThumbnail(pokemon) {
 export function getReserveSprite(pokemon) { return getShowdownThumbnail(pokemon); }
 
 export function getPokemonType(pokemon) {
-  return pokemon?.type || pokemon?.types?.[0]?.type?.name || "normal";
+  return pokemon?.type || (typeof pokemon?.types?.[0] === "string" ? pokemon.types[0] : pokemon?.types?.[0]?.type?.name) || "normal";
 }
 
 export function getPokemonTypes(pokemon) {
-  if (Array.isArray(pokemon?.types)) return pokemon.types.map((type) => typeof type === "string" ? type : type.type?.name || type.name).filter(Boolean);
+  if (Array.isArray(pokemon?.types) && pokemon.types.length) return pokemon.types.map((type) => typeof type === "string" ? type : type?.type?.name || type?.name).filter(Boolean);
   return [getPokemonType(pokemon)];
 }
 
 export function getPokemonHp(pokemon) {
-  return pokemon?.maxHp || pokemon?.stats?.find((stat) => stat.stat?.name === "hp")?.base_stat || 90;
+  return pokemon?.maxHp || (Array.isArray(pokemon?.stats) ? pokemon.stats.find((stat) => stat?.stat?.name === "hp")?.base_stat : null) || 90;
 }
 
 export function toBattlePokemon(pokemon) {
